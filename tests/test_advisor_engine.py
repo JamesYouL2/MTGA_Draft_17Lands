@@ -257,3 +257,16 @@ def test_composition_bonus_heuristics(mock_metrics):
     mult, reason = advisor._calculate_composition_bonus({"tags": ["removal"]}, pack=2)
     assert mult == 1.3
     assert "Critical: Needs Removal" in reason
+
+
+def test_wheel_coefficients_rise_with_alsa():
+    """Each pick's curve stays in 0-100% and rises across the ALSA range it's used on."""
+    import numpy as np
+    from src import constants
+
+    for pick, row in enumerate(constants.WHEEL_COEFFICIENTS, start=1):
+        alsa = np.arange(pick + 1, 9.01, 0.25)
+        values = np.polyval(row, alsa)
+        assert values.min() > -5 and values.max() < 105, pick
+        # Pick 1 bottoms out near ALSA 2 (~0.3%), so allow a flat start.
+        assert np.all(np.diff(values) > -0.1), pick

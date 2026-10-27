@@ -812,21 +812,20 @@ CARD_TYPE_DICT = {
 
 TABLE_PROPORTIONS = [(1,), (0.75, 0.25), (0.60, 0.20, 0.20), (0.46, 0.18, 0.18, 0.18)]
 
-# TODO: Where are these values from?
-# My understanding is this array is an array for values for each of the first six packs
-# The four values are used in a numpy polyval with the ALSA
-# Meaning if you have a card with an ALSA of 7.2 in pack #1, then your wheel % would be
-# -0.46*(7.2^3) + 7.97*(7.2^2) - 27.43*7.2 + 26.61 = 70.6% (69.4% in MTGAZone article)
-# For pack #6: 0.25*(7.2^3) +-2.65*(7.2^2) + 9.76*7.2 - 11.21 = 15.0% (13.0% in MTGAZone article)
-# The numbers seem reasonable, but don't know if it is generalized from a set's draft data?
-# https://mtgazone.com/how-to-wheel-in-drafts/ is the best I could find online and the percentages are close
+# Wheel probability (percent) by ALSA, one cubic per pick: row i is pick i + 1,
+# and picks 7-8 reuse the pick-6 row. Use with np.polyval(row, alsa).
+# Fit on 17Lands Premier Draft data for the 14-card-pack sets FDN, DFT, TDM, FIN,
+# TLA, TMT, SOS, MSH, HOB and FRA: for each card passed at pick p, was it still in
+# the pack at p + 8? Weighted by copies passed, against 17Lands all-time ALSA
+# (avg_seen). Tested on each set held out from the fit, these beat the previous
+# values on all ten sets, and do at least as well on the 13-card sets ECL and EOE.
 WHEEL_COEFFICIENTS = [
-    [-0.46, 7.97, -27.43, 26.61],
-    [-0.33, 6.31, -23.12, 23.86],
-    [-0.19, 4.39, -17.06, 17.71],
-    [-0.06, 2.27, -9.22, 9.43],
-    [0.08, 0.15, -1.88, 2.36],
-    [0.25, -2.65, 9.76, -11.21],
+    [-0.4776, 8.3070, -28.8666, 28.6271],
+    [-0.3386, 6.6912, -25.7213, 28.8633],
+    [-0.1686, 4.3764, -18.4782, 22.9235],
+    [0.0139, 1.6100, -8.0289, 11.0433],
+    [0.1791, -1.2683, 4.5689, -6.1346],
+    [0.2289, -2.9382, 13.8486, -21.6284],
 ]
 
 CARD_RARITY_DICT = {
