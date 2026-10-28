@@ -63,6 +63,33 @@ ATA is itself the average human pick position, so a blend matching human picks
 more often partly reflects that. Strong drafters are still the more telling
 group.
 
+## Win rate
+
+Matching picks rewards copying humans. The outcome table asks a different
+question: do drafters who follow a method more closely win more?
+
+For each draft and method, the replay records the drafter's mean **regret**. This
+is how far below the method's favourite the taken card scored, in SDs of that
+pack's scores (0 = always took the method's top card). The replay also records
+top-1 agreement and the event result. Then, over complete events (7 wins or 3
+losses), `wins` is regressed on each method's regret. The regression controls
+for the drafter's win-rate bucket, games bucket and set, and uses robust SEs.
+A second column also controls for ATA regret, separating "picked what this
+method likes" from "picked like the crowd".
+
+A more negative coefficient means straying from that method costs more wins,
+which is evidence that its picks are better. With roughly ±2 wins of noise per
+event, a set needs a few thousand drafts before differences between methods are
+visible. Use the workflow with many shards for this.
+
+Caveats specific to this table:
+
+- The skill buckets include these drafts' own games, so they partly absorb the
+  outcome. This understates every method's effect, roughly equally.
+- Strong packs make every method's top card easier to take, and they also win
+  more. Regret is measured relative to the pack, which limits this but does not
+  remove it.
+
 ## Caveats
 
 - The card ratings cover the whole format, including the replayed drafts, so

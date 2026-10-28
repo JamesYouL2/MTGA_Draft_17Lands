@@ -154,6 +154,9 @@ def test_sample_drafts_marks_strong_drafters(tmp_path):
         "few_games": False,
         "weak": False,
     }
+    strong = drafts["strong"]
+    assert (strong["wins"], strong["losses"]) == (3, 3)
+    assert (strong["skill"], strong["games"]) == (0.62, 50)
 
 
 def test_replay_scores_every_contested_pick(tmp_path, dataset):
@@ -306,3 +309,74 @@ def test_summarize_merges_results(tmp_path, dataset, capsys):
     assert "TST: 2 drafts" in out
     assert "| gihwr | 100.0 / 100.0 / 0.00 |" in out
     assert "12 picks scored." in out
+
+
+def test_regret_is_distance_below_the_favourite_in_pack_sds():
+    scores = {"A": 3.0, "B": 2.0, "C": 1.0}
+    assert ar.regret(scores, "A") == 0
+    # Population SD of 3, 2, 1 is sqrt(2/3).
+    assert ar.regret(scores, "C") == pytest.approx(2 / (2 / 3) ** 0.5)
+    assert ar.regret({"A": 1.0, "B": 1.0}, "B") == 0
+
+
+def test_replay_records_each_drafts_agreement_and_result(tmp_path, dataset):
+    dump = _write_dump(
+        tmp_path / "dump.csv.gz",
+        [_best_first_draft("a", wr=0.62, games=50), _best_first_draft("b")],
+    )
+    result = ar.replay(
+        ar.sample_drafts(dump, 10), dataset, ["baseline"], blends=["ata50"]
+    )
+    assert len(result["outcomes"]) == 2
+    a = next(o for o in result["outcomes"] if o["skill"] == 0.62)
+    assert (a["wins"], a["losses"], a["games"], a["strong"]) == (3, 3, 50, True)
+    assert set(a["methods"]) == {"baseline", "baseline+ata50", "gihwr", "ata"}
+    # The drafter always takes the best card, which GIH WR and ATA both favour.
+    assert a["methods"]["gihwr"] == [6, 6, 0.0]
+    assert a["methods"]["ata"] == [6, 6, 0.0]
+
+
+def _outcomes(n, effect):
+    """Complete events whose wins fall by effect per unit of baseline regret."""
+    out = []
+    for i in range(n):
+        skill = 0.46 + 0.04 * (i % 4)
+        regret = (i * 7 % 11) / 10
+        wins = round(2 + 10 * (skill - 0.46) + effect * regret + (i % 3 - 1) * 0.5)
+        wins = min(7, max(0, wins))
+        out.append(
+            {
+                "wins": wins,
+                "losses": 3 if wins < 7 else 1,
+                "skill": skill,
+                "games": 50,
+                "set": "TST",
+                "methods": {
+                    "baseline": [10, 5, 10 * regret],
+                    "ata": [10, 4, 5.0],
+                    "gihwr": [10, 4, 1.0 + i % 5],
+                },
+            }
+        )
+    return out
+
+
+def test_wins_regression_recovers_a_planted_effect():
+    outcomes = _outcomes(200, -2.0)
+    regret = [o["methods"]["baseline"][2] / 10 for o in outcomes]
+    coef, se = ar.wins_regression(outcomes, regret)
+    assert coef == pytest.approx(-2.0, abs=0.3)
+    assert 0 < se < 0.5
+
+
+def test_format_outcomes_needs_enough_complete_events():
+    table = ar.format_outcomes({"outcomes": _outcomes(40, -2.0)}, ["TST"])
+    assert "TST: 40 complete events" in table
+    assert table.index("| baseline |") < table.index("| gihwr |")
+    # ATA regret is the same for every drafter, so it explains nothing.
+    assert "| ata | – | – | –" in table
+    # Unfinished events are dropped, leaving too few to report.
+    unfinished = _outcomes(40, -2.0)
+    for o in unfinished[:20]:
+        o["wins"], o["losses"] = 2, 1
+    assert ar.format_outcomes({"outcomes": unfinished}) == ""

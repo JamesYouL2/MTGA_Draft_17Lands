@@ -33,6 +33,8 @@ import time
 from collections import defaultdict
 from unittest import mock
 
+import numpy as np
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
@@ -212,20 +214,41 @@ def _zscores(values):
     return [(v - mean) / sd for v in values]
 
 
-def blend_order(recs, pack, weight):
-    """Names from recs, reordered by the advisor/ATA blend with ATA weight."""
+def advisor_scores(recs):
+    """{name: contextual score}, in the advisor's order (best first)."""
     scores = {}
     for r in recs:
         scores.setdefault(r.card_name, r.contextual_score)
+    return scores
+
+
+def blend_scores(recs, pack, weight):
+    """{name: blended score} for the advisor/ATA blend with ATA weight."""
+    scores = advisor_scores(recs)
     ata = {
         c[constants.DATA_FIELD_NAME]: _stat(c, constants.DATA_FIELD_ATA) for c in pack
     }
     names = list(scores)
     z_adv = _zscores([scores[n] for n in names])
     z_ata = _zscores([-(ata.get(n) or MISSING_ATA) for n in names])
-    blended = {n: (1 - weight) * a + weight * t for n, a, t in zip(names, z_adv, z_ata)}
-    # sorted is stable, so ties keep the advisor's order.
-    return sorted(names, key=lambda n: -blended[n])
+    return {n: (1 - weight) * a + weight * t for n, a, t in zip(names, z_adv, z_ata)}
+
+
+def blend_order(recs, pack, weight):
+    """Names from recs, reordered by the advisor/ATA blend with ATA weight."""
+    return _order(blend_scores(recs, pack, weight))
+
+
+def _order(scores):
+    """Names by score, best first; sorted is stable, so ties keep dict order."""
+    return sorted(scores, key=lambda n: -scores[n])
+
+
+def regret(scores, target):
+    """How far below the method's top card the taken card scores, in pack SDs."""
+    names = list(scores)
+    z = dict(zip(names, _zscores([scores[n] for n in names])))
+    return max(z.values()) - z[target]
 
 
 # --- Reading the dump ------------------------------------------------------
@@ -251,8 +274,10 @@ def _float(value, default=0.0):
 def sample_drafts(path, n_drafts, shard=0, num_shards=1):
     """Pick n_drafts drafts uniformly at random (by hashed draft_id).
 
-    Returns {draft_id: draft}, where a draft has "strong" and a list of
-    "picks" (pack, pick, picked name, pack names, pool names), in dump order.
+    Returns {draft_id: draft}, where a draft has "strong", its event result
+    ("wins", "losses"), the drafter's "skill" (game win rate bucket) and
+    "games" (games bucket), each None if missing, and a list of "picks"
+    (pack, pick, picked name, pack names, pool names), in dump order.
     """
     with _open_text(path) as f:
         reader = csv.reader(f)
@@ -276,6 +301,11 @@ def sample_drafts(path, n_drafts, shard=0, num_shards=1):
         )
         i_wr = col.get("user_game_win_rate_bucket")
         i_games = col.get("user_n_games_bucket")
+        i_wins = col.get("event_match_wins")
+        i_losses = col.get("event_match_losses")
+
+        def field(row, i):
+            return _float(row[i], None) if i is not None else None
 
         # Bottom-k by hash: a max-heap of (-priority, draft_id) for kept drafts.
         heap, drafts = [], {}
@@ -303,7 +333,14 @@ def sample_drafts(path, n_drafts, shard=0, num_shards=1):
                         and _float(row[i_wr]) >= STRONG_WIN_RATE
                         and _float(row[i_games]) >= STRONG_MIN_GAMES
                     )
-                    drafts[draft_id] = {"strong": strong, "picks": []}
+                    drafts[draft_id] = {
+                        "strong": strong,
+                        "wins": field(row, i_wins),
+                        "losses": field(row, i_losses),
+                        "skill": field(row, i_wr),
+                        "games": field(row, i_games),
+                        "picks": [],
+                    }
             if not keep:
                 continue
             drafts[draft_id]["picks"].append(
@@ -402,10 +439,37 @@ def baseline_orders(pack):
     }
 
 
+def baseline_scores(pack):
+    """{method: {name: score}} for the baselines, higher is better."""
+    gihwr, ata = {}, {}
+    for c in pack:
+        name = c[constants.DATA_FIELD_NAME]
+        gihwr[name] = _stat(c, constants.DATA_FIELD_GIHWR)
+        ata[name] = -(_stat(c, constants.DATA_FIELD_ATA) or MISSING_ATA)
+    return {"gihwr": gihwr, "ata": ata}
+
+
 def _slices(pack_no, pick_no):
     """Buckets each pick is reported under (1-indexed pack and pick)."""
     phase = "picks 1-4" if pick_no <= 4 else "picks 5-8" if pick_no <= 8 else "picks 9+"
     return ["all", f"pack {pack_no}", phase]
+
+
+class DraftScore:
+    """Per-method agreement with one drafter, for relating to their result.
+
+    For each method: picks scored, top-1 matches, and summed regret (how far
+    below the method's favourite the taken card was, in pack SDs).
+    """
+
+    def __init__(self):
+        self.methods = defaultdict(lambda: [0, 0, 0.0])
+
+    def add(self, method, scores, target):
+        d = self.methods[method]
+        d[0] += 1
+        d[1] += _order(scores)[0] == target
+        d[2] += regret(scores, target)
 
 
 class Tally:
@@ -441,11 +505,13 @@ def _replay(drafts, dataset, variants, progress_every, blends):
     resolver = NameResolver(dataset)
     sig_calc = SignalCalculator(metrics)
     tally = Tally()
+    outcomes = []
     skipped = defaultdict(int)
     start = time.time()
 
     for n, (draft_id, draft) in enumerate(sorted(drafts.items()), 1):
         groups = ["all"] + (["strong"] if draft["strong"] else [])
+        score = DraftScore()
         history = []
         for pack_no, pick_no, picked, pack_names, pool_names in draft["picks"]:
             pk, pi = pack_no + 1, pick_no + 1
@@ -482,15 +548,25 @@ def _replay(drafts, dataset, variants, progress_every, blends):
                     continue
                 for g in groups:
                     tally.add(name, g, slices, rank)
+                score.add(name, advisor_scores(recs), target)
                 for b in blends:
                     weight = BLENDS[b](pk, pi, len(pool) + 1)
-                    rank = _rank_of(blend_order(recs, pack, weight), target)
+                    blended = blend_scores(recs, pack, weight)
+                    rank = _rank_of(_order(blended), target)
                     for g in groups:
                         tally.add(f"{name}+{b}", g, slices, rank)
+                    score.add(f"{name}+{b}", blended, target)
             for name, order in baseline_orders(pack).items():
                 rank = _rank_of(order, target)
                 for g in groups:
                     tally.add(name, g, slices, rank)
+            for name, by_name in baseline_scores(pack).items():
+                score.add(name, by_name, target)
+
+        outcomes.append(
+            {k: draft.get(k) for k in ("strong", "wins", "losses", "skill", "games")}
+            | {"methods": dict(score.methods)}
+        )
 
         if progress_every and n % progress_every == 0:
             print(
@@ -508,6 +584,7 @@ def _replay(drafts, dataset, variants, progress_every, blends):
             sorted(resolver.missing.items(), key=lambda x: -x[1])[:20]
         ),
         "tally": dict(tally.data),
+        "outcomes": outcomes,
     }
 
 
@@ -515,10 +592,12 @@ def _replay(drafts, dataset, variants, progress_every, blends):
 
 
 def merge(results):
-    total = {"drafts": 0, "strong_drafts": 0, "tally": {}}
+    total = {"drafts": 0, "strong_drafts": 0, "tally": {}, "outcomes": []}
     for r in results:
         total["drafts"] += r["drafts"]
         total["strong_drafts"] += r["strong_drafts"]
+        code = _set_code(r.get("dump", ""))
+        total["outcomes"] += [o | {"set": code} for o in r.get("outcomes", [])]
         for key, d in r["tally"].items():
             t = total["tally"].setdefault(
                 key, {"n": 0, "top1": 0, "top3": 0, "rank": 0}
@@ -564,6 +643,103 @@ def format_table(result, sets=None):
         lines.append(f"| {m} | " + " | ".join(cells) + " |")
     n = tally.get(f"{methods[0]}|all|all", {}).get("n", 0) if methods else 0
     lines += ["", f"{n} picks scored."]
+    return "\n".join(lines)
+
+
+OUTCOME_MIN_DRAFTS = 30
+
+
+def _complete(o):
+    """Finished events only, so wins are not cut short by the dump date."""
+    return o.get("wins") == 7 or o.get("losses") == 3
+
+
+def _dummies(values):
+    """Indicator columns for each value but the first (sorted)."""
+    levels = sorted(set(values), key=str)[1:]
+    return [[float(v == level) for v in values] for level in levels]
+
+
+def _skill_bin(skill):
+    if skill is None:
+        return None
+    return int((min(max(skill, 0.30), 0.74) - 0.30) // 0.04)
+
+
+def wins_regression(outcomes, x, extra=()):
+    """OLS of event wins on x, with skill, games and set controls.
+
+    Returns (coefficient, robust SE) for x. extra are further columns to
+    control for.
+    """
+    controls = (
+        _dummies([_skill_bin(o.get("skill")) for o in outcomes])
+        + _dummies([o.get("games") for o in outcomes])
+        + _dummies([o.get("set") for o in outcomes])
+    )
+    X = np.column_stack([x, *extra, np.ones(len(x)), *controls])
+    y = np.array([o["wins"] for o in outcomes], dtype=float)
+    xtx_inv = np.linalg.pinv(X.T @ X)
+    beta = xtx_inv @ X.T @ y
+    resid = y - X @ beta
+    # HC1 (heteroskedasticity-robust) standard errors.
+    meat = (X * resid[:, None] ** 2).T @ X
+    cov = xtx_inv @ meat @ xtx_inv * len(y) / max(1, len(y) - X.shape[1])
+    return beta[0], math.sqrt(max(cov[0, 0], 0.0))
+
+
+def format_outcomes(result, sets=None):
+    """Markdown table relating each method's agreement with the drafter to wins.
+
+    A drafter's regret under a method is how far below that method's favourite
+    their picks were, on average. If a method knows better picks, drafters who
+    stray from it should win less, after controlling for drafter skill.
+    """
+    outcomes = [o for o in result.get("outcomes", []) if _complete(o)]
+    methods = sorted(
+        set.intersection(*(set(o["methods"]) for o in outcomes)) if outcomes else (),
+        key=_method_order,
+    )
+    outcomes = [o for o in outcomes if all(o["methods"][m][0] for m in methods)]
+    if len(outcomes) < OUTCOME_MIN_DRAFTS or not methods:
+        return ""
+
+    def column(m, i):
+        return np.array([o["methods"][m][i] / o["methods"][m][0] for o in outcomes])
+
+    def cell(coef_se, scale):
+        coef, se = coef_se
+        return f"{coef * scale:+.3f} ({se * scale:.3f})"
+
+    ata_regret = column("ata", 2) if "ata" in methods else None
+    if ata_regret is not None and not ata_regret.std():
+        ata_regret = None
+    title = f"{', '.join(sets)}: " if sets else ""
+    lines = [
+        f"{title}{len(outcomes)} complete events. Event wins regressed on how "
+        "closely the drafter followed each method, controlling for skill bucket, "
+        "games bucket and set. Cells are Δwins (robust SE); negative regret "
+        "and positive agreement mean following the method went with winning.",
+        "",
+        "| method | per +1 SD regret | same, controlling for ATA regret "
+        "| per +10 pts top-1 agreement |",
+        "|---|---|---|---|",
+    ]
+    for m in methods:
+        regret_x = column(m, 2)
+        sd = regret_x.std()
+        if not sd:
+            lines.append(f"| {m} | – | – | – |")
+            continue
+        controlled = (
+            cell(wins_regression(outcomes, regret_x, [ata_regret]), sd)
+            if ata_regret is not None and m != "ata"
+            else "–"
+        )
+        lines.append(
+            f"| {m} | {cell(wins_regression(outcomes, regret_x), sd)} | {controlled} "
+            f"| {cell(wins_regression(outcomes, column(m, 1)), 0.1)} |"
+        )
     return "\n".join(lines)
 
 
@@ -635,7 +811,11 @@ def main(argv=None):
             os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
             with open(args.out, "w", encoding="utf-8") as f:
                 json.dump(result, f, indent=1)
-        print(format_table(result, [_set_code(result["dump"])]))
+        code = [_set_code(result["dump"])]
+        print(format_table(result, code))
+        outcomes = format_outcomes(merge([result]), code)
+        if outcomes:
+            print("\n" + outcomes)
         if result["skipped"]:
             print(f"\nSkipped: {result['skipped']}")
         if result["unmatched_names"]:
@@ -651,7 +831,14 @@ def main(argv=None):
         if args.per_set and len(by_set) > 1:
             for code, rs in sorted(by_set.items()):
                 print(format_table(merge(rs), [code]) + "\n")
-        print(format_table(merge(results), sorted(by_set)))
+                outcomes = format_outcomes(merge(rs), [code])
+                if outcomes:
+                    print(outcomes + "\n")
+        total = merge(results)
+        print(format_table(total, sorted(by_set)))
+        outcomes = format_outcomes(total, sorted(by_set))
+        if outcomes:
+            print("\n" + outcomes)
 
 
 def _set_code(dump_name):
