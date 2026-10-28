@@ -5,6 +5,8 @@ name: Advisor replay
 # downloads ~1.5 GB of dumps and takes ~20 minutes across the matrix.
 
 on:
+  push:
+    branches: [replay-run]
   workflow_dispatch:
     inputs:
       mode:
@@ -33,9 +35,9 @@ permissions:
 env:
   MODE: ${{ inputs.mode || 'run' }}
   SETS: ${{ inputs.sets || 'FRA,HOB,MSH,SOS,TMT,TLA,FIN,TDM,DFT,FDN' }}
-  SHARDS: ${{ inputs.shards || '4' }}
-  DRAFTS: ${{ inputs.drafts || '100' }}
-  VARIANTS: ${{ inputs.variants || 'baseline,arch-overall-pick' }}
+  SHARDS: ${{ inputs.shards || '10' }}
+  DRAFTS: ${{ inputs.drafts || '150' }}
+  VARIANTS: ${{ inputs.variants || 'baseline,no-bomb,no-late-signal,no-synergy,no-lane-mult,no-vor,no-castability,no-composition,no-deck-improvement,no-wheel,no-signal-tiebreak' }}
   BLENDS: ${{ inputs.blends || '' }}
 
 jobs:
@@ -58,7 +60,7 @@ jobs:
     name: ${{ matrix.set }} / ${{ matrix.shard }}
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
