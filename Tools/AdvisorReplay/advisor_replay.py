@@ -28,6 +28,7 @@ import json
 import logging
 import math
 import os
+import re
 import sys
 import tempfile
 import time
@@ -41,7 +42,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from src import constants  # noqa: E402
-from src.advisor import deck_builder  # noqa: E402
+from src.advisor import deck_builder, deck_scorer  # noqa: E402
 from src.advisor.deck_scorer import (  # noqa: E402
     holistic_score_parts,
     identify_top_pairs,
@@ -50,6 +51,7 @@ from src.advisor.engine import DraftAdvisor  # noqa: E402
 from src.dataset import Dataset  # noqa: E402
 from src.set_metrics import SetMetrics  # noqa: E402
 from src.signals import SignalCalculator  # noqa: E402
+from src.utils import normalize_color_string  # noqa: E402
 
 # A drafter counts as strong with a 60%+ game win rate over 50+ games.
 STRONG_WIN_RATE = 0.6
@@ -134,28 +136,28 @@ def pick_lane(main_colors, color_counts, shares):
     return (scored[0][1] if scored else None), [k for _, k in scored]
 
 
-_SHARES = {}  # id(dataset) -> archetype_shares, so each pick doesn't recount
+def _cached(what, dataset, fn):
+    """fn(dataset), computed once per dataset so each pick doesn't recount."""
+    cache = dataset.__dict__.setdefault("_replay_cache", {})
+    if what not in cache:
+        cache[what] = fn(dataset)
+    return cache[what]
 
 
 @contextlib.contextmanager
-def _arch_lane(dataset, soft=False):
-    """Make the lane a frequent archetype (e.g. a TDM clan), not the top two colors.
+def _lane_variant(choose, soft=False):
+    """Replace the "top two colors" lane with choose(advisor) -> (lane, options).
 
     The lane sets the archetype used for card win rates and which colors count
-    as castable. With soft, a card that fits another archetype containing the
-    top two colors is penalized less (0.7) than a true off-color card.
+    as castable. With soft, a card that fits one of the options is penalized
+    less (0.7) than a true off-color card.
     """
-    shares = _SHARES.get(id(dataset))
-    if shares is None:
-        shares = _SHARES[id(dataset)] = archetype_shares(dataset)
     init = DraftAdvisor.__init__
     castability = DraftAdvisor._calculate_castability_v5
 
     def patched_init(self, *args, **kwargs):
         init(self, *args, **kwargs)
-        self.lane, self.lane_options = pick_lane(
-            self.main_colors, self.color_counts, shares
-        )
+        self.lane, self.lane_options = choose(self)
         if self.lane:
             self.main_archetype = self.lane
             self.main_colors = sorted(
@@ -180,11 +182,292 @@ def _arch_lane(dataset, soft=False):
         yield
 
 
+def _arch_lane(dataset, soft=False):
+    """Make the lane a frequent archetype (e.g. a TDM clan), not the top two colors.
+
+    With soft, a card that fits another archetype containing the top two colors
+    is penalized less (0.7) than a true off-color card.
+    """
+    shares = _cached("shares", dataset, archetype_shares)
+    return _lane_variant(
+        lambda adv: pick_lane(adv.main_colors, adv.color_counts, shares), soft
+    )
+
+
+# --- Deck-score refit ------------------------------------------------------
+
+# Deck-score adjustments rescaled to what each was worth in wins per point,
+# relative to the power from card ratings, in the pooled `pools` run over all
+# ten sets (aggro 0.33, two colors 1.44, evasion 0.13 times power). These were
+# fit on the same sets the replay uses, so they are not a held-out test.
+REFIT_ADJUSTMENTS = {"aggro": 1.5, "two_colors": 4.0, "evasion": -1.0}
+
+# Games of prior pulling an archetype win rate toward the overall one, as in
+# Draft Omen: (wins + K * average) / (games + K).
+SHRINK_GAMES = 500
+
+
+@contextlib.contextmanager
+def _deck_refit(dataset):
+    """Reweight the deck score's aggro, two-color and evasion adjustments."""
+    original = deck_scorer.holistic_score_parts
+
+    def patched(*args, **kwargs):
+        parts = original(*args, **kwargs)
+        if parts is None:
+            return None
+        power, adjustments = parts
+        return power, [
+            (key, REFIT_ADJUSTMENTS.get(key, delta), note)
+            for key, delta, note in adjustments
+        ]
+
+    with mock.patch.object(deck_scorer, "holistic_score_parts", patched):
+        yield
+
+
+def shrunk_card_rating(original, k=SHRINK_GAMES):
+    """get_card_rating with the archetype weight 0.7 scaled by n / (n + k).
+
+    n is the card's game-in-hand samples in the archetype, so a card rarely
+    played in that pair leans on its overall GIH WR instead.
+    """
+
+    def patched(card, colors, metrics=None, tier_data=None):
+        rating = original(card, colors, metrics, tier_data)
+        stats = card.get(constants.DATA_FIELD_DECK_COLORS, {})
+        overall = _float(stats.get(constants.FILTER_OPTION_ALL_DECKS, {}).get("gihwr"))
+        arch = stats.get(normalize_color_string("".join(colors[:2])), {})
+        arch_wr = _float(arch.get("gihwr"))
+        if not (arch_wr > 30.0 and overall > 30.0):
+            return rating
+        n = _float(arch.get("samples"))
+        weight = 0.7 * n / (n + k)
+        return weight * arch_wr + (1 - weight) * overall
+
+    return patched
+
+
+@contextlib.contextmanager
+def _arch_shrink(dataset):
+    """Shrink the deck score's archetype card ratings by sample size."""
+    patched = shrunk_card_rating(deck_scorer.get_card_rating)
+    with mock.patch.object(deck_scorer, "get_card_rating", patched), mock.patch.object(
+        deck_builder, "get_card_rating", patched
+    ):
+        yield
+
+
+# --- Draft Omen ideas ------------------------------------------------------
+
+# Color commitment: every color is open for picks 1-5; multipliers ramp in
+# from pick 6 and are fully on from pick 16.
+COMMIT_OPEN, COMMIT_LOCKED = 5, 16
+ON_COLOR, OFF_COLOR = 1.15, 0.75
+SPLASH_WITH_FIXING, SPLASH = 0.95, 0.85
+FIXER = 1.05
+
+
+def commitment(overall_pick):
+    """0 while colors are open, rising to 1 once the drafter is locked in."""
+    ramp = (overall_pick - COMMIT_OPEN) / (COMMIT_LOCKED - COMMIT_OPEN)
+    return min(1.0, max(0.0, ramp))
+
+
+def off_lane_pips(card, lane):
+    """Colored pips in the card's cost that the lane can't pay (hybrid counts as payable)."""
+    cost = card.get("mana_cost", "")
+    if not cost:
+        return sum(1 for c in card.get("colors", []) if c not in lane)
+    off = 0
+    for pip in re.findall(r"\{(.*?)\}", cost):
+        options = [c for c in pip.split("/") if c in "WUBRG"]
+        if options and not any(o in lane for o in options):
+            off += 1
+    return off
+
+
+@contextlib.contextmanager
+def _do_commit(dataset):
+    """Draft Omen's soft color multipliers in place of the castability penalty.
+
+    The engine's own penalty drops off-color cards to 0.01-0.05 from pack 2.
+    Here a locked-in drafter gets 1.15 on color, 0.95 / 0.85 for a one-pip
+    splash with / without a source for it, and 0.75 otherwise; fixing gets
+    1.05. Each multiplier is scaled by commitment(overall pick).
+    """
+
+    def patched(self, card, pack, pick, z_score):
+        lane = getattr(self, "lane", None) or self.main_colors[:2]
+        if len(lane) < 2:
+            return 1.0, ""
+        colors = card.get("colors", [])
+        off = off_lane_pips(card, lane)
+        if off == 0:
+            target, reason = (ON_COLOR if colors else 1.0), ""
+        elif off == 1:
+            splash = [c for c in colors if c not in lane]
+            fixed = bool(splash) and all(self.fixing_map.get(c, 0) > 0 for c in splash)
+            target = SPLASH_WITH_FIXING if fixed else SPLASH
+            reason = "Splashable" if fixed else "Splash"
+        else:
+            target, reason = OFF_COLOR, "Off-Color"
+        types = card.get("types", [])
+        if "fixing_ramp" in card.get("tags", []) or (
+            "Land" in types and len(colors) > 1
+        ):
+            target *= FIXER
+        t = commitment(len(self.pool) + 1)
+        return 1.0 + (target - 1.0) * t, (reason if t > 0 else "")
+
+    with mock.patch.object(DraftAdvisor, "_calculate_castability_v5", patched):
+        yield
+
+
+# Three-color gate: triads are considered only in sets where three-color decks
+# are at least this share of games, and only when each of the triad's colors
+# is at least this share of the pool's colored cards.
+THREE_COLOR_MIN_SHARE = 0.10
+TRIAD_COLOR_MIN_WEIGHT = 0.20
+
+
+def archetype_win_rates(dataset, k=SHRINK_GAMES):
+    """{two- or three-color key: (share of games, shrunk win rate)}.
+
+    Win rates come from the dataset's color ratings and are shrunk toward the
+    share-weighted average by (wins + k * avg) / (games + k), with each
+    archetype's games estimated from its share of the set's games.
+    """
+    totals = defaultdict(int)
+    for card in dataset.get_card_ratings().values():
+        for key, stats in card.get(constants.DATA_FIELD_DECK_COLORS, {}).items():
+            totals[key] += stats.get("samples", 0) or 0
+    all_samples = totals.pop(constants.FILTER_OPTION_ALL_DECKS, 0) or 1
+    rates = dataset.get_color_ratings()
+    meta = (getattr(dataset, "_dataset", None) or {}).get("meta", {})
+    games = meta.get("game_count") or 0
+    raw = {
+        key: (n / all_samples, _float(rates.get(key)))
+        for key, n in totals.items()
+        if len(key) in (2, 3) and n > 0 and _float(rates.get(key)) > 0
+    }
+    weight = sum(share for share, _ in raw.values()) or 1.0
+    avg = sum(share * wr for share, wr in raw.values()) / weight
+    out = {}
+    for key, (share, wr) in raw.items():
+        n = share * games
+        out[key] = (share, (n * wr + k * avg) / (n + k) if games else wr)
+    return out
+
+
+def gate_lane(main_colors, color_counts, archetypes):
+    """The top two colors, or a triad with them that clears Draft Omen's gate.
+
+    Returns (lane, [lane]) or (None, []) without two main colors.
+    """
+    if len(main_colors) < 2:
+        return None, []
+    pair = normalize_color_string("".join(main_colors[:2]))
+    lane = pair
+    triads = sum(share for key, (share, _) in archetypes.items() if len(key) == 3)
+    if triads >= THREE_COLOR_MIN_SHARE and pair in archetypes:
+        total = sum(color_counts.values()) or 1
+        best = archetypes[pair][1]
+        for key, (_, wr) in archetypes.items():
+            if (
+                len(key) == 3
+                and set(pair) < set(key)
+                and wr > best
+                and all(
+                    color_counts.get(c, 0) / total >= TRIAD_COLOR_MIN_WEIGHT
+                    for c in key
+                )
+            ):
+                lane, best = key, wr
+    return lane, [lane]
+
+
+def _do_gate(dataset):
+    """Play a triad only when Draft Omen's three-color gate allows it."""
+    archetypes = _cached("archetypes", dataset, archetype_win_rates)
+    return _lane_variant(
+        lambda adv: gate_lane(adv.main_colors, adv.color_counts, archetypes)
+    )
+
+
+# Cards within this many points of the top score count as a close pick.
+CLOSE_PICK_POINTS = 3.0
+
+
+def tiebreak(recs, pack, archetype):
+    """Reorder close picks at the top by their win rate in the archetype.
+
+    Cards within CLOSE_PICK_POINTS of the top score are re-sorted by GIH WR in
+    the archetype (overall GIH WR without one) and placed just above the
+    old top score, 0.01 apart, so the rest of the order is unchanged.
+    """
+    if not recs or recs[0].contextual_score <= 0:
+        return recs
+    top = recs[0].contextual_score
+    close = [r for r in recs if r.contextual_score >= top - CLOSE_PICK_POINTS]
+    if len(close) < 2:
+        return recs
+    cards = {c[constants.DATA_FIELD_NAME]: c for c in pack}
+
+    def pair_wr(r):
+        stats = cards.get(r.card_name, {}).get(constants.DATA_FIELD_DECK_COLORS, {})
+        return _float(stats.get(archetype, {}).get("gihwr")) or r.base_win_rate
+
+    close.sort(key=pair_wr, reverse=True)
+    n = len(close)
+    head = [
+        r.model_copy(update={"contextual_score": round(top + 0.01 * (n - i), 2)})
+        for i, r in enumerate(close)
+    ]
+    return head + recs[n:]
+
+
+@contextlib.contextmanager
+def _do_tiebreak(dataset):
+    """Break close picks by the card's win rate in the drafter's pair."""
+    evaluate = DraftAdvisor.evaluate_pack
+
+    def patched(self, pack_cards, current_pick, current_pack=1):
+        recs = evaluate(self, pack_cards, current_pick, current_pack)
+        if len(self.main_colors) < 2:
+            return recs
+        return tiebreak(recs, pack_cards, self.main_archetype)
+
+    with mock.patch.object(DraftAdvisor, "evaluate_pack", patched):
+        yield
+
+
+def _combine(*names):
+    """A variant that applies several others, in order."""
+
+    @contextlib.contextmanager
+    def combined(dataset):
+        with contextlib.ExitStack() as stack:
+            for name in names:
+                stack.enter_context(VARIANTS[name](dataset))
+            yield
+
+    return combined
+
+
 VARIANTS = {
     "baseline": _baseline,
     "arch-overall-pick": _arch_overall_pick,
     "arch-lane": _arch_lane,
     "arch-lane-soft": lambda dataset: _arch_lane(dataset, soft=True),
+    "deck-refit": _deck_refit,
+    "arch-shrink": _arch_shrink,
+    "deck-refit-shrink": _combine("deck-refit", "arch-shrink"),
+    "do-commit": _do_commit,
+    "do-gate": _do_gate,
+    "do-tiebreak": _do_tiebreak,
+    # The gate goes first so the commitment multipliers use its lane.
+    "do-all": _combine("do-gate", "do-commit", "do-tiebreak"),
 }
 
 

@@ -514,3 +514,156 @@ def test_format_deck_parts_weighs_each_piece_against_power():
     one_set = _pool_outcomes(90, sets=("AAA",))
     assert "| held-out set |" not in ar.format_deck_parts({"outcomes": one_set})
     assert ar.format_deck_parts({"outcomes": _pool_outcomes(20)}) == ""
+
+
+def _aggro_deck(dataset):
+    spells = dataset.get_data_by_name(["Card 0", "Card 1"])
+    deck = [dict(c, count=n) for c, n in zip(spells, (12, 11))]
+    return deck + [{"name": "Plains", "types": ["Land"], "count": 17}]
+
+
+def test_deck_refit_reweights_the_score_adjustments(dataset):
+    from src.advisor import deck_scorer
+    from src.set_metrics import SetMetrics
+
+    metrics, deck = SetMetrics(dataset), _aggro_deck(dataset)
+    score, _ = deck_scorer.calculate_holistic_score(deck, ["W", "U"], 40, metrics)
+    with ar.VARIANTS["deck-refit"](dataset):
+        _, adjustments = deck_scorer.holistic_score_parts(deck, ["W", "U"], 40, metrics)
+        refit, _ = deck_scorer.calculate_holistic_score(deck, ["W", "U"], 40, metrics)
+    assert [(k, d) for k, d, _ in adjustments] == [("aggro", 1.5), ("two_colors", 4.0)]
+    assert refit == pytest.approx(score - 2.0)
+
+
+def test_shrunk_card_rating_leans_on_overall_wr_for_small_samples():
+    from src.advisor import deck_scorer
+
+    def card(samples):
+        return {
+            "deck_colors": {
+                "All Decks": {"gihwr": 50.0, "samples": 9000},
+                "WU": {"gihwr": 60.0, "samples": samples},
+            }
+        }
+
+    rating = ar.shrunk_card_rating(deck_scorer.get_card_rating)
+    assert deck_scorer.get_card_rating(card(500), ["U", "W"]) == pytest.approx(57.0)
+    assert rating(card(500), ["U", "W"]) == pytest.approx(53.5)  # weight 0.35
+    assert rating(card(0), ["U", "W"]) == pytest.approx(50.0)
+    assert rating(card(10**9), ["U", "W"]) == pytest.approx(57.0, abs=1e-3)
+    # Without an archetype rating, nothing changes.
+    assert rating(card(500), ["B", "R"]) == pytest.approx(50.0)
+
+
+def test_arch_shrink_patches_the_deck_builder_too(dataset):
+    from src.advisor import deck_builder, deck_scorer
+
+    original = deck_builder.get_card_rating
+    with ar.VARIANTS["arch-shrink"](dataset):
+        assert deck_builder.get_card_rating is deck_scorer.get_card_rating
+        assert deck_builder.get_card_rating is not original
+    assert deck_builder.get_card_rating is original
+
+
+def test_commitment_opens_then_locks():
+    assert ar.commitment(1) == ar.commitment(5) == 0.0
+    assert ar.commitment(6) == pytest.approx(1 / 11)
+    assert ar.commitment(16) == ar.commitment(40) == 1.0
+
+
+def test_off_lane_pips_counts_unpayable_pips():
+    assert ar.off_lane_pips({"mana_cost": "{1}{W}{U}"}, ["W", "B"]) == 1
+    assert ar.off_lane_pips({"mana_cost": "{W/U}{U/B}"}, ["U", "B"]) == 0
+    assert ar.off_lane_pips({"mana_cost": "{R}{R}"}, ["U", "G"]) == 2
+    assert ar.off_lane_pips({"colors": ["R", "G"]}, ["U", "G"]) == 1
+
+
+def test_do_commit_scales_color_multipliers_with_commitment(dataset):
+    from src.advisor.engine import DraftAdvisor
+    from src.set_metrics import SetMetrics
+
+    metrics = SetMetrics(dataset)
+    on, splash = dataset.get_data_by_name(["Card 1", "Card 3"])  # U, R
+    locked = dataset.get_data_by_name(["Card 1", "Card 6", "Card 4"] * 6)  # U/G
+    with ar.VARIANTS["do-commit"](dataset):
+        advisor = DraftAdvisor(metrics, locked)
+        assert advisor._calculate_castability_v5(on, 2, 5, 0.0) == (1.15, "")
+        mult, reason = advisor._calculate_castability_v5(splash, 2, 5, 0.0)
+        assert (mult, reason) == (pytest.approx(0.85), "Splash")
+
+        # Pick 5: still open, so every color is neutral.
+        early = DraftAdvisor(metrics, locked[:4])
+        early.main_colors = ["U", "G"]
+        assert early._calculate_castability_v5(splash, 1, 5, 0.0) == (1.0, "")
+
+
+def test_gate_lane_takes_a_triad_only_when_it_clears_the_gate():
+    archetypes = {"WB": (0.06, 55.0), "BR": (0.05, 52.1), "WBR": (0.12, 55.3)}
+    counts = {"W": 8, "B": 7, "R": 5, "U": 0, "G": 0}
+    assert ar.gate_lane(["W", "B", "R"], counts, archetypes) == ("WBR", ["WBR"])
+    # Red is under 20% of the pool's colored cards.
+    counts["R"] = 2
+    assert ar.gate_lane(["W", "B", "R"], counts, archetypes)[0] == "WB"
+    counts["R"] = 5
+    # Three-color decks are too rare in the set.
+    rare = archetypes | {"WBR": (0.08, 55.3)}
+    assert ar.gate_lane(["W", "B"], counts, rare)[0] == "WB"
+    # The triad wins less than the pair.
+    worse = archetypes | {"WBR": (0.12, 54.0)}
+    assert ar.gate_lane(["W", "B"], counts, worse)[0] == "WB"
+    assert ar.gate_lane(["W"], counts, archetypes) == (None, [])
+
+
+def test_archetype_win_rates_shrink_by_estimated_games(dataset):
+    for card in dataset.get_card_ratings().values():
+        card["deck_colors"]["All Decks"]["samples"] = 1000
+        card["deck_colors"]["UG"] = {"samples": 500}
+        card["deck_colors"]["URG"] = {"samples": 100}
+    dataset._dataset["color_ratings"] = {"UG": 60.0, "URG": 50.0}
+    dataset._dataset["meta"]["game_count"] = 1000
+    rates = ar.archetype_win_rates(dataset)
+    avg = (0.5 * 60 + 0.1 * 50) / 0.6
+    assert rates["UG"] == pytest.approx((0.5, (500 * 60 + 500 * avg) / 1000))
+    assert rates["URG"] == pytest.approx((0.1, (100 * 50 + 500 * avg) / 600))
+
+
+def _recommendation(name, score):
+    from src.advisor.schema import Recommendation
+
+    return Recommendation(
+        card_name=name,
+        base_win_rate=50.0,
+        contextual_score=score,
+        z_score=0.0,
+        cast_probability=1.0,
+        wheel_chance=0.0,
+        functional_cmc=2.0,
+        reasoning=[],
+    )
+
+
+def test_tiebreak_reorders_close_picks_by_archetype_wr(dataset):
+    pack = dataset.get_data_by_name(["Card 0", "Card 5", "Card 9"])  # W, W, G
+    recs = [
+        _recommendation("Card 5", 80.0),
+        _recommendation("Card 0", 78.0),
+        _recommendation("Card 9", 60.0),
+    ]
+    out = ar.tiebreak(recs, pack, "W")
+    assert [(r.card_name, r.contextual_score) for r in out] == [
+        ("Card 0", 80.02),
+        ("Card 5", 80.01),
+        ("Card 9", 60.0),
+    ]
+    # Not close: unchanged.
+    recs[1] = _recommendation("Card 0", 70.0)
+    assert ar.tiebreak(recs, pack, "W") == recs
+
+
+def test_replay_runs_every_variant_without_dropping_advice(tmp_path, dataset):
+    taken = ["Card 0"] * 12 + ["Card 1"] * 12 + ["Card 2"] * 2
+    dump = _write_dump(tmp_path / "dump.csv.gz", [_long_draft("x", taken)])
+    result = ar.replay(ar.sample_drafts(dump, 10), dataset, list(ar.VARIANTS))
+    assert result["skipped"] == {}
+    for name in ar.VARIANTS:
+        assert result["tally"][f"{name}|all|all"]["n"] == 26

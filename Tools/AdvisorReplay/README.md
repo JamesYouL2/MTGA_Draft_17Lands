@@ -51,6 +51,32 @@ three-color combination that covers at least 3% of the set's games (see
 also penalizes cards from the other archetypes that contain the top two colors
 less (0.7) than cards that are truly off-color.
 
+Deck-score variants. The deck score only feeds picks in pack 3, once the pool
+has 23 cards, so these change few picks:
+
+- `deck-refit` sets the aggro, two-color and evasion adjustments to 1.5, 4 and
+  −1. These are their worth in wins per point relative to the power, from a
+  `pools` run over all ten sets. Because they were fit on the same drafts, this
+  is not a held-out test.
+- `arch-shrink` scales the 0.7 archetype weight in `get_card_rating` by
+  n / (n + 500), where n is the card's games in hand in that pair.
+- `deck-refit-shrink` applies both.
+
+Ideas from Draft Omen:
+
+- `do-commit` replaces the castability penalty with soft color multipliers. A
+  card on color gets 1.15. A one-pip splash gets 0.95 with a source for it and
+  0.85 without. Anything else off color gets 0.75, and fixing gets 1.05. Every
+  multiplier is 1 for picks 1–5 and ramps in fully by pick 16.
+- `do-gate` plays a triad containing the top two colors only when three conditions hold:
+  three-color decks are at least 10% of the set's games, each of the triad's
+  colors is at least 20% of the pool's colored cards, and the triad's win rate
+  beats the pair's. Win rates are shrunk toward the average with
+  (wins + 500 · avg) / (games + 500).
+- `do-tiebreak` re-sorts cards within 3 points of the top score by their GIH
+  WR in the drafter's pair.
+- `do-all` applies the gate, the commitment multipliers and the tiebreak.
+
 ## ATA blends
 
 `--blend <name>` (repeatable) re-ranks each variant's advice by
