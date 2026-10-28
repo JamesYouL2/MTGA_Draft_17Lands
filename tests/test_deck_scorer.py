@@ -181,7 +181,7 @@ def test_identify_top_pairs(mock_metrics):
 
 
 def test_holistic_score_aggro_bonus(mock_metrics):
-    """Verify a deck with a perfectly low curve gets the Aggro Curve bonus (+5.0)."""
+    """Verify a deck with a perfectly low curve gets the Aggro Curve bonus (+1.5)."""
     deck = [
         make_card("Mountain", count=16, types=["Land"]),
         make_card("Goblin 1", count=14, cmc=1, gihwr=55.0),  # Super low curve
@@ -192,7 +192,7 @@ def test_holistic_score_aggro_bonus(mock_metrics):
         deck, colors=["R"], pool_size=45, metrics=mock_metrics
     )
 
-    assert "Excellent Aggro Curve (+5.0)" in notes
+    assert "Excellent Aggro Curve (+1.5)" in notes
     assert score > 75.0  # Average deck is 75, this should be boosted
 
 
@@ -304,7 +304,7 @@ def test_holistic_score_parts_add_up_to_the_score(mock_metrics):
 
     power, adjustments = holistic_score_parts(aggro, ["R"], 45, mock_metrics)
     assert power == pytest.approx(75.0 + 12.0 * (58.0 - 55.0) / 4.0)
-    assert [(k, d) for k, d, _ in adjustments] == [("aggro", 5.0), ("two_colors", 2.5)]
+    assert [(k, d) for k, d, _ in adjustments] == [("aggro", 1.5), ("two_colors", 4.0)]
     assert holistic_score_parts([], ["R"], 45, mock_metrics) is None
 
 

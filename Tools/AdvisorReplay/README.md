@@ -4,8 +4,8 @@ Measures how often the Draft Advisor's top recommendation matches the card a
 real drafter took, using 17Lands public draft dumps. Use it to check whether an
 engine change helps before shipping it.
 
-For each sampled draft, every pick is replayed with the pool and lane signals
-the app would have had at that point. The advisor is scored alongside two
+For each sampled draft, every pick is replayed with the pool the app would
+have had at that point. The advisor is scored alongside two
 baselines: highest GIH WR and lowest ATA. Results are reported for all drafters
 and for strong ones (60%+ game win rate over 50+ games). They are broken down by
 pack and by pick within the pack.
@@ -51,16 +51,9 @@ three-color combination that covers at least 3% of the set's games (see
 also penalizes cards from the other archetypes that contain the top two colors
 less (0.7) than cards that are truly off-color.
 
-Deck-score variants. The deck score only feeds picks in pack 3, once the pool
-has 23 cards, so these change few picks:
-
-- `deck-refit` sets the aggro, two-color and evasion adjustments to 1.5, 4 and
-  −1. These are their worth in wins per point relative to the power, from a
-  `pools` run over all ten sets. Because they were fit on the same drafts, this
-  is not a held-out test.
-- `arch-shrink` scales the 0.7 archetype weight in `get_card_rating` by
-  n / (n + 500), where n is the card's games in hand in that pair.
-- `deck-refit-shrink` applies both.
+`arch-shrink` scales the 0.7 archetype weight in the deck score's
+`get_card_rating` by n / (n + 500), where n is the card's games in hand in that
+pair.
 
 Ideas from Draft Omen:
 
@@ -78,16 +71,9 @@ Ideas from Draft Omen:
 - `do-all` applies the gate, the commitment multipliers and the tiebreak.
 
 Ablations switch off one piece of `evaluate_pack` each, by making its method
-return a neutral value (see `ABLATIONS`): `no-bomb`, `no-late-signal`,
-`no-synergy`, `no-lane-mult`, `no-vor`, `no-castability`, `no-composition`,
-`no-deck-improvement`, `no-wheel` and `no-signal-tiebreak`. If removing a piece
-leaves the win regression and match rate unchanged, that piece is a
-candidate to delete.
-
-`simplified` switches off every piece the ablations found worth nothing
-(composition, VOR, late signal, wheel, signal tie-breaker and the deck
-improvement bonus) and uses the `deck-refit` weights. `simplified-arch-lane`
-adds `arch-lane`.
+return a neutral value (see `ABLATIONS`): `no-bomb`, `no-synergy`,
+`no-lane-mult` and `no-castability`. If removing a piece leaves the win
+regression and match rate unchanged, that piece is a candidate to delete.
 
 ## ATA blends
 

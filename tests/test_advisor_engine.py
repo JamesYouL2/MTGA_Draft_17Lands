@@ -7,11 +7,6 @@ from src.advisor.schema import Recommendation
 @pytest.fixture
 def mock_metrics():
     metrics = MagicMock()
-    # Mocking format_texture for VOR (Value Over Replacement) tests
-    metrics.format_texture = {
-        "R": {"2-drop": 1, "removal": 10},  # Extremely scarce red 2-drops
-        "G": {"2-drop": 10, "removal": 1},  # Extremely scarce green removal
-    }
     # get_metrics returns (mean, std)
     metrics.get_metrics.return_value = (55.0, 4.0)
     return metrics
@@ -50,7 +45,7 @@ def test_main_archetype_uses_wubrg_key(mock_metrics, first, second, expected):
     assert advisor.main_archetype == expected
 
 
-def test_analyze_pool(mock_metrics):
+def test_count_fixing_cards(mock_metrics):
     # Establish a definitive "White Lane" by padding the pool > 15 cards
     pool = [
         {
@@ -72,7 +67,7 @@ def test_analyze_pool(mock_metrics):
         }
     )
 
-    # Add a green fixing bomb. Because we are definitively in White, this will trigger the splash logic.
+    # A green fixing spell and a dual land count; a mono-colored land does not.
     pool.append(
         {
             "colors": ["G"],
@@ -81,21 +76,18 @@ def test_analyze_pool(mock_metrics):
             "deck_colors": {"All Decks": {"gihwr": 65.0}},
         }
     )
+    pool.append({"colors": ["W", "B"], "types": ["Land"]})
+    pool.append({"colors": ["W"], "types": ["Land"]})
 
     advisor = DraftAdvisor(mock_metrics, pool)
 
-    assert advisor.pool_metrics["early_plays"] == 15
-    assert advisor.pool_metrics["hard_removal_count"] == 1
-    assert advisor.pool_metrics["fixing_count"] == 1
-
-    # 65.0 > 55.0 + (1.5 * 4.0) = 61.0, so 'G' triggers as a premium splash target
-    assert "G" in advisor.pool_metrics["splash_targets"]
+    assert advisor.fixing_count == 2
 
 
 def test_calculate_castability_v5(mock_metrics):
     advisor = DraftAdvisor(mock_metrics, [])
     advisor.main_colors = ["W", "U"]
-    advisor.pool_metrics = {"fixing_count": 0}
+    advisor.fixing_count = 0
 
     # On lane card
     mult, _ = advisor._calculate_castability_v5(
@@ -118,16 +110,30 @@ def test_calculate_castability_v5(mock_metrics):
     assert mult == 0.05
 
 
-def test_check_relative_wheel(mock_metrics):
+def test_wheel_chance(mock_metrics):
     advisor = DraftAdvisor(mock_metrics, [])
-    # Should wheel if ALSA is greater than the current pick
-    mult, reason, pct = advisor._check_relative_wheel(
-        {"deck_colors": {"All Decks": {"alsa": 10.0}}}, pick=2, rank_in_pack=5
-    )
+    card = {"deck_colors": {"All Decks": {"alsa": 10.0}}}
+    # Likely to wheel when its ALSA is well past the current pick
+    assert advisor._wheel_chance(card, pick=2, rank_in_pack=5) > 0.0
+    # Not estimated past pick 8
+    assert advisor._wheel_chance(card, pick=9, rank_in_pack=5) == 0.0
 
-    assert pct > 0.0
-    assert mult == 0.8
-    assert "Wheels" in reason
+
+def test_wheel_chance_is_shown_but_not_scored(mock_metrics):
+    advisor = DraftAdvisor(mock_metrics, [])
+    pack = [
+        {
+            "name": f"Card {i}",
+            "colors": ["G"],
+            "deck_colors": {"All Decks": {"gihwr": 55.0, "alsa": alsa}},
+        }
+        for i, alsa in enumerate([1.0, 1.0, 1.0, 1.0, 12.0])
+    ]
+    recs = sorted(advisor.evaluate_pack(pack, 2), key=lambda r: r.card_name)
+    # Card 4 is likely to wheel, but scores the same as the cards that won't.
+    assert recs[4].wheel_chance >= 75.0
+    assert recs[3].wheel_chance == 0.0
+    assert recs[4].contextual_score == recs[3].contextual_score
 
 
 def test_evaluate_pack_elite_detection(mock_metrics):
@@ -181,79 +187,3 @@ def test_evaluate_pack_elite_detection(mock_metrics):
     assert recs[0].card_name == "Bomb"
     # Elite designation triggers because Z-score > 1.5, IWD > 4.5, and it is on-color
     assert recs[0].is_elite is True
-
-
-def test_evaluate_value_over_replacement(mock_metrics):
-    advisor = DraftAdvisor(mock_metrics, [])
-    advisor.main_colors = ["R"]
-    advisor.global_mean = 55.0
-    advisor.global_std = 4.0
-
-    # A playable red 2-drop. Because we defined Red 2-drops as incredibly scarce
-    # in the mock_metrics fixture above, this card should trigger a VOR bonus!
-    pack = [
-        {
-            "name": "Scarce Red 2-Drop",
-            "colors": ["R"],
-            "types": ["Creature"],
-            "cmc": 2,
-            "tags": ["evasion"],
-            "deck_colors": {"All Decks": {"gihwr": 54.0}},
-        }
-    ]
-
-    recs = advisor.evaluate_pack(pack, current_pick=1)
-
-    assert len(recs) == 1
-    assert any("High VOR: Scarce R 2-Drops" in reason for reason in recs[0].reasoning)
-
-
-def test_composition_bonus_heuristics(mock_metrics):
-    advisor = DraftAdvisor(mock_metrics, [])
-
-    # Setup pool metrics to trigger specific heuristic thresholds
-    advisor.pool_metrics = {
-        "heavy_drops": 4,
-        "creature_count": 5,
-        "artifacts": 4,
-        "graveyard_enablers": 3,
-        "counters_enablers": 3,
-        "fixing_count": 0,
-        "off_color_playables": 2,
-        "splash_targets": ["U"],
-        "hard_removal_count": 1,
-        "early_plays": 2,
-    }
-    advisor.TOTAL_PICKS = 45
-    advisor.pool = [1] * 20  # Simulate mid-draft (Pick 20)
-
-    # 1. Heavy Drops Penalty
-    mult, reason = advisor._calculate_composition_bonus(
-        {"cmc": 6, "types": ["Creature"]}, pack=2
-    )
-    assert mult == 0.7
-    assert "Curve Too Heavy" in reason
-
-    # 2. Creature Quota Bonus
-    mult, reason = advisor._calculate_composition_bonus(
-        {"cmc": 3, "types": ["Creature"]}, pack=2
-    )
-    assert mult == 1.25
-    assert "Critical: Needs Creatures" in reason
-
-    # 3. Artifact Synergy
-    mult, reason = advisor._calculate_composition_bonus(
-        {"cmc": 3, "tags": ["synergy_artifacts"]}, pack=2
-    )
-    assert mult == 1.2
-    assert "Artifact Synergy" in reason
-
-    # 4. Fixing Hunger (Because off_color_playables > fixing_count)
-    mult, reason = advisor._calculate_composition_bonus({"types": ["Land"]}, pack=2)
-    assert mult == 1.4
-    assert "Critical: Needs Fixing" in reason
-
-    # 5. Removal Hunger
-    mult, reason = advisor._calculate_composition_bonus({"tags": ["removal"]}, pack=2)
-    assert mult == 1.3
-    assert "Critical: Needs Removal" in reason

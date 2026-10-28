@@ -1,7 +1,7 @@
 """Replay 17Lands drafts through DraftAdvisor and score its picks.
 
 For a sample of drafts from a 17Lands public draft dump, each pick is shown to
-the advisor (with the pool and lane signals the app would have at that point),
+the advisor (with the pool the app would have at that point),
 and its ranking is compared with the card the drafter actually took. Simple
 baselines (highest GIH WR, lowest ATA) are scored on the same picks.
 
@@ -57,7 +57,6 @@ from src.advisor.deck_scorer import (  # noqa: E402
 from src.advisor.engine import DraftAdvisor  # noqa: E402
 from src.dataset import Dataset  # noqa: E402
 from src.set_metrics import SetMetrics  # noqa: E402
-from src.signals import SignalCalculator  # noqa: E402
 from src.utils import normalize_color_string  # noqa: E402
 
 # A drafter counts as strong with a 60%+ game win rate over 50+ games.
@@ -203,34 +202,9 @@ def _arch_lane(dataset, soft=False):
 
 # --- Deck-score refit ------------------------------------------------------
 
-# Deck-score adjustments rescaled to what each was worth in wins per point,
-# relative to the power from card ratings, in the pooled `pools` run over all
-# ten sets (aggro 0.33, two colors 1.44, evasion 0.13 times power). These were
-# fit on the same sets the replay uses, so they are not a held-out test.
-REFIT_ADJUSTMENTS = {"aggro": 1.5, "two_colors": 4.0, "evasion": -1.0}
-
 # Games of prior pulling an archetype win rate toward the overall one, as in
 # Draft Omen: (wins + K * average) / (games + K).
 SHRINK_GAMES = 500
-
-
-@contextlib.contextmanager
-def _deck_refit(dataset):
-    """Reweight the deck score's aggro, two-color and evasion adjustments."""
-    original = deck_scorer.holistic_score_parts
-
-    def patched(*args, **kwargs):
-        parts = original(*args, **kwargs)
-        if parts is None:
-            return None
-        power, adjustments = parts
-        return power, [
-            (key, REFIT_ADJUSTMENTS.get(key, delta), note)
-            for key, delta, note in adjustments
-        ]
-
-    with mock.patch.object(deck_scorer, "holistic_score_parts", patched):
-        yield
 
 
 def shrunk_card_rating(original, k=SHRINK_GAMES):
@@ -455,14 +429,9 @@ def _do_tiebreak(dataset):
 # neutral value, to see what the piece is worth: (method, neutral return).
 ABLATIONS = {
     "no-bomb": ("_bomb_bonus", (0.0, 1.0)),
-    "no-late-signal": ("_late_signal_bonus", (0.0, "")),
     "no-synergy": ("_archetype_synergy", (0.0, "")),
     "no-lane-mult": ("_lane_multiplier", 1.0),
-    "no-vor": ("_vor_bonus", (0.0, ())),
     "no-castability": ("_calculate_castability_v5", (1.0, "")),
-    "no-composition": ("_calculate_composition_bonus", (1.0, "")),
-    "no-deck-improvement": ("_get_fast_best_deck_score", 0.0),
-    "no-wheel": ("_check_relative_wheel", (1.0, "", 0.0)),
 }
 
 
@@ -473,19 +442,6 @@ def _ablation(method, neutral):
             yield
 
     return variant
-
-
-@contextlib.contextmanager
-def _no_signal_tiebreak(dataset):
-    """Drop the lane signals, which only feed the 1.05 signal tie-breaker."""
-    init = DraftAdvisor.__init__
-
-    def patched(self, *args, **kwargs):
-        init(self, *args, **kwargs)
-        self.signals = {}
-
-    with mock.patch.object(DraftAdvisor, "__init__", patched):
-        yield
 
 
 def _combine(*names):
@@ -506,9 +462,7 @@ VARIANTS = {
     "arch-overall-pick": _arch_overall_pick,
     "arch-lane": _arch_lane,
     "arch-lane-soft": lambda dataset: _arch_lane(dataset, soft=True),
-    "deck-refit": _deck_refit,
     "arch-shrink": _arch_shrink,
-    "deck-refit-shrink": _combine("deck-refit", "arch-shrink"),
     "do-commit": _do_commit,
     "do-gate": _do_gate,
     "do-tiebreak": _do_tiebreak,
@@ -516,20 +470,6 @@ VARIANTS = {
     "do-all": _combine("do-gate", "do-commit", "do-tiebreak"),
 }
 VARIANTS |= {name: _ablation(*spec) for name, spec in ABLATIONS.items()}
-VARIANTS["no-signal-tiebreak"] = _no_signal_tiebreak
-# The pieces the ablations found worth nothing, all off, plus the refit deck
-# score: what the engine would be with them deleted.
-SIMPLIFIED = (
-    "no-composition",
-    "no-vor",
-    "no-late-signal",
-    "no-wheel",
-    "no-signal-tiebreak",
-    "no-deck-improvement",
-    "deck-refit",
-)
-VARIANTS["simplified"] = _combine(*SIMPLIFIED)
-VARIANTS["simplified-arch-lane"] = _combine(*SIMPLIFIED, "arch-lane")
 
 
 # --- ATA blends ------------------------------------------------------------
@@ -967,7 +907,6 @@ def replay(drafts, dataset, variants, progress_every=0, fast=True, blends=()):
 def _replay(drafts, dataset, variants, progress_every, blends):
     metrics = SetMetrics(dataset)
     resolver = NameResolver(dataset)
-    sig_calc = SignalCalculator(metrics)
     tally = Tally()
     outcomes = []
     skipped = defaultdict(int)
@@ -976,12 +915,10 @@ def _replay(drafts, dataset, variants, progress_every, blends):
     for n, (draft_id, draft) in enumerate(sorted(drafts.items()), 1):
         groups = ["all"] + (["strong"] if draft["strong"] else [])
         score = DraftScore()
-        history = []
         for pack_no, pick_no, picked, pack_names, pool_names in draft["picks"]:
             pk, pi = pack_no + 1, pick_no + 1
             pack = resolver.cards(pack_names)
             pool = resolver.cards(pool_names)
-            history.append((pk, pi, pack))
 
             target = resolver.cards([picked])
             if not target:
@@ -992,18 +929,10 @@ def _replay(drafts, dataset, variants, progress_every, blends):
                 skipped["fewer than 2 distinct cards"] += 1
                 continue
 
-            # Same signals as AppController: every pack seen so far, minus pack 2.
-            scores = {c: 0.0 for c in constants.CARD_COLORS}
-            for h_pk, h_pi, h_pack in history:
-                if h_pk == 2:
-                    continue
-                for c, v in sig_calc.calculate_pack_signals(h_pack, h_pi).items():
-                    scores[c] += v
-
             slices = _slices(pk, pi)
             for name in variants:
                 with VARIANTS[name](dataset):
-                    recs = DraftAdvisor(metrics, pool, signals=scores).evaluate_pack(
+                    recs = DraftAdvisor(metrics, pool).evaluate_pack(
                         pack, pi, current_pack=pk
                     )
                 rank = _rank_of([r.card_name for r in recs], target)

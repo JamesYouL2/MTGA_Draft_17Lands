@@ -516,25 +516,6 @@ def test_format_deck_parts_weighs_each_piece_against_power():
     assert ar.format_deck_parts({"outcomes": _pool_outcomes(20)}) == ""
 
 
-def _aggro_deck(dataset):
-    spells = dataset.get_data_by_name(["Card 0", "Card 1"])
-    deck = [dict(c, count=n) for c, n in zip(spells, (12, 11))]
-    return deck + [{"name": "Plains", "types": ["Land"], "count": 17}]
-
-
-def test_deck_refit_reweights_the_score_adjustments(dataset):
-    from src.advisor import deck_scorer
-    from src.set_metrics import SetMetrics
-
-    metrics, deck = SetMetrics(dataset), _aggro_deck(dataset)
-    score, _ = deck_scorer.calculate_holistic_score(deck, ["W", "U"], 40, metrics)
-    with ar.VARIANTS["deck-refit"](dataset):
-        _, adjustments = deck_scorer.holistic_score_parts(deck, ["W", "U"], 40, metrics)
-        refit, _ = deck_scorer.calculate_holistic_score(deck, ["W", "U"], 40, metrics)
-    assert [(k, d) for k, d, _ in adjustments] == [("aggro", 1.5), ("two_colors", 4.0)]
-    assert refit == pytest.approx(score - 2.0)
-
-
 def test_shrunk_card_rating_leans_on_overall_wr_for_small_samples():
     from src.advisor import deck_scorer
 
@@ -680,9 +661,7 @@ def test_ablations_switch_off_one_piece(dataset):
     from src.advisor.engine import DraftAdvisor
     from src.set_metrics import SetMetrics
 
-    advisor = DraftAdvisor(SetMetrics(dataset), [], signals={"W": 20.0})
+    advisor = DraftAdvisor(SetMetrics(dataset), [])
     assert advisor._bomb_bonus(2.0, 0.0) == (20.0, 1.0)
     with ar.VARIANTS["no-bomb"](dataset):
         assert advisor._bomb_bonus(2.0, 0.0) == (0.0, 1.0)
-    with ar.VARIANTS["no-signal-tiebreak"](dataset):
-        assert DraftAdvisor(SetMetrics(dataset), [], signals={"W": 20.0}).signals == {}

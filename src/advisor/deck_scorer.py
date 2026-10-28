@@ -182,11 +182,14 @@ def holistic_score_parts(deck, colors, pool_size, metrics, tier_data=None):
                 f"High Curve / Needs Lands (-{mana_deficit * 3.0:.1f})",
             )
         )
+    # The aggro, two-color and evasion weights are what each was worth in event
+    # wins per point of power, over 17Lands drafts from ten sets (see
+    # Tools/AdvisorReplay).
     elif mana_deficit < -1.0 and avg_cmc < 2.8:
-        adjustments.append(("aggro", 5.0, "Excellent Aggro Curve (+5.0)"))
+        adjustments.append(("aggro", 1.5, "Excellent Aggro Curve (+1.5)"))
 
     if len(colors) <= 2:
-        adjustments.append(("two_colors", 2.5, "Rock-Solid Mana (+2.5)"))
+        adjustments.append(("two_colors", 4.0, "Rock-Solid Mana (+4.0)"))
 
     supertypes = {
         "Creature",
@@ -264,7 +267,7 @@ def holistic_score_parts(deck, colors, pool_size, metrics, tier_data=None):
         )
     )
     if evasion_count < 3 and avg_cmc > 2.5:
-        adjustments.append(("evasion", -5.0, "Lacks Evasion/Reach (-5.0)"))
+        adjustments.append(("evasion", -1.0, "Lacks Evasion/Reach (-1.0)"))
 
     expected_spells = int(23 * (min(42, pool_size) / 42.0))
     if spell_count < expected_spells - 1:

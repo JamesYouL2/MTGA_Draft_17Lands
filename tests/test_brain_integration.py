@@ -66,7 +66,6 @@ def create_mock_dataset(path):
                 "mana_cost": "",
                 "deck_colors": {"All Decks": {"gihwr": 52.0, "alsa": 5.0}},
             },
-            # Filler cards to prevent VOR scarcity bonus from ruining test math
             "106": {
                 "name": "Filler G1",
                 "cmc": 2,

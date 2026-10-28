@@ -43,44 +43,22 @@ To prevent the engine from suggesting off-color cards too late in the draft, it 
 
 ---
 
-## 5. Compositional Math & Dynamic Needs
+## 5. Archetype Glue
 
-Modern Limited is dictated by "Mana Velocity" and "Mana Stability."
+If a Common/Uncommon has a win rate in the user's specific color pair that is `> 1.0%` higher than its global average, it is classified as "Archetype Glue." It receives an aggressive point multiplier to force it to outscore generic Rares.
 
-- **Velocity Target:** 7+ "Early Plays" (CMC <= 2 Creatures or cheap interaction).
-- **Velocity Hunger:** The engine projects your final 2-drop count based on your current pool relative to the remaining picks in the draft. If the projection is below 7 entering Pack 2, early plays receive a "Critical: Needs 2-Drops" multiplier (up to 1.5x).
-- **Top-Heavy Penalty:** If you have 4+ cards costing 5+ mana, expensive cards receive a `0.7x` dampening multiplier to prevent "clunky" hands.
-- **Dynamic Fixing Hunger:** The engine actively monitors whether you are drafting a highly synergistic 2-color deck, or moving towards a "Good Stuff" 3/4-color splash strategy. If the number of drafted off-color playables exceeds your dedicated fixing tools (dual lands, treasures, dorks) by Pack 2, fixing cards receive a massive `1.4x` "Critical: Needs Fixing" multiplier.
+The engine used to also adjust scores for pool composition (2-drop, creature, removal and fixing quotas), role scarcity in the set (VOR), late pack 1 signals, likely wheels, color signals and pack 3 deck improvement. Replaying 17Lands drafts showed none of these changed how often drafters who followed the advisor won, so they were removed (see `Tools/AdvisorReplay`). The wheel chance is still shown.
 
 ---
 
-## 6. Value Over Replacement (VOR) & "Glue Cards"
-
-The v5 engine moves beyond raw win rates by pre-calculating the **Format Texture** of a set when it loads.
-
-- **Role Scarcity (VOR):** The engine analyzes the dataset to count how many "Playable" (WR > Baseline) Commons and Uncommons exist for critical roles (e.g., Removal, 2-Drops) in each color.
-  - If a user sees a Playable Red 2-Drop, and the engine knows there are only two viable Red 2-drops in the entire set, it applies a `High VOR (+6.0)` bonus.
-- **Archetype Glue:** If a Common/Uncommon has a win rate in the user's specific color pair that is `> 1.0%` higher than its global average, it is classified as "Archetype Glue." It receives an aggressive point multiplier to force it to outscore generic Rares.
-
----
-
-## 7. Semantic Role Analysis (Interaction & Tricks)
-
-The app parses Scryfall community tags to understand a card's functional role.
-
-- **Hard Removal Quota:** Targets 3+ removal spells. If the pool is lacking entering Pack 2, interaction cards receive a `1.3x` panic multiplier. Conversely, if you have 6+ removal spells, new ones are penalized (`0.8x`).
-- **Trick Diminishing Returns:** Combat tricks and Auras (Enhancements) are capped at 3. Beyond this, they receive a severe `0.5x` penalty.
-
----
-
-## 8. True Bomb Detection (IWD Injection)
+## 6. True Bomb Detection (IWD Injection)
 
 - **Logic:** A card is tagged as a **TRUE BOMB** only if its Z-Score is `> 1.0` AND its **Improvement When Drawn (IWD)** is `> 4.5%`.
 - **Effect:** Distinguishes between "Great Filler" and "Game-Warping Power." These cards receive a power bonus that overrides the Sliding Commitment Curve, allowing for late-draft splashes.
 
 ---
 
-## 9. Interactive Deck Building & AI Optimization
+## 7. Interactive Deck Building & AI Optimization
 
 ### A. Frank Karsten Mana Base Engine ("Auto-Lands")
 
@@ -108,7 +86,7 @@ Users can actively "brute-force" permutations of their current deck configuratio
 
 ---
 
-## 10. Post-Draft Analysis & Dashboard
+## 8. Post-Draft Analysis & Dashboard
 
 Transitions into a Post-Draft Recap tracking:
 
@@ -118,7 +96,7 @@ Transitions into a Post-Draft Recap tracking:
 
 ---
 
-## 11. Sealed Studio & Shell Generation
+## 9. Sealed Studio & Shell Generation
 
 Added in v4.15, the application includes a dedicated workspace for Sealed deckbuilding.
 
