@@ -667,3 +667,22 @@ def test_replay_runs_every_variant_without_dropping_advice(tmp_path, dataset):
     assert result["skipped"] == {}
     for name in ar.VARIANTS:
         assert result["tally"][f"{name}|all|all"]["n"] == 26
+
+
+def test_every_ablation_names_a_real_engine_method():
+    from src.advisor.engine import DraftAdvisor
+
+    for method, _ in ar.ABLATIONS.values():
+        assert callable(getattr(DraftAdvisor, method))
+
+
+def test_ablations_switch_off_one_piece(dataset):
+    from src.advisor.engine import DraftAdvisor
+    from src.set_metrics import SetMetrics
+
+    advisor = DraftAdvisor(SetMetrics(dataset), [], signals={"W": 20.0})
+    assert advisor._bomb_bonus(2.0, 0.0) == (20.0, 1.0)
+    with ar.VARIANTS["no-bomb"](dataset):
+        assert advisor._bomb_bonus(2.0, 0.0) == (0.0, 1.0)
+    with ar.VARIANTS["no-signal-tiebreak"](dataset):
+        assert DraftAdvisor(SetMetrics(dataset), [], signals={"W": 20.0}).signals == {}

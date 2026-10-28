@@ -442,6 +442,45 @@ def _do_tiebreak(dataset):
         yield
 
 
+# --- Ablations ---------------------------------------------------------------
+
+# Each switches off one piece of evaluate_pack by making its method return a
+# neutral value, to see what the piece is worth: (method, neutral return).
+ABLATIONS = {
+    "no-bomb": ("_bomb_bonus", (0.0, 1.0)),
+    "no-late-signal": ("_late_signal_bonus", (0.0, "")),
+    "no-synergy": ("_archetype_synergy", (0.0, "")),
+    "no-lane-mult": ("_lane_multiplier", 1.0),
+    "no-vor": ("_vor_bonus", (0.0, ())),
+    "no-castability": ("_calculate_castability_v5", (1.0, "")),
+    "no-composition": ("_calculate_composition_bonus", (1.0, "")),
+    "no-deck-improvement": ("_get_fast_best_deck_score", 0.0),
+    "no-wheel": ("_check_relative_wheel", (1.0, "", 0.0)),
+}
+
+
+def _ablation(method, neutral):
+    @contextlib.contextmanager
+    def variant(dataset):
+        with mock.patch.object(DraftAdvisor, method, lambda self, *a, **k: neutral):
+            yield
+
+    return variant
+
+
+@contextlib.contextmanager
+def _no_signal_tiebreak(dataset):
+    """Drop the lane signals, which only feed the 1.05 signal tie-breaker."""
+    init = DraftAdvisor.__init__
+
+    def patched(self, *args, **kwargs):
+        init(self, *args, **kwargs)
+        self.signals = {}
+
+    with mock.patch.object(DraftAdvisor, "__init__", patched):
+        yield
+
+
 def _combine(*names):
     """A variant that applies several others, in order."""
 
@@ -469,6 +508,8 @@ VARIANTS = {
     # The gate goes first so the commitment multipliers use its lane.
     "do-all": _combine("do-gate", "do-commit", "do-tiebreak"),
 }
+VARIANTS |= {name: _ablation(*spec) for name, spec in ABLATIONS.items()}
+VARIANTS["no-signal-tiebreak"] = _no_signal_tiebreak
 
 
 # --- ATA blends ------------------------------------------------------------

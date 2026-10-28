@@ -77,6 +77,13 @@ Ideas from Draft Omen:
   WR in the drafter's pair.
 - `do-all` applies the gate, the commitment multipliers and the tiebreak.
 
+Ablations switch off one piece of `evaluate_pack` each, by making its method
+return a neutral value (see `ABLATIONS`): `no-bomb`, `no-late-signal`,
+`no-synergy`, `no-lane-mult`, `no-vor`, `no-castability`, `no-composition`,
+`no-deck-improvement`, `no-wheel` and `no-signal-tiebreak`. If removing a piece
+leaves the win regression and match rate unchanged, that piece is a
+candidate to delete.
+
 ## ATA blends
 
 `--blend <name>` (repeatable) re-ranks each variant's advice by
