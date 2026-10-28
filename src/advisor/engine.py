@@ -22,6 +22,14 @@ class DraftAdvisor:
     TOTAL_PICKS = 45
     BOMB_Z_SCORE = 1.5
     IWD_PREMIUM_THRESHOLD = 4.5
+    # Off-color cards in pack 1 lose PACK1_PRESSURE_STEP of their castability
+    # per pick after the first PACK1_PRESSURE_START picks.
+    PACK1_PRESSURE_START = 7
+    PACK1_PRESSURE_STEP = 0.05
+    # Weight on the archetype's win rate in the base score, rising linearly
+    # from START at pick 0 to MAX at pick 45.
+    ARCH_WEIGHT_START = 0.2
+    ARCH_WEIGHT_MAX = 0.9
 
     def __init__(self, set_metrics, taken_cards: List[Dict]):
         self.metrics = set_metrics
@@ -76,9 +84,7 @@ class DraftAdvisor:
                 continue
 
         pack_mean = statistics.mean(pack_wrs) if pack_wrs else self.global_mean
-        pack_std = statistics.pstdev(pack_wrs) if len(pack_wrs) > 1 else self.global_std
-        if pack_std <= 0:
-            pack_std = self.global_std
+        pack_std = self._pack_spread(pack_wrs)
 
         pack_cards_sorted = sorted(
             pack_cards,
@@ -180,6 +186,11 @@ class DraftAdvisor:
                 continue
 
         return sorted(recommendations, key=lambda x: x.contextual_score, reverse=True)
+
+    def _pack_spread(self, pack_wrs: List[float]) -> float:
+        """SD of GIH WR within the pack, which scales the pack z-scores."""
+        std = statistics.pstdev(pack_wrs) if len(pack_wrs) > 1 else self.global_std
+        return std if std > 0 else self.global_std
 
     def _bomb_bonus(self, z_score: float, raw_iwd: float) -> Tuple[float, float]:
         """(power bonus, IWD multiplier) for a card well above the pack's average."""
@@ -302,7 +313,10 @@ class DraftAdvisor:
         if pack == 1:
             if is_on_lane:
                 return 1.0, ""
-            pressure = 1.0 - (max(0, ((pack - 1) * 15 + (pick - 1)) - 7) * 0.05)
+            pressure = 1.0 - (
+                max(0, ((pack - 1) * 15 + (pick - 1)) - self.PACK1_PRESSURE_START)
+                * self.PACK1_PRESSURE_STEP
+            )
             return (
                 (max(0.2, pressure - 0.2), "Off-Color Gold")
                 if len(card_colors) > 1 and off_color_pips > 0
@@ -372,7 +386,12 @@ class DraftAdvisor:
         try:
             stats = card.get("deck_colors", {})
             global_wr = float(stats.get("All Decks", {}).get("gihwr", 0.0))
-            arch_weight = min(0.9, 0.2 + (pick_number / self.TOTAL_PICKS) * 0.7)
+            arch_weight = min(
+                self.ARCH_WEIGHT_MAX,
+                self.ARCH_WEIGHT_START
+                + (pick_number / self.TOTAL_PICKS)
+                * (self.ARCH_WEIGHT_MAX - self.ARCH_WEIGHT_START),
+            )
             arch_stats = stats.get(self.main_archetype, {})
             arch_wr = float(arch_stats.get("gihwr", global_wr))
 

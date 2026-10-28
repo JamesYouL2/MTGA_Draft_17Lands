@@ -457,6 +457,65 @@ def _combine(*names):
     return combined
 
 
+# --- Commitment and cleanup ------------------------------------------------
+
+
+def _constants(**values):
+    """A variant that sets DraftAdvisor class constants."""
+
+    @contextlib.contextmanager
+    def variant(dataset):
+        with contextlib.ExitStack() as stack:
+            for name, value in values.items():
+                assert hasattr(DraftAdvisor, name), name
+                stack.enter_context(mock.patch.object(DraftAdvisor, name, value))
+            yield
+
+    return variant
+
+
+# Points of synergy bonus per point of shrunk archetype GIH WR above overall.
+# Between the current 3 (any card) and 5 (commons and uncommons).
+SYNERGY_SCALE = 4.0
+
+
+def shrunk_synergy(self, card, raw_gihwr, k=SHRINK_GAMES, scale=SYNERGY_SCALE):
+    """The synergy bonus without thresholds or a rarity split.
+
+    The archetype GIH WR is shrunk toward the overall one by its games in hand
+    n, (n * arch + k * overall) / (n + k), and the bonus is proportional to how
+    far the shrunk rate is above the overall one.
+    """
+    stats = card.get("deck_colors", {}).get(self.main_archetype, {})
+    arch_wr, n = float(stats.get("gihwr", 0.0)), int(stats.get("samples", 0))
+    if arch_wr <= 0 or n <= 0:
+        return 0.0, ""
+    delta = n / (n + k) * (arch_wr - raw_gihwr)
+    if delta <= 0:
+        return 0.0, ""
+    bonus = scale * delta
+    return bonus, f"Archetype Synergy (+{bonus:.1f})"
+
+
+@contextlib.contextmanager
+def _synergy_shrunk(dataset):
+    with mock.patch.object(DraftAdvisor, "_archetype_synergy", shrunk_synergy):
+        yield
+
+
+@contextlib.contextmanager
+def _z_global_sd(dataset):
+    """Scale pack z-scores by the set's spread, not the pack's.
+
+    With two cards left, the pack's SD is half the gap between them, so the
+    better card always has z = +1, however close they are.
+    """
+    with mock.patch.object(
+        DraftAdvisor, "_pack_spread", lambda self, w: self.global_std
+    ):
+        yield
+
+
 VARIANTS = {
     "baseline": _baseline,
     "arch-overall-pick": _arch_overall_pick,
@@ -470,6 +529,18 @@ VARIANTS = {
     "do-all": _combine("do-gate", "do-commit", "do-tiebreak"),
 }
 VARIANTS |= {name: _ablation(*spec) for name, spec in ABLATIONS.items()}
+VARIANTS |= {
+    # Off-color pressure in pack 1 from pick 5 instead of pick 9.
+    "commit-early": _constants(PACK1_PRESSURE_START=3),
+    # 0.10 per pick instead of 0.05.
+    "commit-steep": _constants(PACK1_PRESSURE_STEP=0.10),
+    "commit-early-steep": _constants(PACK1_PRESSURE_START=3, PACK1_PRESSURE_STEP=0.10),
+    # Archetype win rate at full weight as soon as there is a lane.
+    "arch-weight-full": _constants(ARCH_WEIGHT_START=0.9),
+    "synergy-shrunk": _synergy_shrunk,
+    "z-global-sd": _z_global_sd,
+    "cleanup": _combine("synergy-shrunk", "z-global-sd"),
+}
 
 
 # --- ATA blends ------------------------------------------------------------

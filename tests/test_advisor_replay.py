@@ -665,3 +665,80 @@ def test_ablations_switch_off_one_piece(dataset):
     assert advisor._bomb_bonus(2.0, 0.0) == (20.0, 1.0)
     with ar.VARIANTS["no-bomb"](dataset):
         assert advisor._bomb_bonus(2.0, 0.0) == (0.0, 1.0)
+
+
+def _mock_advisor(pool=()):
+    from unittest.mock import MagicMock
+    from src.advisor.engine import DraftAdvisor
+
+    metrics = MagicMock()
+    metrics.get_metrics.return_value = (55.0, 4.0)
+    return DraftAdvisor(metrics, list(pool))
+
+
+def test_commit_early_penalizes_off_color_cards_sooner(dataset):
+    from src.advisor.engine import DraftAdvisor
+
+    advisor = _mock_advisor()
+    advisor.main_colors = ["W", "U"]
+    card = {"colors": ["R"], "mana_cost": "{R}"}
+    assert advisor._calculate_castability_v5(card, 1, 6, 0.0)[0] == 1.0
+    with ar.VARIANTS["commit-early"](dataset):
+        assert DraftAdvisor.PACK1_PRESSURE_START == 3
+        assert advisor._calculate_castability_v5(card, 1, 6, 0.0)[0] == 0.9
+        with ar.VARIANTS["commit-steep"](dataset):
+            assert advisor._calculate_castability_v5(card, 1, 6, 0.0)[0] == 0.8
+    assert DraftAdvisor.PACK1_PRESSURE_START == 7
+
+
+def test_arch_weight_full_uses_the_archetype_rate_from_the_start(dataset):
+    advisor = _mock_advisor()
+    advisor.main_archetype = "WU"
+    card = {
+        "deck_colors": {
+            "All Decks": {"gihwr": 55.0},
+            "WU": {"gihwr": 59.0, "samples": 2000},
+        }
+    }
+    # 50 + 15 z, with z from the 0.2-weighted blend: 55.8 → 0.2 SD.
+    assert advisor._calculate_weighted_score(card, 0) == pytest.approx(53.0)
+    with ar.VARIANTS["arch-weight-full"](dataset):
+        # 0.9 weight: 58.6 → 0.9 SD.
+        assert advisor._calculate_weighted_score(card, 0) == pytest.approx(63.5)
+
+
+def test_shrunk_synergy_scales_with_games_and_has_no_threshold():
+    advisor = _mock_advisor()
+    advisor.main_archetype = "WU"
+
+    def card(arch_wr, n, rarity="rare"):
+        return {
+            "rarity": rarity,
+            "deck_colors": {"WU": {"gihwr": arch_wr, "samples": n}},
+        }
+
+    # 500 games: half of the 2.5-point gap survives, times 4.
+    assert ar.shrunk_synergy(advisor, card(57.5, 500), 55.0)[0] == pytest.approx(5.0)
+    # Rarity doesn't matter, and small gaps still count.
+    assert ar.shrunk_synergy(advisor, card(55.5, 500), 55.0)[0] == pytest.approx(1.0)
+    assert ar.shrunk_synergy(advisor, card(55.5, 500, "common"), 55.0)[0] == (
+        pytest.approx(1.0)
+    )
+    # The current bonus gives nothing below a 1.5-point gap for a rare.
+    assert advisor._archetype_synergy(card(55.5, 500), 55.0) == (0.0, "")
+    # No bonus when worse in the archetype, or without data.
+    assert ar.shrunk_synergy(advisor, card(53.0, 500), 55.0) == (0.0, "")
+    assert ar.shrunk_synergy(advisor, card(0.0, 0), 55.0) == (0.0, "")
+
+
+def test_z_global_sd_stops_the_last_two_cards_looking_like_a_bomb(dataset):
+    advisor = _mock_advisor()
+    pack = [
+        {"name": n, "colors": [], "deck_colors": {"All Decks": {"gihwr": wr}}}
+        for n, wr in (("A", 55.4), ("B", 55.0))
+    ]
+    top = advisor.evaluate_pack(pack, 14)[0]
+    assert (top.card_name, top.z_score) == ("A", 1.0)
+    with ar.VARIANTS["z-global-sd"](dataset):
+        top = advisor.evaluate_pack(pack, 14)[0]
+    assert (top.card_name, top.z_score) == ("A", 0.05)

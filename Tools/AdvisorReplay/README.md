@@ -70,6 +70,20 @@ Ideas from Draft Omen:
   WR in the drafter's pair.
 - `do-all` applies the gate, the commitment multipliers and the tiebreak.
 
+Commitment and cleanup:
+
+- `commit-early` starts the pack 1 off-color penalty at pick 5 instead of 9.
+  `commit-steep` doubles its slope (0.10 per pick), and `commit-early-steep`
+  does both.
+- `arch-weight-full` weights the archetype GIH WR at 0.9 from the first pick,
+  instead of ramping from 0.2 to 0.9.
+- `synergy-shrunk` replaces the threshold synergy bonus with
+  `4 · n / (n + 500) · (archetype WR − overall WR)`, where n is the card's games
+  in hand in the pair. It has no cutoffs and no rarity split.
+- `z-global-sd` takes z-scores with the set-wide SD instead of the pack's.
+  With the pack's SD, the better of the last two cards always gets z = +1.
+- `cleanup` applies `synergy-shrunk` and `z-global-sd` together.
+
 Ablations switch off one piece of `evaluate_pack` each, by making its method
 return a neutral value (see `ABLATIONS`): `no-bomb`, `no-synergy`,
 `no-lane-mult` and `no-castability`. If removing a piece leaves the win
