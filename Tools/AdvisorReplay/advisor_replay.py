@@ -537,6 +537,14 @@ VARIANTS |= {
     "commit-early-steep": _constants(PACK1_PRESSURE_START=3, PACK1_PRESSURE_STEP=0.10),
     # Archetype win rate at full weight as soon as there is a lane.
     "arch-weight-full": _constants(ARCH_WEIGHT_START=0.9),
+    # Flat archetype weights. The app passes the pick within the pack, so the
+    # default ramp only reaches 0.43 at pick 15 and restarts each pack.
+    "arch-weight-0.5": _constants(ARCH_WEIGHT_START=0.5, ARCH_WEIGHT_MAX=0.5),
+    "arch-weight-0.7": _constants(ARCH_WEIGHT_START=0.7, ARCH_WEIGHT_MAX=0.7),
+    "arch-weight-1.0": _constants(ARCH_WEIGHT_START=1.0, ARCH_WEIGHT_MAX=1.0),
+    "arch-full-commit-early": _combine("arch-weight-full", "commit-early"),
+    # The synergy bonus also rewards the archetype rate, so it may be redundant.
+    "arch-full-no-synergy": _combine("arch-weight-full", "no-synergy"),
     "synergy-shrunk": _synergy_shrunk,
     "z-global-sd": _z_global_sd,
     "cleanup": _combine("synergy-shrunk", "z-global-sd"),

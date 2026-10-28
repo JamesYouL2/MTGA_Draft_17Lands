@@ -76,7 +76,11 @@ Commitment and cleanup:
   `commit-steep` doubles its slope (0.10 per pick), and `commit-early-steep`
   does both.
 - `arch-weight-full` weights the archetype GIH WR at 0.9 from the first pick,
-  instead of ramping from 0.2 to 0.9.
+  instead of ramping from 0.2 to 0.9. The app passes the pick within the pack,
+  so the default ramp only reaches 0.43 at pick 15 and restarts each pack.
+  `arch-weight-0.5`, `-0.7` and `-1.0` use other flat weights.
+  `arch-full-commit-early` adds `commit-early`, and `arch-full-no-synergy`
+  drops the synergy bonus, which also rewards the archetype rate.
 - `synergy-shrunk` replaces the threshold synergy bonus with
   `4 · n / (n + 500) · (archetype WR − overall WR)`, where n is the card's games
   in hand in the pair. It has no cutoffs and no rarity split.
