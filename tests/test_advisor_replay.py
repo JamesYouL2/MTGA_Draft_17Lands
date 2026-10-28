@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 
+import numpy as np
 import pytest
 
 from src.card_utils import stack_cards
@@ -334,6 +335,8 @@ def test_replay_records_each_drafts_agreement_and_result(tmp_path, dataset):
     # The drafter always takes the best card, which GIH WR and ATA both favour.
     assert a["methods"]["gihwr"] == [6, 6, 0.0]
     assert a["methods"]["ata"] == [6, 6, 0.0]
+    # Nine-card pools are too small to build a deck from.
+    assert (a["deck_score"], a["pool_gihwr"]) == (None, None)
 
 
 def _outcomes(n, effect):
@@ -374,9 +377,54 @@ def test_format_outcomes_needs_enough_complete_events():
     assert "TST: 40 complete events" in table
     assert table.index("| baseline |") < table.index("| gihwr |")
     # ATA regret is the same for every drafter, so it explains nothing.
-    assert "| ata | – | – | –" in table
+    assert "| ata | – | – | – | – |" in table
     # Unfinished events are dropped, leaving too few to report.
     unfinished = _outcomes(40, -2.0)
     for o in unfinished[:20]:
         o["wins"], o["losses"] = 2, 1
     assert ar.format_outcomes({"outcomes": unfinished}) == ""
+
+
+def test_pool_strength_scores_full_pools(dataset):
+    from src.set_metrics import SetMetrics
+
+    metrics = SetMetrics(dataset)
+    assert ar.pool_strength(dataset.get_data_by_name(["Card 0"] * 22), metrics) == (
+        None,
+        None,
+    )
+    # 12 W cards at 65 and 12 U cards at 64; the best 23 in W/U.
+    pool = dataset.get_data_by_name(["Card 0"] * 12 + ["Card 1"] * 12)
+    deck_score, pool_gihwr = ar.pool_strength(pool, metrics)
+    assert deck_score > 0
+    assert pool_gihwr == pytest.approx((12 * 65 + 11 * 64) / 23)
+
+
+def test_bootstrap_differences_compare_methods_on_the_same_drafts():
+    outcomes = _outcomes(200, -2.0)
+    xs = {
+        m: np.array([o["methods"][m][2] for o in outcomes])
+        for m in ("baseline", "gihwr")
+    }
+    se = ar.bootstrap_differences(outcomes, xs, "baseline", samples=50)
+    assert se["baseline"] == 0
+    assert 0 < se["gihwr"] < 1
+
+
+def test_format_calibration_bins_pools_by_deck_score():
+    outcomes = _outcomes(60, 0.0)
+    for i, o in enumerate(outcomes):
+        o["deck_score"] = 50.0 + o["wins"] + (i % 2)
+        o["pool_gihwr"] = 55.0 + (i % 5)
+    table = ar.format_calibration({"outcomes": outcomes}, ["TST"])
+    assert "TST: 60 complete events" in table
+    assert "| 10 |" in table
+    assert "| advisor deck score |" in table
+    # Wins rise with deck score by construction.
+    first = next(line for line in table.splitlines() if line.startswith("| 1 |"))
+    last = next(line for line in table.splitlines() if line.startswith("| 10 |"))
+    assert float(first.split("|")[5]) < float(last.split("|")[5])
+
+    for o in outcomes:
+        o["deck_score"] = None
+    assert ar.format_calibration({"outcomes": outcomes}) == ""

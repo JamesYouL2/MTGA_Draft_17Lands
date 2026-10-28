@@ -82,6 +82,17 @@ which is evidence that its picks are better. With roughly ±2 wins of noise per
 event, a set needs a few thousand drafts before differences between methods are
 visible. Use the workflow with many shards for this.
 
+Every method is fit on the same drafts, so their coefficients are correlated. The
+"vs first" column therefore gives each method's difference from the first one,
+with a bootstrap SE (200 resamples of drafts).
+
+**Calibration.** The replay also scores each final pool with the advisor's own
+best-deck estimate (`_get_fast_best_deck_score`). It also computes a simple
+yardstick: the mean GIH WR of the best 23 cards in one color pair. Pools are
+binned into deciles of deck score within each set, and wins and match win rate
+are reported per decile. A well-calibrated score rises steadily across the
+deciles. It should also beat the yardstick when both are in the same regression.
+
 Caveats specific to this table:
 
 - The skill buckets include these drafts' own games, so they partly absorb the

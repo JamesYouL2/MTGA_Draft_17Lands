@@ -23,6 +23,7 @@ import csv
 import gzip
 import hashlib
 import heapq
+import itertools
 import json
 import logging
 import math
@@ -41,6 +42,7 @@ if ROOT not in sys.path:
 
 from src import constants  # noqa: E402
 from src.advisor import deck_builder  # noqa: E402
+from src.advisor.deck_scorer import identify_top_pairs  # noqa: E402
 from src.advisor.engine import DraftAdvisor  # noqa: E402
 from src.dataset import Dataset  # noqa: E402
 from src.set_metrics import SetMetrics  # noqa: E402
@@ -455,6 +457,35 @@ def _slices(pack_no, pick_no):
     return ["all", f"pack {pack_no}", phase]
 
 
+DECK_SIZE = 23
+
+
+def pool_strength(pool, metrics):
+    """(advisor deck score, pool GIH WR) for a final pool, or Nones if short.
+
+    The deck score is the advisor's own best-deck estimate. Pool GIH WR is a
+    simple yardstick: the mean GIH WR of the best 23 cards castable in one
+    color pair (missing slots count as 0).
+    """
+    if len(pool) < DECK_SIZE:
+        return None, None
+    deck_score = DraftAdvisor(metrics, pool)._get_fast_best_deck_score(
+        pool, identify_top_pairs(pool, metrics)
+    )
+    best = 0.0
+    for pair in itertools.combinations(constants.CARD_COLORS, 2):
+        rates = sorted(
+            (
+                _stat(c, constants.DATA_FIELD_GIHWR)
+                for c in pool
+                if set(c.get(constants.DATA_FIELD_COLORS, [])) <= set(pair)
+            ),
+            reverse=True,
+        )[:DECK_SIZE]
+        best = max(best, sum(rates) / DECK_SIZE)
+    return deck_score, best
+
+
 class DraftScore:
     """Per-method agreement with one drafter, for relating to their result.
 
@@ -563,9 +594,18 @@ def _replay(drafts, dataset, variants, progress_every, blends):
             for name, by_name in baseline_scores(pack).items():
                 score.add(name, by_name, target)
 
+        deck_score = pool_gihwr = None
+        if draft["picks"]:
+            # The pool before the last pick, plus the last pick.
+            final = pool + resolver.cards([picked])
+            deck_score, pool_gihwr = pool_strength(final, metrics)
         outcomes.append(
             {k: draft.get(k) for k in ("strong", "wins", "losses", "skill", "games")}
-            | {"methods": dict(score.methods)}
+            | {
+                "deck_score": deck_score,
+                "pool_gihwr": pool_gihwr,
+                "methods": dict(score.methods),
+            }
         )
 
         if progress_every and n % progress_every == 0:
@@ -666,26 +706,59 @@ def _skill_bin(skill):
     return int((min(max(skill, 0.30), 0.74) - 0.30) // 0.04)
 
 
-def wins_regression(outcomes, x, extra=()):
-    """OLS of event wins on x, with skill, games and set controls.
+BOOTSTRAP_SAMPLES = 200
 
-    Returns (coefficient, robust SE) for x. extra are further columns to
-    control for.
-    """
-    controls = (
-        _dummies([_skill_bin(o.get("skill")) for o in outcomes])
-        + _dummies([o.get("games") for o in outcomes])
-        + _dummies([o.get("set") for o in outcomes])
-    )
-    X = np.column_stack([x, *extra, np.ones(len(x)), *controls])
-    y = np.array([o["wins"] for o in outcomes], dtype=float)
+
+def _controls(outcomes, skill=True):
+    """Intercept plus set (and, with skill, skill and games bucket) dummies."""
+    columns = _dummies([o.get("set") for o in outcomes])
+    if skill:
+        columns += _dummies([_skill_bin(o.get("skill")) for o in outcomes])
+        columns += _dummies([o.get("games") for o in outcomes])
+    return np.column_stack([np.ones(len(outcomes)), *columns])
+
+
+def _wins(outcomes):
+    return np.array([o["wins"] for o in outcomes], dtype=float)
+
+
+def wins_fit(outcomes, columns, skill=True):
+    """OLS of event wins on columns plus controls: [(coefficient, robust SE)]."""
+    X = np.column_stack([*columns, _controls(outcomes, skill)])
+    y = _wins(outcomes)
     xtx_inv = np.linalg.pinv(X.T @ X)
     beta = xtx_inv @ X.T @ y
     resid = y - X @ beta
     # HC1 (heteroskedasticity-robust) standard errors.
     meat = (X * resid[:, None] ** 2).T @ X
     cov = xtx_inv @ meat @ xtx_inv * len(y) / max(1, len(y) - X.shape[1])
-    return beta[0], math.sqrt(max(cov[0, 0], 0.0))
+    return [(beta[i], math.sqrt(max(cov[i, i], 0.0))) for i in range(len(columns))]
+
+
+def wins_regression(outcomes, x, extra=()):
+    """(coefficient, robust SE) for x, controlling for extra columns too."""
+    return wins_fit(outcomes, [x, *extra])[0]
+
+
+def bootstrap_differences(outcomes, xs, ref, samples=BOOTSTRAP_SAMPLES, seed=0):
+    """Bootstrap SE of each method's wins coefficient minus ref's.
+
+    xs is {method: column}. All methods are fit on the same resampled drafts,
+    so the SE accounts for their coefficients being correlated.
+    """
+    y, controls = _wins(outcomes), _controls(outcomes)
+    designs = {m: np.column_stack([x, controls]) for m, x in xs.items()}
+    rng = np.random.default_rng(seed)
+    diffs = defaultdict(list)
+    for _ in range(samples):
+        idx = rng.integers(0, len(y), len(y))
+        coef = {
+            m: np.linalg.lstsq(X[idx], y[idx], rcond=None)[0][0]
+            for m, X in designs.items()
+        }
+        for m in xs:
+            diffs[m].append(coef[m] - coef[ref])
+    return {m: float(np.std(d)) for m, d in diffs.items()}
 
 
 def format_outcomes(result, sets=None):
@@ -721,24 +794,120 @@ def format_outcomes(result, sets=None):
         "games bucket and set. Cells are Δwins (robust SE); negative regret "
         "and positive agreement mean following the method went with winning.",
         "",
-        "| method | per +1 SD regret | same, controlling for ATA regret "
-        "| per +10 pts top-1 agreement |",
-        "|---|---|---|---|",
+        "| method | per +1 SD regret | vs first (bootstrap SE) "
+        "| same, controlling for ATA regret | per +10 pts top-1 agreement |",
+        "|---|---|---|---|---|",
     ]
+    # Regret in SD units, so coefficients are comparable across methods.
+    scaled = {}
     for m in methods:
         regret_x = column(m, 2)
-        sd = regret_x.std()
-        if not sd:
-            lines.append(f"| {m} | – | – | – |")
+        if regret_x.std():
+            scaled[m] = regret_x / regret_x.std()
+    ref = next(iter(scaled), None)
+    fits = {m: wins_regression(outcomes, x) for m, x in scaled.items()}
+    diff_se = bootstrap_differences(outcomes, scaled, ref) if ref else {}
+    for m in methods:
+        if m not in scaled:
+            lines.append(f"| {m} | – | – | – | – |")
             continue
+        diff = (
+            f"{fits[m][0] - fits[ref][0]:+.3f} ({diff_se[m]:.3f})" if m != ref else "–"
+        )
         controlled = (
-            cell(wins_regression(outcomes, regret_x, [ata_regret]), sd)
+            cell(wins_regression(outcomes, scaled[m], [ata_regret]), 1)
             if ata_regret is not None and m != "ata"
             else "–"
         )
         lines.append(
-            f"| {m} | {cell(wins_regression(outcomes, regret_x), sd)} | {controlled} "
+            f"| {m} | {cell(fits[m], 1)} | {diff} | {controlled} "
             f"| {cell(wins_regression(outcomes, column(m, 1)), 0.1)} |"
+        )
+    return "\n".join(lines)
+
+
+CALIBRATION_BINS = 10
+
+
+def _within_set(outcomes, key, fn):
+    """fn(values) applied to key's values separately within each set."""
+    out = np.zeros(len(outcomes))
+    by_set = defaultdict(list)
+    for i, o in enumerate(outcomes):
+        by_set[o.get("set")].append(i)
+    for idx in by_set.values():
+        out[idx] = fn(np.array([outcomes[i][key] for i in idx], dtype=float))
+    return out
+
+
+def _zscore_array(v):
+    return (v - v.mean()) / (v.std() or 1.0)
+
+
+def _decile(v):
+    ranks = v.argsort().argsort()
+    return ranks * CALIBRATION_BINS // len(v)
+
+
+def format_calibration(result, sets=None):
+    """Markdown tables: does the advisor's score for the final pool track wins?
+
+    Pools are binned by deck score within each set (the scale differs between
+    sets). Pool GIH WR is a simple yardstick the deck score should beat.
+    """
+    outcomes = [
+        o
+        for o in result.get("outcomes", [])
+        if _complete(o) and o.get("deck_score") is not None
+    ]
+    if len(outcomes) < OUTCOME_MIN_DRAFTS:
+        return ""
+    deck_z = _within_set(outcomes, "deck_score", _zscore_array)
+    gihwr_z = _within_set(outcomes, "pool_gihwr", _zscore_array)
+    bins = _within_set(outcomes, "deck_score", _decile)
+    wins = _wins(outcomes)
+    losses = np.array([o["losses"] for o in outcomes], dtype=float)
+    deck = np.array([o["deck_score"] for o in outcomes])
+    pool_gihwr = np.array([o["pool_gihwr"] for o in outcomes])
+    title = f"{', '.join(sets)}: " if sets else ""
+    lines = [
+        f"{title}{len(outcomes)} complete events. Final pools binned by the "
+        "advisor's deck score (deciles within each set).",
+        "",
+        "| decile | mean deck score | mean pool GIH WR | events | mean wins "
+        "| match win % |",
+        "|---|---|---|---|---|---|",
+    ]
+    for b in range(CALIBRATION_BINS):
+        sel = bins == b
+        if not sel.any():
+            continue
+        games = wins[sel].sum() + losses[sel].sum()
+        lines.append(
+            f"| {b + 1} | {deck[sel].mean():.1f} | {pool_gihwr[sel].mean():.1f} "
+            f"| {int(sel.sum())} | {wins[sel].mean():.2f} "
+            f"| {100 * wins[sel].sum() / games:.1f} |"
+        )
+
+    def cell(coef_se):
+        return f"{coef_se[0]:+.3f} ({coef_se[1]:.3f})"
+
+    lines += [
+        "",
+        "Δwins per +1 SD (within set), robust SE. Skill controls are the "
+        "win-rate and games buckets; all fits control for set.",
+        "",
+        "| pool score | alone | alone, with skill controls "
+        "| together, with skill controls |",
+        "|---|---|---|---|",
+    ]
+    together = wins_fit(outcomes, [deck_z, gihwr_z])
+    for i, (name, x) in enumerate(
+        [("advisor deck score", deck_z), ("pool GIH WR", gihwr_z)]
+    ):
+        lines.append(
+            f"| {name} | {cell(wins_fit(outcomes, [x], skill=False)[0])} "
+            f"| {cell(wins_fit(outcomes, [x])[0])} | {cell(together[i])} |"
         )
     return "\n".join(lines)
 
@@ -813,9 +982,12 @@ def main(argv=None):
                 json.dump(result, f, indent=1)
         code = [_set_code(result["dump"])]
         print(format_table(result, code))
-        outcomes = format_outcomes(merge([result]), code)
-        if outcomes:
-            print("\n" + outcomes)
+        for table in (
+            format_outcomes(merge([result]), code),
+            format_calibration(merge([result]), code),
+        ):
+            if table:
+                print("\n" + table)
         if result["skipped"]:
             print(f"\nSkipped: {result['skipped']}")
         if result["unmatched_names"]:
@@ -831,14 +1003,20 @@ def main(argv=None):
         if args.per_set and len(by_set) > 1:
             for code, rs in sorted(by_set.items()):
                 print(format_table(merge(rs), [code]) + "\n")
-                outcomes = format_outcomes(merge(rs), [code])
-                if outcomes:
-                    print(outcomes + "\n")
+                for table in (
+                    format_outcomes(merge(rs), [code]),
+                    format_calibration(merge(rs), [code]),
+                ):
+                    if table:
+                        print(table + "\n")
         total = merge(results)
         print(format_table(total, sorted(by_set)))
-        outcomes = format_outcomes(total, sorted(by_set))
-        if outcomes:
-            print("\n" + outcomes)
+        for table in (
+            format_outcomes(total, sorted(by_set)),
+            format_calibration(total, sorted(by_set)),
+        ):
+            if table:
+                print("\n" + table)
 
 
 def _set_code(dump_name):
