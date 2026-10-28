@@ -209,13 +209,86 @@ def test_arch_overall_pick_uses_pool_size(dataset):
     pack = dataset.get_data_by_name(["Card 1", "Card 2"])
     DraftAdvisor._calculate_weighted_score = spy
     try:
-        with ar.VARIANTS["arch-overall-pick"]():
+        with ar.VARIANTS["arch-overall-pick"](dataset):
             DraftAdvisor(SetMetrics(dataset), pool).evaluate_pack(
                 pack, 3, current_pack=2
             )
     finally:
         DraftAdvisor._calculate_weighted_score = original
     assert set(seen) == {17}
+
+
+def test_pick_lane_prefers_popular_archetype_the_pool_supports():
+    shares = {"URG": 0.18, "UBG": 0.15, "UG": 0.04, "WU": 0.10}
+    counts = {"U": 8, "G": 7, "R": 5, "B": 1, "W": 0}
+    lane, options = ar.pick_lane(["U", "G", "R"], counts, shares)
+    assert lane == "URG"
+    assert options == ["URG", "UG", "UBG"]
+
+    # With no third color in the pool, the pair beats both clans.
+    counts = {"U": 8, "G": 7, "R": 0, "B": 0, "W": 0}
+    assert ar.pick_lane(["U", "G"], counts, shares)[0] == "UG"
+    assert ar.pick_lane(["U"], counts, shares) == (None, [])
+
+
+def test_archetype_shares_ignores_rare_combos(dataset):
+    cards = dataset.get_card_ratings()
+    for i, card in enumerate(cards.values()):
+        card["deck_colors"]["All Decks"]["samples"] = 1000
+        card["deck_colors"]["URG"] = {"samples": 300}
+        card["deck_colors"]["WB"] = {"samples": 10}
+    assert ar.archetype_shares(dataset) == {"URG": 0.3}
+
+
+def test_arch_lane_treats_clan_cards_as_castable(dataset):
+    from src.advisor.engine import DraftAdvisor
+    from src.set_metrics import SetMetrics
+
+    for card in dataset.get_card_ratings().values():
+        card["deck_colors"]["All Decks"]["samples"] = 1000
+        card["deck_colors"]["URG"] = dict(card["deck_colors"]["All Decks"])
+    pool = dataset.get_data_by_name(["Card 1", "Card 6", "Card 4"] * 6)  # U, U, G
+    clan = dataset.get_data_by_name(["Card 3"])[0]  # R
+    metrics = SetMetrics(dataset)
+
+    # Baseline: R is outside the U/G lane, so it is penalized.
+    assert DraftAdvisor(metrics, pool)._calculate_castability_v5(clan, 3, 5, 0.0)[0] < 1
+    # URG is the only frequent archetype containing U and G, so it is the lane.
+    with ar.VARIANTS["arch-lane"](dataset):
+        advisor = DraftAdvisor(metrics, pool)
+        assert advisor.lane == "URG"
+        assert advisor.main_archetype == "URG"
+        assert advisor._calculate_castability_v5(clan, 3, 5, 0.0) == (1.0, "")
+
+
+class _Rec:
+    def __init__(self, name, score):
+        self.card_name, self.contextual_score = name, score
+
+
+def test_blend_order_moves_from_advisor_to_ata(dataset):
+    # The advisor likes Card 5 best; ATA prefers Card 0 (lower ATA).
+    pack = dataset.get_data_by_name(["Card 0", "Card 5", "Card 9"])
+    recs = [_Rec("Card 5", 80.0), _Rec("Card 0", 60.0), _Rec("Card 9", 10.0)]
+    assert ar.blend_order(recs, pack, 0.0) == ["Card 5", "Card 0", "Card 9"]
+    assert ar.blend_order(recs, pack, 1.0) == ["Card 0", "Card 5", "Card 9"]
+
+
+def test_replay_scores_blends_per_variant(tmp_path, dataset):
+    dump = _write_dump(tmp_path / "dump.csv.gz", [_best_first_draft("a")])
+    result = ar.replay(
+        ar.sample_drafts(dump, 10),
+        dataset,
+        ["baseline"],
+        blends=["ata50", "ata-first4"],
+    )
+    tally = result["tally"]
+    assert tally["baseline+ata50|all|all"]["n"] == 6
+    # ATA follows the drafter's picks in the fixture, so ATA-first agrees.
+    assert tally["baseline+ata-first4|all|all"]["top1"] == 6
+    table = ar.format_table(result)
+    assert table.index("| baseline |") < table.index("| baseline+ata50 |")
+    assert table.index("| baseline+ata-first4 |") < table.index("| gihwr |")
 
 
 def test_summarize_merges_results(tmp_path, dataset, capsys):

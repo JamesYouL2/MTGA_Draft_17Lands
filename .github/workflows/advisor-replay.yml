@@ -19,6 +19,9 @@ on:
       variants:
         description: Comma-separated engine variants
         default: baseline,arch-overall-pick
+      blends:
+        description: Comma-separated ATA blends scored on top of each variant
+        default: ""
 
 permissions:
   contents: read
@@ -29,6 +32,7 @@ env:
   SHARDS: ${{ inputs.shards || '4' }}
   DRAFTS: ${{ inputs.drafts || '100' }}
   VARIANTS: ${{ inputs.variants || 'baseline,arch-overall-pick' }}
+  BLENDS: ${{ inputs.blends || '' }}
 
 jobs:
   plan:
@@ -80,6 +84,8 @@ jobs:
           variant_args=()
           IFS=',' read -ra names <<< "$VARIANTS"
           for v in "${names[@]}"; do variant_args+=(--variant "${v// /}"); done
+          IFS=',' read -ra names <<< "$BLENDS"
+          for b in "${names[@]}"; do if [ -n "${b// /}" ]; then variant_args+=(--blend "${b// /}"); fi; done
           poetry run python Tools/AdvisorReplay/advisor_replay.py run \
             --dump "$RUNNER_TEMP/replay/draft_data_public.$SET.PremierDraft.csv.gz" \
             --dataset "$RUNNER_TEMP/replay/${SET}_PremierDraft_All_Data.json.gz" \

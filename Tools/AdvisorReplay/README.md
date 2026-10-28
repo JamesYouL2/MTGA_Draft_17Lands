@@ -42,7 +42,26 @@ tables to the run summary.
 A variant is a context manager in `VARIANTS` that patches the engine while it
 is active. For example, `arch-overall-pick` makes the archetype weight follow
 the overall pick instead of the pick within the pack. Add an entry, then pass
-`--variant <name>`.
+`--variant <name>`. A variant receives the dataset, for variants that derive
+something from it.
+
+`arch-lane` replaces the "top two colors" lane with an archetype: a two- or
+three-color combination that covers at least 3% of the set's games (see
+`archetype_shares`). In TDM, that is the five clans plus WR. `arch-lane-soft`
+also penalizes cards from the other archetypes that contain the top two colors
+less (0.7) than cards that are truly off-color.
+
+## ATA blends
+
+`--blend <name>` (repeatable) re-ranks each variant's advice by
+`(1 - w) * z(advisor score) + w * z(-ATA)`, with z-scores taken within the pack.
+The weight `w` depends on the pack, the pick within the pack and the overall
+pick (see `BLENDS`). Blends are reported as `<variant>+<blend>`. They only
+re-sort the advice, so they add almost no time.
+
+ATA is itself the average human pick position, so a blend matching human picks
+more often partly reflects that. Strong drafters are still the more telling
+group.
 
 ## Caveats
 

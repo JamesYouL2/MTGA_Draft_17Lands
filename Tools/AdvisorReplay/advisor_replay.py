@@ -25,6 +25,7 @@ import hashlib
 import heapq
 import json
 import logging
+import math
 import os
 import sys
 import tempfile
@@ -65,12 +66,12 @@ def _fast_stack_cards(cards):
 
 
 @contextlib.contextmanager
-def _baseline():
+def _baseline(dataset):
     yield
 
 
 @contextlib.contextmanager
-def _arch_overall_pick():
+def _arch_overall_pick(dataset):
     """Weight the archetype by overall pick, not the pick within the pack."""
     original = DraftAdvisor._calculate_weighted_score
 
@@ -81,10 +82,150 @@ def _arch_overall_pick():
         yield
 
 
+# Color combos with at least this share of the set's games count as archetypes.
+ARCHETYPE_MIN_SHARE = 0.03
+
+
+def archetype_shares(dataset):
+    """{two- or three-color key: share of games} for the set's real archetypes.
+
+    Uses the per-deck-color sample counts in the card ratings, so a set like
+    TDM yields its five clans (plus WR) and a two-color set yields its pairs.
+    """
+    totals = defaultdict(int)
+    for card in dataset.get_card_ratings().values():
+        for key, stats in card.get(constants.DATA_FIELD_DECK_COLORS, {}).items():
+            totals[key] += stats.get("samples", 0) or 0
+    games = totals.pop(constants.FILTER_OPTION_ALL_DECKS, 0) or 1
+    return {
+        k: n / games
+        for k, n in totals.items()
+        if len(k) in (2, 3) and n / games >= ARCHETYPE_MIN_SHARE
+    }
+
+
+def pick_lane(main_colors, color_counts, shares):
+    """The archetype containing the top two colors that best fits the pool.
+
+    Each candidate scores its share of games times, for each color beyond the
+    top two, how committed the pool is to it relative to the second color
+    (floored at 0.1). Returns (lane, candidates best first), or (None, []).
+    """
+    if len(main_colors) < 2:
+        return None, []
+    top2 = set(main_colors[:2])
+    second = max(1, color_counts.get(main_colors[1], 0))
+    scored = []
+    for key, share in shares.items():
+        if not top2 <= set(key):
+            continue
+        score = share
+        for extra in set(key) - top2:
+            score *= max(0.1, min(1.0, color_counts.get(extra, 0) / second))
+        scored.append((score, key))
+    scored.sort(reverse=True)
+    return (scored[0][1] if scored else None), [k for _, k in scored]
+
+
+_SHARES = {}  # id(dataset) -> archetype_shares, so each pick doesn't recount
+
+
+@contextlib.contextmanager
+def _arch_lane(dataset, soft=False):
+    """Make the lane a frequent archetype (e.g. a TDM clan), not the top two colors.
+
+    The lane sets the archetype used for card win rates and which colors count
+    as castable. With soft, a card that fits another archetype containing the
+    top two colors is penalized less (0.7) than a true off-color card.
+    """
+    shares = _SHARES.get(id(dataset))
+    if shares is None:
+        shares = _SHARES[id(dataset)] = archetype_shares(dataset)
+    init = DraftAdvisor.__init__
+    castability = DraftAdvisor._calculate_castability_v5
+
+    def patched_init(self, *args, **kwargs):
+        init(self, *args, **kwargs)
+        self.lane, self.lane_options = pick_lane(
+            self.main_colors, self.color_counts, shares
+        )
+        if self.lane:
+            self.main_archetype = self.lane
+            self.main_colors = sorted(
+                self.lane, key=lambda c: -self.color_counts.get(c, 0)
+            )
+            self.active_colors = self.main_colors
+
+    def patched_castability(self, card, pack, pick, z_score):
+        if not self.lane:
+            return castability(self, card, pack, pick, z_score)
+        colors = set(card.get("colors", []))
+        if colors <= set(self.lane):
+            return 1.0, ""
+        mult, reason = castability(self, card, pack, pick, z_score)
+        if soft and mult < 0.7 and any(colors <= set(k) for k in self.lane_options):
+            return 0.7, "Other Archetype In Lane"
+        return mult, reason
+
+    with mock.patch.object(DraftAdvisor, "__init__", patched_init), mock.patch.object(
+        DraftAdvisor, "_calculate_castability_v5", patched_castability
+    ):
+        yield
+
+
 VARIANTS = {
     "baseline": _baseline,
     "arch-overall-pick": _arch_overall_pick,
+    "arch-lane": _arch_lane,
+    "arch-lane-soft": lambda dataset: _arch_lane(dataset, soft=True),
 }
+
+
+# --- ATA blends ------------------------------------------------------------
+
+# Each blend reranks a variant's advice by
+#     (1 - w) * z(advisor score) + w * z(-ATA),
+# with z-scores taken over the pack and w = f(pack, pick in pack, overall pick).
+# They only re-sort the advice, so they cost almost nothing to score.
+BLENDS = {
+    "ata30": lambda pk, pi, overall: 0.3,
+    "ata50": lambda pk, pi, overall: 0.5,
+    "ata70": lambda pk, pi, overall: 0.7,
+    "ata70-exp4": lambda pk, pi, overall: 0.7 * math.exp(-(pi - 1) / 4),
+    "ata70-exp8": lambda pk, pi, overall: 0.7 * math.exp(-(pi - 1) / 8),
+    "ata90-exp8": lambda pk, pi, overall: 0.9 * math.exp(-(pi - 1) / 8),
+    "ata70-exp4-floor30": lambda pk, pi, overall: 0.3 + 0.4 * math.exp(-(pi - 1) / 4),
+    "ata-overall-linear": lambda pk, pi, overall: 0.8
+    * max(0.0, 1 - (overall - 1) / 44),
+    "ata-first4": lambda pk, pi, overall: 1.0 if pi <= 4 else 0.0,
+    "ata-first4-pack1": lambda pk, pi, overall: 1.0 if pk == 1 and pi <= 4 else 0.0,
+    "ata-rising": lambda pk, pi, overall: 0.2 + 0.5 * min(1.0, (pi - 1) / 13),
+}
+
+# Cards with no ATA sort as if taken at the end of a pack.
+MISSING_ATA = 15.0
+
+
+def _zscores(values):
+    mean = sum(values) / len(values)
+    sd = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values)) or 1.0
+    return [(v - mean) / sd for v in values]
+
+
+def blend_order(recs, pack, weight):
+    """Names from recs, reordered by the advisor/ATA blend with ATA weight."""
+    scores = {}
+    for r in recs:
+        scores.setdefault(r.card_name, r.contextual_score)
+    ata = {
+        c[constants.DATA_FIELD_NAME]: _stat(c, constants.DATA_FIELD_ATA) for c in pack
+    }
+    names = list(scores)
+    z_adv = _zscores([scores[n] for n in names])
+    z_ata = _zscores([-(ata.get(n) or MISSING_ATA) for n in names])
+    blended = {n: (1 - weight) * a + weight * t for n, a, t in zip(names, z_adv, z_ata)}
+    # sorted is stable, so ties keep the advisor's order.
+    return sorted(names, key=lambda n: -blended[n])
 
 
 # --- Reading the dump ------------------------------------------------------
@@ -280,18 +421,22 @@ class Tally:
             d["rank"] += rank
 
 
-def replay(drafts, dataset, variants, progress_every=0, fast=True):
-    """Score each variant and the baselines on every pick of every draft."""
+def replay(drafts, dataset, variants, progress_every=0, fast=True, blends=()):
+    """Score each variant and the baselines on every pick of every draft.
+
+    Each name in blends is also scored on top of every variant, as
+    "<variant>+<blend>".
+    """
     patch = (
         mock.patch.object(deck_builder, "stack_cards", _fast_stack_cards)
         if fast
         else contextlib.nullcontext()
     )
     with patch:
-        return _replay(drafts, dataset, variants, progress_every)
+        return _replay(drafts, dataset, variants, progress_every, blends)
 
 
-def _replay(drafts, dataset, variants, progress_every):
+def _replay(drafts, dataset, variants, progress_every, blends):
     metrics = SetMetrics(dataset)
     resolver = NameResolver(dataset)
     sig_calc = SignalCalculator(metrics)
@@ -327,7 +472,7 @@ def _replay(drafts, dataset, variants, progress_every):
 
             slices = _slices(pk, pi)
             for name in variants:
-                with VARIANTS[name]():
+                with VARIANTS[name](dataset):
                     recs = DraftAdvisor(metrics, pool, signals=scores).evaluate_pack(
                         pack, pi, current_pack=pk
                     )
@@ -337,6 +482,11 @@ def _replay(drafts, dataset, variants, progress_every):
                     continue
                 for g in groups:
                     tally.add(name, g, slices, rank)
+                for b in blends:
+                    weight = BLENDS[b](pk, pi, len(pool) + 1)
+                    rank = _rank_of(blend_order(recs, pack, weight), target)
+                    for g in groups:
+                        tally.add(f"{name}+{b}", g, slices, rank)
             for name, order in baseline_orders(pack).items():
                 rank = _rank_of(order, target)
                 for g in groups:
@@ -418,8 +568,12 @@ def format_table(result, sets=None):
 
 
 def _method_order(m):
+    """Variants in VARIANTS order, each followed by its blends, then baselines."""
     order = list(VARIANTS) + ["gihwr", "ata"]
-    return order.index(m) if m in order else len(order)
+    base, _, blend = m.partition("+")
+    i = order.index(base) if base in order else len(order)
+    j = list(BLENDS).index(blend) + 1 if blend in BLENDS else 0
+    return (i, j, m)
 
 
 # --- CLI -------------------------------------------------------------------
@@ -443,6 +597,13 @@ def main(argv=None):
         choices=sorted(VARIANTS),
         help="Engine variant to score (repeatable). Default: baseline.",
     )
+    run.add_argument(
+        "--blend",
+        action="append",
+        choices=list(BLENDS),
+        default=[],
+        help="ATA blend to score on top of each variant (repeatable).",
+    )
     run.add_argument("--out", help="Write results JSON here")
     run.add_argument("--progress", type=int, default=25, help="Report every N drafts")
 
@@ -460,9 +621,16 @@ def main(argv=None):
         print(
             f"Sampled {len(drafts)} drafts in {time.time() - t:.0f}s", file=sys.stderr
         )
-        result = replay(drafts, load_dataset(args.dataset), variants, args.progress)
+        result = replay(
+            drafts,
+            load_dataset(args.dataset),
+            variants,
+            args.progress,
+            blends=args.blend,
+        )
         result["dump"] = os.path.basename(args.dump)
         result["variants"] = variants
+        result["blends"] = args.blend
         if args.out:
             os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
             with open(args.out, "w", encoding="utf-8") as f:
