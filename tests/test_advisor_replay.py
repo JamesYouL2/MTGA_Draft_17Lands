@@ -428,3 +428,89 @@ def test_format_calibration_bins_pools_by_deck_score():
     for o in outcomes:
         o["deck_score"] = None
     assert ar.format_calibration({"outcomes": outcomes}) == ""
+
+
+def test_sample_drafts_final_only_keeps_just_the_final_pool(tmp_path):
+    dump = _write_dump(
+        tmp_path / "dump.csv.gz",
+        [_best_first_draft("a", wr=0.62, games=50), _best_first_draft("b")],
+    )
+    full = ar.sample_drafts(dump, 10)
+    final = ar.sample_drafts(dump, 10, final_only=True)
+    assert set(final) == set(full)
+    for draft_id, draft in final.items():
+        _, _, taken, _, pool = full[draft_id]["picks"][-1]
+        assert draft["picks"] == []
+        assert sorted(draft["final"]) == sorted(pool + [taken])
+    assert final["a"]["strong"] and final["a"]["skill"] == 0.62
+
+
+def _long_draft(draft_id, taken):
+    """A draft whose picks are taken, each from a two-card pack."""
+    return (
+        draft_id,
+        0.5,
+        10,
+        [(i // 12, i % 12, name, [name, "Card 10"]) for i, name in enumerate(taken)],
+    )
+
+
+def test_score_pools_splits_each_final_pools_deck_score(tmp_path, dataset):
+    dump = _write_dump(
+        tmp_path / "dump.csv.gz",
+        [
+            _long_draft("full", ["Card 0"] * 12 + ["Card 1"] * 12),
+            _long_draft("short", ["Card 0"] * 9),
+        ],
+    )
+    result = ar.score_pools(ar.sample_drafts(dump, 10, final_only=True), dataset)
+    assert result["tally"] == {} and result["unmatched_names"] == {}
+    full, short = sorted(result["outcomes"], key=lambda o: o["deck_score"] is None)
+    assert short["deck_score"] is None and short["wins"] == 3
+    parts = full["power"] + sum(full[k] for k in ar.DECK_PARTS)
+    assert full["deck_score"] == pytest.approx(max(0.0, parts), abs=1e-3)
+    assert full["colors"] == 2
+    assert 64.0 <= full["deck_gihwr"] <= 65.0
+    assert full["pool_gihwr"] == pytest.approx((12 * 65 + 11 * 64) / 23)
+
+
+def _pool_outcomes(n, sets=("AAA", "BBB", "CCC")):
+    """Complete events whose wins rise with power; the curve penalty is noise."""
+    out = []
+    for i in range(n):
+        power = 70.0 + (i * 7 % 13)
+        curve = -3.0 * (i % 4 == 0)
+        wins = min(7, max(0, round((power - 70.0) / 2 + (i % 3 - 1))))
+        out.append(
+            {
+                "wins": wins,
+                "losses": 3 if wins < 7 else 1,
+                "skill": 0.5,
+                "games": 50,
+                "set": sets[i % len(sets)],
+                "deck_score": power + curve,
+                "power": power,
+                "deck_gihwr": 55.0 + (i % 5),
+                "pool_gihwr": 54.0 + power / 100,
+            }
+            | {k: 0.0 for k in ar.DECK_PARTS}
+            | {"curve": curve}
+        )
+    return out
+
+
+def test_format_deck_parts_weighs_each_piece_against_power():
+    table = ar.format_deck_parts({"outcomes": _pool_outcomes(90)}, ["AAA"])
+    assert "AAA: 90 complete events" in table
+    power = next(r for r in table.splitlines() if r.startswith("| power"))
+    assert float(power.split("|")[4].split()[0]) == pytest.approx(0.5, abs=0.05)
+    assert "| curve / land penalty | 25.6% | -3.0 |" in table
+    # Pieces that never apply have nothing to estimate.
+    assert "tribal" not in table
+    # Three sets, so each is held out in turn.
+    assert "| held-out set |" in table
+    assert "| BBB |" in table and "| all |" in table
+
+    one_set = _pool_outcomes(90, sets=("AAA",))
+    assert "| held-out set |" not in ar.format_deck_parts({"outcomes": one_set})
+    assert ar.format_deck_parts({"outcomes": _pool_outcomes(20)}) == ""

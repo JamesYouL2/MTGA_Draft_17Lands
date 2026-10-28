@@ -12,6 +12,7 @@ from src.advisor.deck_scorer import (
     get_card_rating,
     identify_top_pairs,
     calculate_holistic_score,
+    holistic_score_parts,
     estimate_record,
     TIER_TO_GIHWR,
 )
@@ -284,6 +285,27 @@ def test_holistic_score_incomplete_deck(mock_metrics):
     assert "Incomplete Deck" in notes
     # Score should be completely ruined (probably 0.0)
     assert score < 50.0
+
+
+def test_holistic_score_parts_add_up_to_the_score(mock_metrics):
+    """The parts are the score's pieces: power plus each adjustment, floored at 0."""
+    aggro = [
+        make_card("Mountain", count=16, types=["Land"]),
+        make_card("Goblin", count=24, cmc=1, gihwr=58.0),
+    ]
+    incomplete = [make_card("Spell", count=5, gihwr=65.0)]
+    for deck in (aggro, incomplete):
+        score, notes = calculate_holistic_score(deck, ["R"], 45, mock_metrics)
+        power, adjustments = holistic_score_parts(deck, ["R"], 45, mock_metrics)
+        assert score == pytest.approx(
+            max(0.0, power + sum(d for _, d, _ in adjustments))
+        )
+        assert notes == ", ".join(note for _, _, note in adjustments)
+
+    power, adjustments = holistic_score_parts(aggro, ["R"], 45, mock_metrics)
+    assert power == pytest.approx(75.0 + 12.0 * (58.0 - 55.0) / 4.0)
+    assert [(k, d) for k, d, _ in adjustments] == [("aggro", 5.0), ("two_colors", 2.5)]
+    assert holistic_score_parts([], ["R"], 45, mock_metrics) is None
 
 
 def test_estimate_record():

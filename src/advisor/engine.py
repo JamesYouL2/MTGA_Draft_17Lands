@@ -628,6 +628,10 @@ class DraftAdvisor:
     def _get_fast_best_deck_score(
         self, pool: List[Dict], color_options: List[List[str]]
     ) -> float:
+        return self._get_fast_best_deck(pool, color_options)[0]
+
+    def _get_fast_best_deck(self, pool: List[Dict], color_options: List[List[str]]):
+        """(score, deck, colors) of the best quick build, or (0.0, None, None)."""
         from src.card_logic import (
             build_variant_consistency,
             build_variant_greedy,
@@ -636,7 +640,7 @@ class DraftAdvisor:
             calculate_holistic_score,
         )
 
-        best_score = 0.0
+        best = (0.0, None, None)
         for main_colors in color_options:
             for builder in [build_variant_consistency, build_variant_curve]:
                 deck = builder(pool, main_colors, self.metrics)
@@ -644,8 +648,8 @@ class DraftAdvisor:
                     score, _ = calculate_holistic_score(
                         deck, main_colors, len(pool), self.metrics
                     )
-                    if score > best_score:
-                        best_score = score
+                    if score > best[0]:
+                        best = (score, deck, main_colors)
 
             deck, splash = build_variant_greedy(pool, main_colors, self.metrics)
             if deck:
@@ -653,8 +657,8 @@ class DraftAdvisor:
                 score, _ = calculate_holistic_score(
                     deck, target_colors, len(pool), self.metrics
                 )
-                if score > best_score:
-                    best_score = score
+                if score > best[0]:
+                    best = (score, deck, target_colors)
 
         deck, soup_colors = build_variant_soup(pool, self.metrics)
         if deck:
@@ -662,7 +666,7 @@ class DraftAdvisor:
             score, _ = calculate_holistic_score(
                 deck, target_colors, len(pool), self.metrics
             )
-            if score > best_score:
-                best_score = score
+            if score > best[0]:
+                best = (score, deck, target_colors)
 
-        return best_score
+        return best

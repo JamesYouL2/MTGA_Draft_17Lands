@@ -93,7 +93,30 @@ binned into deciles of deck score within each set, and wins and match win rate
 are reported per decile. A well-calibrated score rises steadily across the
 deciles. It should also beat the yardstick when both are in the same regression.
 
-Caveats specific to this table:
+**Pieces of the deck score.** The deck score is the power from card ratings
+(`75 + 12 z` of the deck's mean rating) plus fixed adjustments: curve, aggro,
+two-color, tribal, domain, greedy-mana, evasion and incomplete-deck. The last
+table regresses wins on each piece in score points. If the score were weighted
+well, each piece would be worth as many wins per point as the power (ratio 1).
+A ratio near 0 means the adjustment is noise, and a negative ratio means it
+points the wrong way. With 3+ sets, the pieces are also reweighted on every set
+but one and tested on the held-out set, next to the current score and the GIH
+WR yardstick.
+
+Only final pools are needed for these tables. The `pools` command skips the
+per-pick replay and scores each final pool in about 15 ms, so it can use far
+more drafts:
+
+```bash
+poetry run python Tools/AdvisorReplay/advisor_replay.py pools \
+    --dump draft_data_public.$SET.PremierDraft.csv.gz \
+    --dataset ${SET}_PremierDraft_All_Data.json.gz \
+    --drafts 20000 --out results/$SET-pools.json
+```
+
+In the workflow, set **mode** to `pools`.
+
+Caveats specific to these tables:
 
 - The skill buckets include these drafts' own games, so they partly absorb the
   outcome. This understates every method's effect, roughly equally.

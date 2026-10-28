@@ -42,7 +42,10 @@ if ROOT not in sys.path:
 
 from src import constants  # noqa: E402
 from src.advisor import deck_builder  # noqa: E402
-from src.advisor.deck_scorer import identify_top_pairs  # noqa: E402
+from src.advisor.deck_scorer import (  # noqa: E402
+    holistic_score_parts,
+    identify_top_pairs,
+)
 from src.advisor.engine import DraftAdvisor  # noqa: E402
 from src.dataset import Dataset  # noqa: E402
 from src.set_metrics import SetMetrics  # noqa: E402
@@ -273,13 +276,15 @@ def _float(value, default=0.0):
         return default
 
 
-def sample_drafts(path, n_drafts, shard=0, num_shards=1):
+def sample_drafts(path, n_drafts, shard=0, num_shards=1, final_only=False):
     """Pick n_drafts drafts uniformly at random (by hashed draft_id).
 
     Returns {draft_id: draft}, where a draft has "strong", its event result
     ("wins", "losses"), the drafter's "skill" (game win rate bucket) and
     "games" (games bucket), each None if missing, and a list of "picks"
-    (pack, pick, picked name, pack names, pool names), in dump order.
+    (pack, pick, picked name, pack names, pool names), in dump order. With
+    final_only, "picks" stays empty and "final" holds the names in the final
+    pool instead, which needs far less memory.
     """
     with _open_text(path) as f:
         reader = csv.reader(f)
@@ -309,12 +314,30 @@ def sample_drafts(path, n_drafts, shard=0, num_shards=1):
         def field(row, i):
             return _float(row[i], None) if i is not None else None
 
+        def names(row, cols):
+            return [
+                n
+                for i, n in cols
+                if row[i] not in ("", "0")
+                for _ in range(int(row[i]))
+            ]
+
+        # With final_only, the latest row of the draft being read: its pool
+        # plus its pick is the final pool.
+        last = None
+
+        def finish():
+            if last is not None and last[0] in drafts:
+                drafts[last[0]]["final"] = names(last[2], pool_cols) + [last[2][i_name]]
+
         # Bottom-k by hash: a max-heap of (-priority, draft_id) for kept drafts.
         heap, drafts = [], {}
         current_id, keep = None, False
         for row in reader:
             draft_id = row[i_id]
             if draft_id != current_id:
+                finish()
+                last = None
                 current_id = draft_id
                 h = _draft_hash(draft_id)
                 keep = h % num_shards == shard
@@ -345,25 +368,21 @@ def sample_drafts(path, n_drafts, shard=0, num_shards=1):
                     }
             if not keep:
                 continue
+            pack_no, pick_no = int(row[i_pack]), int(row[i_pick])
+            if final_only:
+                if last is None or (pack_no, pick_no) >= last[1]:
+                    last = (draft_id, (pack_no, pick_no), row)
+                continue
             drafts[draft_id]["picks"].append(
                 (
-                    int(row[i_pack]),
-                    int(row[i_pick]),
+                    pack_no,
+                    pick_no,
                     row[i_name],
-                    [
-                        n
-                        for i, n in pack_cols
-                        if row[i] not in ("", "0")
-                        for _ in range(int(row[i]))
-                    ],
-                    [
-                        n
-                        for i, n in pool_cols
-                        if row[i] not in ("", "0")
-                        for _ in range(int(row[i]))
-                    ],
+                    names(row, pack_cols),
+                    names(row, pool_cols),
                 )
             )
+        finish()
     return drafts
 
 
@@ -460,18 +479,55 @@ def _slices(pack_no, pick_no):
 DECK_SIZE = 23
 
 
-def pool_strength(pool, metrics):
-    """(advisor deck score, pool GIH WR) for a final pool, or Nones if short.
+# Adjustments calculate_holistic_score can add to the power from card ratings.
+DECK_PARTS = (
+    "curve",
+    "aggro",
+    "two_colors",
+    "tribal",
+    "domain",
+    "greedy_mana",
+    "evasion",
+    "incomplete",
+)
 
-    The deck score is the advisor's own best-deck estimate. Pool GIH WR is a
-    simple yardstick: the mean GIH WR of the best 23 cards castable in one
-    color pair (missing slots count as 0).
+
+def pool_features(pool, metrics):
+    """How strong a final pool is, by the advisor and by simpler yardsticks.
+
+    Returns None for pools short of a deck. Otherwise a dict with the
+    advisor's best-deck score ("deck_score") and its pieces ("power" from card
+    ratings plus each of DECK_PARTS), the best deck's color count ("colors")
+    and mean GIH WR over all decks ("deck_gihwr"), and "pool_gihwr": the mean
+    GIH WR of the best 23 cards castable in one color pair (missing slots
+    count as 0).
     """
     if len(pool) < DECK_SIZE:
-        return None, None
-    deck_score = DraftAdvisor(metrics, pool)._get_fast_best_deck_score(
+        return None
+    score, deck, colors = DraftAdvisor(metrics, pool)._get_fast_best_deck(
         pool, identify_top_pairs(pool, metrics)
     )
+    features = {
+        "deck_score": score,
+        "power": None,
+        "colors": None,
+        "deck_gihwr": None,
+    } | {k: 0.0 for k in DECK_PARTS}
+    parts = holistic_score_parts(deck, colors, len(pool), metrics) if deck else None
+    if parts:
+        power, adjustments = parts
+        features["power"] = power
+        for key, delta, _ in adjustments:
+            features[key] += delta
+        features["colors"] = len(colors) if colors != ["All Decks"] else 5
+        rates = [
+            _stat(c, constants.DATA_FIELD_GIHWR)
+            for c in deck
+            if constants.CARD_TYPE_LAND not in c.get("types", [])
+            for _ in range(c.get("count", 1))
+        ]
+        rates = [r for r in rates if r > 0]
+        features["deck_gihwr"] = sum(rates) / len(rates) if rates else None
     best = 0.0
     for pair in itertools.combinations(constants.CARD_COLORS, 2):
         rates = sorted(
@@ -483,7 +539,17 @@ def pool_strength(pool, metrics):
             reverse=True,
         )[:DECK_SIZE]
         best = max(best, sum(rates) / DECK_SIZE)
-    return deck_score, best
+    features["pool_gihwr"] = best
+    # Rounded so large runs' result files stay small.
+    return {k: round(v, 4) if isinstance(v, float) else v for k, v in features.items()}
+
+
+def pool_strength(pool, metrics):
+    """(advisor deck score, pool GIH WR) for a final pool, or Nones if short."""
+    features = pool_features(pool, metrics)
+    if features is None:
+        return None, None
+    return features["deck_score"], features["pool_gihwr"]
 
 
 class DraftScore:
@@ -594,19 +660,11 @@ def _replay(drafts, dataset, variants, progress_every, blends):
             for name, by_name in baseline_scores(pack).items():
                 score.add(name, by_name, target)
 
-        deck_score = pool_gihwr = None
+        features = None
         if draft["picks"]:
             # The pool before the last pick, plus the last pick.
-            final = pool + resolver.cards([picked])
-            deck_score, pool_gihwr = pool_strength(final, metrics)
-        outcomes.append(
-            {k: draft.get(k) for k in ("strong", "wins", "losses", "skill", "games")}
-            | {
-                "deck_score": deck_score,
-                "pool_gihwr": pool_gihwr,
-                "methods": dict(score.methods),
-            }
-        )
+            features = pool_features(pool + resolver.cards([picked]), metrics)
+        outcomes.append(_outcome(draft, features) | {"methods": dict(score.methods)})
 
         if progress_every and n % progress_every == 0:
             print(
@@ -624,6 +682,47 @@ def _replay(drafts, dataset, variants, progress_every, blends):
             sorted(resolver.missing.items(), key=lambda x: -x[1])[:20]
         ),
         "tally": dict(tally.data),
+        "outcomes": outcomes,
+    }
+
+
+def _outcome(draft, features):
+    """A draft's result plus its final pool's features (None if no pool)."""
+    return {k: draft.get(k) for k in ("strong", "wins", "losses", "skill", "games")} | (
+        features or {"deck_score": None, "pool_gihwr": None}
+    )
+
+
+def score_pools(drafts, dataset, progress_every=0):
+    """Score only each draft's final pool, for relating pool strength to wins.
+
+    Much faster than replay(): there is no advice per pick. Drafts need
+    "final" (the names in the final pool), as sampled with final_only=True.
+    """
+    metrics = SetMetrics(dataset)
+    resolver = NameResolver(dataset)
+    outcomes = []
+    start = time.time()
+    patch = mock.patch.object(deck_builder, "stack_cards", _fast_stack_cards)
+    with patch:
+        for n, (_, draft) in enumerate(sorted(drafts.items()), 1):
+            pool = resolver.cards(draft.get("final", []))
+            outcomes.append(_outcome(draft, pool_features(pool, metrics)))
+            if progress_every and n % progress_every == 0:
+                print(
+                    f"{n}/{len(drafts)} pools, {time.time() - start:.0f}s",
+                    file=sys.stderr,
+                    flush=True,
+                )
+    return {
+        "drafts": len(drafts),
+        "strong_drafts": sum(d["strong"] for d in drafts.values()),
+        "seconds": round(time.time() - start, 1),
+        "skipped": {},
+        "unmatched_names": dict(
+            sorted(resolver.missing.items(), key=lambda x: -x[1])[:20]
+        ),
+        "tally": {},
         "outcomes": outcomes,
     }
 
@@ -770,7 +869,11 @@ def format_outcomes(result, sets=None):
     """
     outcomes = [o for o in result.get("outcomes", []) if _complete(o)]
     methods = sorted(
-        set.intersection(*(set(o["methods"]) for o in outcomes)) if outcomes else (),
+        (
+            set.intersection(*(set(o.get("methods", {})) for o in outcomes))
+            if outcomes
+            else ()
+        ),
         key=_method_order,
     )
     outcomes = [o for o in outcomes if all(o["methods"][m][0] for m in methods)]
@@ -912,6 +1015,142 @@ def format_calibration(result, sets=None):
     return "\n".join(lines)
 
 
+# Yardsticks outside the deck score, tested alongside its pieces.
+DECK_EXTRAS = ("deck_gihwr", "pool_gihwr")
+DECK_PART_LABELS = {
+    "power": "power from card ratings",
+    "curve": "curve / land penalty",
+    "aggro": "aggro curve bonus",
+    "two_colors": "two-color bonus",
+    "tribal": "tribal bonus",
+    "domain": "domain bonus",
+    "greedy_mana": "greedy mana penalty",
+    "evasion": "evasion penalty",
+    "incomplete": "incomplete deck penalty",
+    "deck_gihwr": "deck mean GIH WR",
+    "pool_gihwr": "pool GIH WR (best pair)",
+}
+
+
+def _column(outcomes, key):
+    return np.array([o[key] for o in outcomes], dtype=float)
+
+
+def _varying(outcomes, keys):
+    """The keys whose values vary within at least one set."""
+    by_set = defaultdict(list)
+    for o in outcomes:
+        by_set[o.get("set")].append(o)
+    return [
+        k for k in keys if any(_column(group, k).std() > 0 for group in by_set.values())
+    ]
+
+
+def _refit_scores(train, test, keys):
+    """Score test pools with the weights wins put on keys in train."""
+    weights = [c for c, _ in wins_fit(train, [_column(train, k) for k in keys])]
+    return sum(w * _column(test, k) for w, k in zip(weights, keys))
+
+
+def format_deck_parts(result, sets=None):
+    """Markdown tables: which pieces of the advisor's deck score predict wins?
+
+    Each piece is in score points, so if the score were well weighted every
+    piece would be worth as many wins per point as the power from card
+    ratings. With 3+ sets, pieces are also reweighted on all sets but one and
+    the reweighted score is tested on the held-out set.
+    """
+    outcomes = [
+        o
+        for o in result.get("outcomes", [])
+        if _complete(o)
+        and o.get("power") is not None
+        and o.get("deck_gihwr") is not None
+    ]
+    if len(outcomes) < OUTCOME_MIN_DRAFTS:
+        return ""
+    parts = _varying(outcomes, ("power",) + DECK_PARTS)
+    extras = _varying(outcomes, DECK_EXTRAS)
+    alone = dict(zip(parts, wins_fit(outcomes, [_column(outcomes, k) for k in parts])))
+    both = dict(
+        zip(
+            parts + extras,
+            wins_fit(outcomes, [_column(outcomes, k) for k in parts + extras]),
+        )
+    )
+    power = alone.get("power", (0.0, 0.0))[0]
+
+    def cell(coef_se):
+        return f"{coef_se[0]:+.4f} ({coef_se[1]:.4f})"
+
+    title = f"{', '.join(sets)}: " if sets else ""
+    lines = [
+        f"{title}{len(outcomes)} complete events. Event wins regressed on the "
+        "pieces of the final pool's deck score (in score points), controlling "
+        "for skill bucket, games bucket and set. A well-weighted piece is worth "
+        "as much per point as the power from card ratings (ratio 1).",
+        "",
+        "| piece | applies | mean when applied | Δwins per point (robust SE) "
+        "| ratio to power | with GIH WR yardsticks added |",
+        "|---|---|---|---|---|---|",
+    ]
+    for k in ("power",) + DECK_PARTS + DECK_EXTRAS:
+        if k not in parts and k not in extras:
+            continue
+        x = _column(outcomes, k)
+        applied = x != 0
+        ratio = (
+            f"{alone[k][0] / power:+.2f}"
+            if k in alone and power and k != "power"
+            else "–"
+        )
+        lines.append(
+            f"| {DECK_PART_LABELS[k]} "
+            f"| {100 * applied.mean():.1f}% | {x[applied].mean():+.1f} "
+            f"| {cell(alone[k]) if k in alone else '–'} | {ratio} | {cell(both[k])} |"
+        )
+
+    by_set = defaultdict(list)
+    for o in outcomes:
+        by_set[o["set"]].append(o)
+    if len(by_set) < 3:
+        return "\n".join(lines)
+
+    # Leave one set out: weights from the other sets, tested on this one.
+    scores = {
+        "advisor deck score": lambda train, test: _column(test, "deck_score"),
+        "pool GIH WR": lambda train, test: _column(test, "pool_gihwr"),
+        "reweighted pieces": lambda train, test: _refit_scores(train, test, parts),
+        "reweighted pieces + yardsticks": lambda train, test: _refit_scores(
+            train, test, parts + extras
+        ),
+    }
+    held_out = {name: np.zeros(len(outcomes)) for name in scores}
+    index = {id(o): i for i, o in enumerate(outcomes)}
+    lines += [
+        "",
+        "Held-out sets: weights fit on every other set. Δwins per +1 SD of "
+        "each score (within set), with skill controls, robust SE.",
+        "",
+        "| held-out set | " + " | ".join(scores) + " |",
+        "|---|" + "---|" * len(scores),
+    ]
+    for code, test in sorted(by_set.items()):
+        train = [o for o in outcomes if o["set"] != code]
+        idx = [index[id(o)] for o in test]
+        cells = []
+        for name, fn in scores.items():
+            z = _zscore_array(fn(train, test))
+            held_out[name][idx] = z
+            cells.append(f"{wins_fit(test, [z])[0][0]:+.3f}")
+        lines.append(f"| {code} | " + " | ".join(cells) + " |")
+    fits = [wins_fit(outcomes, [z])[0] for z in held_out.values()]
+    lines.append(
+        "| all | " + " | ".join(f"{c:+.3f} ({se:.3f})" for c, se in fits) + " |"
+    )
+    return "\n".join(lines)
+
+
 def _method_order(m):
     """Variants in VARIANTS order, each followed by its blends, then baselines."""
     order = list(VARIANTS) + ["gihwr", "ata"]
@@ -952,6 +1191,21 @@ def main(argv=None):
     run.add_argument("--out", help="Write results JSON here")
     run.add_argument("--progress", type=int, default=25, help="Report every N drafts")
 
+    pools = sub.add_parser(
+        "pools", help="Score only final pools, for relating pool strength to wins."
+    )
+    pools.add_argument(
+        "--dump", required=True, help="17Lands draft_data_public CSV(.gz)"
+    )
+    pools.add_argument(
+        "--dataset", required=True, help="App dataset JSON(.gz) for the set"
+    )
+    pools.add_argument("--drafts", type=int, default=2000)
+    pools.add_argument("--shard", type=int, default=0)
+    pools.add_argument("--num-shards", type=int, default=1)
+    pools.add_argument("--out", help="Write results JSON here")
+    pools.add_argument("--progress", type=int, default=500, help="Report every N pools")
+
     summ = sub.add_parser("summarize", help="Merge result files into a table.")
     summ.add_argument("results", nargs="+")
     summ.add_argument("--per-set", action="store_true", help="Also print each set")
@@ -959,35 +1213,36 @@ def main(argv=None):
     args = parser.parse_args(argv)
     logging.disable(logging.WARNING)
 
-    if args.command == "run":
-        variants = args.variant or ["baseline"]
+    if args.command in ("run", "pools"):
         t = time.time()
-        drafts = sample_drafts(args.dump, args.drafts, args.shard, args.num_shards)
+        drafts = sample_drafts(
+            args.dump,
+            args.drafts,
+            args.shard,
+            args.num_shards,
+            final_only=args.command == "pools",
+        )
         print(
             f"Sampled {len(drafts)} drafts in {time.time() - t:.0f}s", file=sys.stderr
         )
-        result = replay(
-            drafts,
-            load_dataset(args.dataset),
-            variants,
-            args.progress,
-            blends=args.blend,
-        )
+        if args.command == "pools":
+            result = score_pools(drafts, load_dataset(args.dataset), args.progress)
+        else:
+            result = replay(
+                drafts,
+                load_dataset(args.dataset),
+                args.variant or ["baseline"],
+                args.progress,
+                blends=args.blend,
+            )
+            result["variants"] = args.variant or ["baseline"]
+            result["blends"] = args.blend
         result["dump"] = os.path.basename(args.dump)
-        result["variants"] = variants
-        result["blends"] = args.blend
         if args.out:
             os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
             with open(args.out, "w", encoding="utf-8") as f:
-                json.dump(result, f, indent=1)
-        code = [_set_code(result["dump"])]
-        print(format_table(result, code))
-        for table in (
-            format_outcomes(merge([result]), code),
-            format_calibration(merge([result]), code),
-        ):
-            if table:
-                print("\n" + table)
+                json.dump(result, f, separators=(",", ":"))
+        print(_report(merge([result]), [_set_code(result["dump"])]))
         if result["skipped"]:
             print(f"\nSkipped: {result['skipped']}")
         if result["unmatched_names"]:
@@ -1002,21 +1257,19 @@ def main(argv=None):
             by_set[_set_code(r.get("dump", ""))].append(r)
         if args.per_set and len(by_set) > 1:
             for code, rs in sorted(by_set.items()):
-                print(format_table(merge(rs), [code]) + "\n")
-                for table in (
-                    format_outcomes(merge(rs), [code]),
-                    format_calibration(merge(rs), [code]),
-                ):
-                    if table:
-                        print(table + "\n")
-        total = merge(results)
-        print(format_table(total, sorted(by_set)))
-        for table in (
-            format_outcomes(total, sorted(by_set)),
-            format_calibration(total, sorted(by_set)),
-        ):
-            if table:
-                print("\n" + table)
+                print(_report(merge(rs), [code]) + "\n")
+        print(_report(merge(results), sorted(by_set)))
+
+
+def _report(result, sets):
+    """Every table that has data for this merged result."""
+    tables = [
+        format_table(result, sets) if result["tally"] else "",
+        format_outcomes(result, sets),
+        format_calibration(result, sets),
+        format_deck_parts(result, sets),
+    ]
+    return "\n\n".join(t for t in tables if t)
 
 
 def _set_code(dump_name):

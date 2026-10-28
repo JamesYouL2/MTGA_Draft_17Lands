@@ -105,8 +105,23 @@ def identify_top_pairs(pool, metrics, tier_data=None):
 
 
 def calculate_holistic_score(deck, colors, pool_size, metrics, tier_data=None):
-    if not deck:
+    parts = holistic_score_parts(deck, colors, pool_size, metrics, tier_data)
+    if parts is None:
         return 0.0, ""
+    power_level, adjustments = parts
+    for _, delta, _ in adjustments:
+        power_level += delta
+    return max(0.0, power_level), ", ".join(note for _, _, note in adjustments)
+
+
+def holistic_score_parts(deck, colors, pool_size, metrics, tier_data=None):
+    """The pieces of calculate_holistic_score, or None for an empty deck.
+
+    Returns (power from card ratings, [(key, delta, note), ...]); the score is
+    the power plus every delta, floored at 0.
+    """
+    if not deck:
+        return None
 
     global_mean, global_std = metrics.get_metrics("All Decks", "gihwr")
     if global_mean == 0.0:
@@ -117,7 +132,7 @@ def calculate_holistic_score(deck, colors, pool_size, metrics, tier_data=None):
     spells = [c for c in deck if constants.CARD_TYPE_LAND not in c.get("types", [])]
     spell_count = sum(c.get("count", 1) for c in spells)
     if spell_count == 0:
-        return 0.0, ""
+        return None
 
     # Dataset deck_colors keys are WUBRG-ordered ("UB", not "BU").
     arch_key = normalize_color_string(
@@ -137,7 +152,7 @@ def calculate_holistic_score(deck, colors, pool_size, metrics, tier_data=None):
     )
     z_score = (avg_gihwr - global_mean) / global_std
     power_level = 75.0 + (z_score * 12.0)
-    breakdown_notes = []
+    adjustments = []
 
     cmcs = [get_functional_cmc(c) for c in spells for _ in range(c.get("count", 1))]
     avg_cmc = sum(cmcs) / spell_count
@@ -160,15 +175,18 @@ def calculate_holistic_score(deck, colors, pool_size, metrics, tier_data=None):
 
     mana_deficit = (avg_cmc * 5.5) - (land_count + ramp_count)
     if mana_deficit > 1.5:
-        power_level -= mana_deficit * 3.0
-        breakdown_notes.append(f"High Curve / Needs Lands (-{mana_deficit * 3.0:.1f})")
+        adjustments.append(
+            (
+                "curve",
+                -(mana_deficit * 3.0),
+                f"High Curve / Needs Lands (-{mana_deficit * 3.0:.1f})",
+            )
+        )
     elif mana_deficit < -1.0 and avg_cmc < 2.8:
-        power_level += 5.0
-        breakdown_notes.append("Excellent Aggro Curve (+5.0)")
+        adjustments.append(("aggro", 5.0, "Excellent Aggro Curve (+5.0)"))
 
     if len(colors) <= 2:
-        power_level += 2.5
-        breakdown_notes.append("Rock-Solid Mana (+2.5)")
+        adjustments.append(("two_colors", 2.5, "Rock-Solid Mana (+2.5)"))
 
     supertypes = {
         "Creature",
@@ -209,8 +227,7 @@ def calculate_holistic_score(deck, colors, pool_size, metrics, tier_data=None):
 
         if total_tribe_density >= 6 and payoff_count >= 2:
             bonus = (total_tribe_density * 0.5) + (payoff_count * 1.5)
-            power_level += bonus
-            breakdown_notes.append(f"{top_tribe} Synergy (+{bonus:.1f})")
+            adjustments.append(("tribal", bonus, f"{top_tribe} Synergy (+{bonus:.1f})"))
 
     if len(colors) >= 3:
         domain_payoffs = sum(
@@ -223,12 +240,12 @@ def calculate_holistic_score(deck, colors, pool_size, metrics, tier_data=None):
         fixing_count = ManaSourceAnalyzer(deck).total_fixing_cards
 
         if domain_payoffs >= 2 and fixing_count >= 4:
-            power_level += 6.0
-            breakdown_notes.append("Supported Domain/Soup (+6.0)")
+            adjustments.append(("domain", 6.0, "Supported Domain/Soup (+6.0)"))
         elif fixing_count < len(colors) - 1:
             penalty = (len(colors) - 1 - fixing_count) * 6.0
-            power_level -= penalty
-            breakdown_notes.append(f"Greedy Mana Strain (-{penalty:.1f})")
+            adjustments.append(
+                ("greedy_mana", -penalty, f"Greedy Mana Strain (-{penalty:.1f})")
+            )
 
     evasion_count = sum(
         c.get("count", 1)
@@ -247,16 +264,16 @@ def calculate_holistic_score(deck, colors, pool_size, metrics, tier_data=None):
         )
     )
     if evasion_count < 3 and avg_cmc > 2.5:
-        power_level -= 5.0
-        breakdown_notes.append("Lacks Evasion/Reach (-5.0)")
+        adjustments.append(("evasion", -5.0, "Lacks Evasion/Reach (-5.0)"))
 
     expected_spells = int(23 * (min(42, pool_size) / 42.0))
     if spell_count < expected_spells - 1:
         penalty = ((expected_spells - 1) - spell_count) * 10.0
-        power_level -= penalty
-        breakdown_notes.append(f"Incomplete Deck (-{penalty:.1f})")
+        adjustments.append(
+            ("incomplete", -penalty, f"Incomplete Deck (-{penalty:.1f})")
+        )
 
-    return max(0.0, power_level), ", ".join(breakdown_notes)
+    return power_level, adjustments
 
 
 def estimate_record(power_level, is_bo3=False):

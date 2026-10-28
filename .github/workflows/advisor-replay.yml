@@ -7,6 +7,9 @@ name: Advisor replay
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "run (replay every pick) or pools (score final pools only; fast, use many drafts)"
+        default: run
       sets:
         description: Comma-separated set codes
         default: FRA,HOB,MSH,SOS,TMT,TLA,FIN,TDM,DFT,FDN
@@ -28,6 +31,7 @@ permissions:
 
 # Fallbacks for runs that aren't dispatched with inputs.
 env:
+  MODE: ${{ inputs.mode || 'run' }}
   SETS: ${{ inputs.sets || 'FRA,HOB,MSH,SOS,TMT,TLA,FIN,TDM,DFT,FDN' }}
   SHARDS: ${{ inputs.shards || '4' }}
   DRAFTS: ${{ inputs.drafts || '100' }}
@@ -86,7 +90,8 @@ jobs:
           for v in "${names[@]}"; do variant_args+=(--variant "${v// /}"); done
           IFS=',' read -ra names <<< "$BLENDS"
           for b in "${names[@]}"; do if [ -n "${b// /}" ]; then variant_args+=(--blend "${b// /}"); fi; done
-          poetry run python Tools/AdvisorReplay/advisor_replay.py run \
+          if [ "$MODE" = pools ]; then variant_args=(); fi
+          poetry run python Tools/AdvisorReplay/advisor_replay.py "$MODE" \
             --dump "$RUNNER_TEMP/replay/draft_data_public.$SET.PremierDraft.csv.gz" \
             --dataset "$RUNNER_TEMP/replay/${SET}_PremierDraft_All_Data.json.gz" \
             --drafts "$DRAFTS" --shard "$SHARD" --num-shards "$SHARDS" \
