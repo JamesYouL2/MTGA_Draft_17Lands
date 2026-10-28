@@ -84,6 +84,11 @@ return a neutral value (see `ABLATIONS`): `no-bomb`, `no-late-signal`,
 leaves the win regression and match rate unchanged, that piece is a
 candidate to delete.
 
+`simplified` switches off every piece the ablations found worth nothing
+(composition, VOR, late signal, wheel, signal tie-breaker and the deck
+improvement bonus) and uses the `deck-refit` weights. `simplified-arch-lane`
+adds `arch-lane`.
+
 ## ATA blends
 
 `--blend <name>` (repeatable) re-ranks each variant's advice by
@@ -120,7 +125,7 @@ Every method is fit on the same drafts, so their coefficients are correlated. Th
 with a bootstrap SE (200 resamples of drafts).
 
 **Calibration.** The replay also scores each final pool with the advisor's own
-best-deck estimate (`_get_fast_best_deck_score`). It also computes a simple
+quick best-deck estimate (`best_deck`). It also computes a simple
 yardstick: the mean GIH WR of the best 23 cards in one color pair. Pools are
 binned into deciles of deck score within each set, and wins and match win rate
 are reported per decile. A well-calibrated score rises steadily across the

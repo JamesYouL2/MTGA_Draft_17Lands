@@ -43,7 +43,14 @@ if ROOT not in sys.path:
 
 from src import constants  # noqa: E402
 from src.advisor import deck_builder, deck_scorer  # noqa: E402
+from src.advisor.deck_builder import (  # noqa: E402
+    build_variant_consistency,
+    build_variant_curve,
+    build_variant_greedy,
+    build_variant_soup,
+)
 from src.advisor.deck_scorer import (  # noqa: E402
+    calculate_holistic_score,
     holistic_score_parts,
     identify_top_pairs,
 )
@@ -510,6 +517,19 @@ VARIANTS = {
 }
 VARIANTS |= {name: _ablation(*spec) for name, spec in ABLATIONS.items()}
 VARIANTS["no-signal-tiebreak"] = _no_signal_tiebreak
+# The pieces the ablations found worth nothing, all off, plus the refit deck
+# score: what the engine would be with them deleted.
+SIMPLIFIED = (
+    "no-composition",
+    "no-vor",
+    "no-late-signal",
+    "no-wheel",
+    "no-signal-tiebreak",
+    "no-deck-improvement",
+    "deck-refit",
+)
+VARIANTS["simplified"] = _combine(*SIMPLIFIED)
+VARIANTS["simplified-arch-lane"] = _combine(*SIMPLIFIED, "arch-lane")
 
 
 # --- ATA blends ------------------------------------------------------------
@@ -816,6 +836,31 @@ DECK_PARTS = (
 )
 
 
+def best_deck(pool, metrics):
+    """(score, deck, colors) of the best quick build, or (0.0, None, None).
+
+    The builds the advisor tries: consistency and curve in each top pair, greedy
+    with a splash, and a soup.
+    """
+    best = (0.0, None, None)
+
+    def consider(deck, colors):
+        nonlocal best
+        if deck:
+            score, _ = calculate_holistic_score(deck, colors, len(pool), metrics)
+            if score > best[0]:
+                best = (score, deck, colors)
+
+    for pair in identify_top_pairs(pool, metrics):
+        consider(build_variant_consistency(pool, pair, metrics), pair)
+        consider(build_variant_curve(pool, pair, metrics), pair)
+        deck, splash = build_variant_greedy(pool, pair, metrics)
+        consider(deck, pair + [splash] if splash else pair)
+    deck, soup_colors = build_variant_soup(pool, metrics)
+    consider(deck, soup_colors[:3] if soup_colors else ["All Decks"])
+    return best
+
+
 def pool_features(pool, metrics):
     """How strong a final pool is, by the advisor and by simpler yardsticks.
 
@@ -828,9 +873,7 @@ def pool_features(pool, metrics):
     """
     if len(pool) < DECK_SIZE:
         return None
-    score, deck, colors = DraftAdvisor(metrics, pool)._get_fast_best_deck(
-        pool, identify_top_pairs(pool, metrics)
-    )
+    score, deck, colors = best_deck(pool, metrics)
     features = {
         "deck_score": score,
         "power": None,
