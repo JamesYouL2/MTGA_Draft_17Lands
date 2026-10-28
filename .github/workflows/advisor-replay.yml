@@ -23,6 +23,13 @@ on:
 permissions:
   contents: read
 
+# Fallbacks for runs that aren't dispatched with inputs.
+env:
+  SETS: ${{ inputs.sets || 'FRA,HOB,MSH,SOS,TMT,TLA,FIN,TDM,DFT,FDN' }}
+  SHARDS: ${{ inputs.shards || '4' }}
+  DRAFTS: ${{ inputs.drafts || '100' }}
+  VARIANTS: ${{ inputs.variants || 'baseline,arch-overall-pick' }}
+
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -30,9 +37,6 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - id: plan
-        env:
-          SETS: ${{ inputs.sets }}
-          SHARDS: ${{ inputs.shards }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os
@@ -72,9 +76,6 @@ jobs:
         env:
           SET: ${{ matrix.set }}
           SHARD: ${{ matrix.shard }}
-          SHARDS: ${{ inputs.shards }}
-          DRAFTS: ${{ inputs.drafts }}
-          VARIANTS: ${{ inputs.variants }}
         run: |
           variant_args=()
           IFS=',' read -ra names <<< "$VARIANTS"
