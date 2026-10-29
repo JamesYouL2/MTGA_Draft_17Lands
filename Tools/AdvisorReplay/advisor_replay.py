@@ -510,6 +510,10 @@ VARIANTS = {
 }
 VARIANTS |= {name: _ablation(*spec) for name, spec in ABLATIONS.items()}
 VARIANTS["no-signal-tiebreak"] = _no_signal_tiebreak
+# Everything the simplify PR removes from the engine, switched off together.
+VARIANTS["pr-simplify"] = _combine(
+    "no-vor", "no-late-signal", "no-wheel", "no-signal-tiebreak", "no-deck-improvement"
+)
 
 
 # --- ATA blends ------------------------------------------------------------

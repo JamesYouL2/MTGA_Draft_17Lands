@@ -6,7 +6,7 @@ name: Advisor replay
 
 on:
   push:
-    branches: [replay-run]
+    branches: [replay-run, replay-pr-simplify]
   workflow_dispatch:
     inputs:
       mode:
@@ -37,7 +37,7 @@ env:
   SETS: ${{ inputs.sets || 'FRA,HOB,MSH,SOS,TMT,TLA,FIN,TDM,DFT,FDN' }}
   SHARDS: ${{ inputs.shards || '10' }}
   DRAFTS: ${{ inputs.drafts || '150' }}
-  VARIANTS: ${{ inputs.variants || 'baseline,no-bomb,no-late-signal,no-synergy,no-lane-mult,no-vor,no-castability,no-composition,no-deck-improvement,no-wheel,no-signal-tiebreak' }}
+  VARIANTS: ${{ inputs.variants || 'baseline,pr-simplify' }}
   BLENDS: ${{ inputs.blends || '' }}
 
 jobs:
