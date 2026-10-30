@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 env:
-  DRAFTS: "300"
+  DRAFTS: "600"
 
 jobs:
   compare:
@@ -38,40 +38,13 @@ jobs:
             "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
           curl -fsSL --retry 3 -o dataset.json.gz \
             "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
-      - name: Compare
+      - name: Collect candidate builds
         run: |
           mkdir -p results
-          poetry run python Tools/BuildCompare/compare.py --src . \
-            --old-scorer Tools/BuildCompare/old_deck_scorer.py \
+          poetry run python Tools/BuildCompare/candidates.py --src . \
             --games games.csv.gz --dataset dataset.json.gz --set "$SET" \
             --drafts "$DRAFTS" --out "results/$SET.json"
       - uses: actions/upload-artifact@v4
         with:
-          name: compare-${{ matrix.set }}
+          name: candidates-${{ matrix.set }}
           path: results/
-
-  summarize:
-    needs: compare
-    if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: compare-*
-          path: results
-          merge-multiple: true
-      - name: Summarize
-        run: |
-          python Tools/BuildCompare/summarize.py --examples examples.md results/*.json \
-            | tee report.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: build-compare
-          path: |
-            report.md
-            examples.md
-            results/
