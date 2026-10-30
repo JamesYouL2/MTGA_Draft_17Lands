@@ -29,6 +29,9 @@ class DraftAdvisor:
     # replaying 17Lands drafts, this matched drafters' picks more often than
     # ramping it up over the draft.
     ARCH_WEIGHT = 0.9
+    # Games in hand at which the pair's win rate is trusted fully; with fewer,
+    # it is shrunk toward the card's overall win rate.
+    ARCH_TRUST_SAMPLES = 1000
     IWD_PREMIUM_THRESHOLD = 4.5
 
     def __init__(self, set_metrics, taken_cards: List[Dict]):
@@ -110,7 +113,7 @@ class DraftAdvisor:
                     float(stats.get("iwd", 0.0)),
                 )
                 card_colors = card.get("colors", [])
-                reasons, synergy_bonus = [], 0.0
+                reasons = []
 
                 # --- STEP 1: Blended Base Score (With Bayesian Smoothing) ---
                 base_score = self._calculate_weighted_score(card)
@@ -124,34 +127,16 @@ class DraftAdvisor:
                 )
                 power_bonus = max(0, z_score * 10 * iwd_mult) if z_score > 0.5 else 0
 
-                # --- STEP 3: Archetype Synergy & 'Glue Cards' ---
+                # --- STEP 3: Lane ---
+                # The card's win rate in the lane's pair is already blended into
+                # the base score; this only favors cards in the lane's colors.
                 is_on_lane = (
                     all(c in self.main_colors for c in card_colors)
                     if card_colors
                     else True
                 )
-                if len(self.main_colors) >= 2:
-                    arch_wr = float(
-                        card.get("deck_colors", {})
-                        .get(self.main_archetype, {})
-                        .get("gihwr", 0.0)
-                    )
-                    if arch_wr > 0.0:
-                        delta = arch_wr - raw_gihwr
-
-                        # GLUE CARD DETECTION:
-                        # If a Common/Uncommon heavily outperforms its global average in our specific lane,
-                        # it is an archetype "Glue Card" and gets a massive multiplier to push it over generic Rares.
-                        rarity = str(card.get("rarity", "common")).lower()
-                        if delta >= 1.0 and rarity in ["common", "uncommon"]:
-                            synergy_bonus = delta * 5.0
-                            reasons.append(f"Archetype Glue (+{synergy_bonus:.1f})")
-                        elif delta >= 1.5:
-                            synergy_bonus = delta * 3.0
-                            reasons.append(f"Archetype Synergy (+{synergy_bonus:.1f})")
-
-                    if is_on_lane:
-                        base_score *= 1.3 if needs_playables else 1.1
+                if len(self.main_colors) >= 2 and is_on_lane:
+                    base_score *= 1.3 if needs_playables else 1.1
 
                 # --- STEP 4: Castability (Pip-Sensitive Discipline & Premium Splashing) ---
                 cast_mult, cast_reason = self._calculate_castability_v5(
@@ -167,7 +152,7 @@ class DraftAdvisor:
                 )
 
                 # === MASTER ALGORITHM ===
-                final_score = (base_score + power_bonus + synergy_bonus) * cast_mult
+                final_score = (base_score + power_bonus) * cast_mult
 
                 is_basic_land = name in constants.BASIC_LANDS or (
                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])
@@ -382,7 +367,7 @@ class DraftAdvisor:
 
             # BAYESIAN SMOOTHING: Confidently blend global & archetype win rates based on sample size
             samples = int(arch_stats.get("samples", 0))
-            confidence = min(1.0, samples / 1000.0)
+            confidence = min(1.0, samples / self.ARCH_TRUST_SAMPLES)
             trusted_arch_wr = (arch_wr * confidence) + (global_wr * (1.0 - confidence))
 
             blended_wr = (
