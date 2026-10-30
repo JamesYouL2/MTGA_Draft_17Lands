@@ -213,7 +213,7 @@ class DraftAdvisor:
             "off_pips": off_pips,
             "pip_gap": pip_gap,
             **self._share_bins(card),
-            **{k: 0.0 for k in WEIGHTS if k.startswith(("lane_", "off_"))},
+            **{k: 0.0 for k in WEIGHTS if k.startswith(("lane_", "off_s", "off_m"))},
             **self._group_features(card, quality),
         }
 

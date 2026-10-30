@@ -84,17 +84,9 @@ CANDIDATE = "off_pips, two main colors (this PR)"
 SUPPORT = ["quality", "unrated", "color_support"]
 FITS = {
     CANDIDATE: CORE + ["off_pips"],
-    **{
-        f"groups {m} K={k[1:].replace('0', '0.', 1) if k.startswith('k0') else k[1:]}": SUPPORT
-        + [f"lane_{m}_{k}", f"off_{m}_{k}"]
-        for m in ["soft", "map"]
-        for k in KS
-    },
-    **{
-        f"two-color lane + groups off soft K={k[1:].replace('0', '0.', 1) if k.startswith('k0') else k[1:]}": CORE
-        + [f"off_soft_{k}"]
-        for k in KS
-    },
+    "groups map K=0.5": SUPPORT + ["lane_map_k05", "off_map_k05"],
+    "groups soft K=1": SUPPORT + ["lane_soft_k1", "off_soft_k1"],
+    "two-color lane + groups off soft K=1": CORE + ["off_soft_k1"],
 }
 HARSHER = [2, 4, 8]
 BOOTSTRAP = 200
@@ -399,6 +391,26 @@ def main(argv=None):
     for title, f in fits.items():
         out.append(f"| {title} | {f['all'][2]:,} | {fmt_w(f['all'][0])} |")
 
+    out += ["", "## By set: top-1 strong % / log-lik, each set held out", ""]
+    titles = [t for t in variants if t != "main"]
+    out += ["| set | main | " + " | ".join(titles) + " |"]
+    out += ["|---|---|" + "---|" * len(titles)]
+    for code in sorted(np.unique(ev.set)):
+        mask = strong & (ev.set == code)
+        cells = []
+        for title in ["main"] + titles:
+            t, n, _r, _ll = variants[title]
+            cell = f"{100 * t[mask].sum() / n[mask].sum():.1f}"
+            if title in fits:
+                f = fits[title]
+                rows, data = ev.subset(ev.fit_pick & (ev.pick_set == code))
+                u = f[code][1] * (ev.scores(f[code][0])[rows] - BASE)
+                top = np.maximum.reduceat(u, data.starts)
+                e = np.exp(u - np.repeat(top, data.sizes))
+                lse = top + np.log(np.add.reduceat(e, data.starts))
+                cell += f" / {np.mean(u[data.chosen] - lse):.4f}"
+            cells.append(cell)
+        out.append(f"| {code} | " + " | ".join(cells) + " |")
     print("\n".join(out))
 
 
