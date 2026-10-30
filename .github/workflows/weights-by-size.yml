@@ -1,20 +1,22 @@
-name: Unrated early
+name: Weights by size
 
-# Throwaway: fits the pick score's unrated weight on strong drafters' picks
-# from the format's first days, scored with the ratings the app would have had
-# then (rebuilt from 17Lands game data by Tools/PickFit/early_ratings.py).
-# Picks on day N+1 use ratings from drafts in the first N days.
+# Throwaway: do pick weights that change with the ratings' sample size beat
+# one weight set? Strong drafters' picks from the format's early days are
+# scored with the ratings the app would have had then (rebuilt from 17Lands
+# game data by Tools/PickFit/early_ratings.py): picks on day N+1 use ratings
+# from drafts in the first N days.
 
 on:
   push:
-    branches: [exp-unrated-early]
+    branches: [exp-weights-by-size]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  DRAFTS: "4000"
+  DRAFTS: "500"
+  DAYS: "1 2 3 5 7 14"
 
 jobs:
   features:
@@ -44,11 +46,11 @@ jobs:
           curl -fsSL --retry 3 -o dataset.json.gz \
             "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
       - name: Rebuild early ratings
-        run: poetry run python Tools/PickFit/early_ratings.py --games games.csv.gz --dataset dataset.json.gz --days 1 2 3 --out early
+        run: poetry run python Tools/PickFit/early_ratings.py --games games.csv.gz --dataset dataset.json.gz --days $DAYS --out early
       - name: Features, picks on day N+1 with ratings from the first N days
         run: |
           START=$(cat early/start.txt)
-          for N in 1 2 3; do
+          for N in $DAYS; do
             FROM=$(date -I -d "$START + $N day")
             TO=$(date -I -d "$START + $((N + 1)) day")
             poetry run python Tools/PickFit/drafts.py --dump drafts.csv.gz --drafts "$DRAFTS" \
@@ -72,7 +74,7 @@ jobs:
     needs: features
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -89,12 +91,13 @@ jobs:
         shell: bash
         run: |
           {
-            echo "# Unrated weight on early picks at \`${GITHUB_SHA::7}\`"
+            echo "# Pick weights by sample size at \`${GITHUB_SHA::7}\`"
             echo
-            poetry run python Tools/PickFit/fit_unrated.py \
-              "day 1=results/day1" "day 2=results/day2" "day 3=results/day3" "whole format=results/full"
+            ARGS=()
+            for N in $DAYS; do ARGS+=("day $N=results/day$N"); done
+            poetry run python Tools/PickFit/fit_by_size.py "${ARGS[@]}" "whole format=results/full"
           } | tee report.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
-          name: unrated-report
+          name: by-size-report
           path: report.md

@@ -62,8 +62,9 @@ class App:
         return out
 
 
-def extra(advisor, card, pack, pick):
-    """Plain facts that aren't features, for the LightGBM yardstick."""
+def extra(advisor, card, pack, pick, games):
+    """Plain facts that aren't features, for the LightGBM yardstick, and the
+    sample sizes behind the card's ratings."""
     strength = sorted(advisor.color_strength.values(), reverse=True)
     colors = card.get("colors", [])
     return [
@@ -78,6 +79,8 @@ def extra(advisor, card, pack, pick):
         float(card.get("cmc") or 0.0),
         RARITY.get(str(card.get("rarity", "")).lower(), 0),
         float("removal" in card.get("tags", [])),
+        float(card.get("deck_colors", {}).get("All Decks", {}).get("samples") or 0),
+        float(games),
     ]
 
 
@@ -93,10 +96,12 @@ EXTRA_NAMES = [
     "mana_value",
     "rarity",
     "removal",
+    "samples",
+    "dataset_games",
 ]
 
 
-def situations(app, drafts):
+def situations(app, drafts, games):
     """One entry per pick with at least two cards to choose from."""
     names = list(app.engine.WEIGHTS)
     out, skipped = [], Counter()
@@ -123,7 +128,9 @@ def situations(app, drafts):
                         "pick": pick_no,
                         "chosen": chosen,
                         "x": [x for _, x in rows],
-                        "extra": [extra(advisor, c, pack_no, pick_no) for c, _ in rows],
+                        "extra": [
+                            extra(advisor, c, pack_no, pick_no, games) for c, _ in rows
+                        ],
                     }
                 )
     return out, skipped
@@ -142,7 +149,10 @@ def main(argv=None):
     app = App(args.dataset)
     with gzip.open(args.drafts, "rt", encoding="utf-8") as f:
         drafts = json.load(f)
-    rows, skipped = situations(app, drafts)
+    opener = gzip.open if args.dataset.endswith(".gz") else open
+    with opener(args.dataset, "rt", encoding="utf-8") as f:
+        games = json.load(f)["meta"].get("game_count", 0)
+    rows, skipped = situations(app, drafts, games)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with gzip.open(args.out, "wt", encoding="utf-8") as f:
