@@ -7,6 +7,8 @@ name: Pick fit
 # Run by hand: Actions > Pick fit > Run workflow.
 
 on:
+  push:
+    branches: [exp-three-color-fit]
   workflow_dispatch:
     inputs:
       sets:
