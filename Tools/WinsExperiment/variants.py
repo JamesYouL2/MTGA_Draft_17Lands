@@ -47,8 +47,20 @@ FITTED = {
 }
 ABLATIONS = [
     ("nocast", "main without castability"),
+    ("nocast_p1", "main without castability in pack 1"),
+    ("nocast_late", "main without castability in packs 2-3"),
     ("nocomp", "main without composition"),
     ("nocastcomp", "main without either"),
+    ("nopower", "main without the pack power bonus"),
+    ("nosynergy", "main without the archetype synergy bonus"),
+    ("nolane", "main without the on-lane boost"),
+    ("noarch", "main without archetype win rates in the base score"),
+    ("nocurve", "main without composition: curve too heavy"),
+    ("nocreatures", "main without composition: needs creatures"),
+    ("notags", "main without composition: synergy tags"),
+    ("nofixing", "main without composition: fixing"),
+    ("noremoval", "main without composition: removal"),
+    ("nodrops", "main without composition: 2-drops"),
 ]
 BOOTSTRAP = 200
 
