@@ -9,6 +9,8 @@ sets it wasn't fitted on (five folds of two sets):
 - app: the app's weights.
 - one set: one weight set, fitted to every bucket at once.
 - by day: a weight set per bucket.
+- quality by games: as one set, but the quality weight is a straight line
+  in log10 of the dataset's game count.
 - by games: each weight a straight line in log10 of the dataset's game count.
 - by games, shrunk quality: the same, with each card's quality multiplied by
   samples / (samples + K), K picked by the likelihood over all picks.
@@ -76,6 +78,10 @@ def design(data, by_games=False, k=0):
     return X
 
 
+def quality_by_games(data):
+    return np.column_stack([data.X, data.X[:, data.q] * log_games(data)])
+
+
 def scores(tr, te, n_buckets, k):
     """Each model's score for every card of te, fitted on tr."""
     out = {"app": te.X @ tr.app}
@@ -88,6 +94,8 @@ def scores(tr, te, n_buckets, k):
         rows = np.repeat(te.bucket == b, te.sizes)
         u[rows] = te.X[rows] @ beta
     out["by day"] = u
+    beta, _ = fit_logit(quality_by_games(tr), tr)
+    out["quality by games"] = quality_by_games(te) @ beta
     beta, _ = fit_logit(design(tr, True), tr)
     out["by games"] = design(te, True) @ beta
     beta, _ = fit_logit(design(tr, True, k), tr)
@@ -190,6 +198,33 @@ def main(argv=None):
         print(
             f"| {label} | " + " | ".join(f"{w:+.1f}" for w in pts) + f" | {scale:.4f} |"
         )
+
+    beta, cov = fit_logit(quality_by_games(data), data)
+    print()
+    print("## Quality by games, fitted to all sets")
+    print()
+    print(
+        "Other weights in the app's points at 1,000,000 games; quality as a "
+        "share of its weight there."
+    )
+    print()
+    scale = beta[data.q] + beta[nf] * (6.0 - CENTER)
+    pts = QUALITY_POINTS * beta[:nf] / scale
+    print(
+        "Weights at 1,000,000 games: "
+        + ", ".join(f"{n} {w:+.1f}" for n, w in zip(data.names, pts))
+    )
+    print()
+    print("| dataset games | quality weight, share of 1,000,000 games' |")
+    print("|---|---|")
+    for g in SHOW_GAMES:
+        q = beta[data.q] + beta[nf] * (np.log10(g) - CENTER)
+        print(f"| {g:,} | {q / scale:.2f} |")
+    print()
+    print(
+        f"Slope per tenfold more games, log-odds: {beta[nf]:+.3f} "
+        f"± {np.sqrt(cov[nf, nf]):.3f}"
+    )
 
     for title, k in (
         ("by games", 0),
