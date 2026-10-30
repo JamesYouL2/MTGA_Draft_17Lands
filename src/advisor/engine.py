@@ -25,10 +25,13 @@ class DraftAdvisor:
     TARGET_CARD_DRAW = 2
     TARGET_EVASION = 3
     BOMB_Z_SCORE = 1.5
-    # Trust the card's win rate in the current archetype from the first pick;
-    # replaying 17Lands drafts, this matched drafters' picks more often than
-    # ramping it up over the draft.
-    ARCH_WEIGHT = 0.9
+    # Score a card at its overall win rate plus ARCH_WEIGHT times how much
+    # better it does in the current archetype, from the first pick. Above 1,
+    # this also covers the bonus archetype cards used to get on top. In
+    # replays of 30,000 17Lands drafts, 1.5 matched drafters' picks as often
+    # as that bonus did, and tracked their wins as well; 0.9 tracked wins
+    # worse and 2.0 or more matched fewer picks.
+    ARCH_WEIGHT = 1.5
     # Games in hand at which the pair's win rate is trusted fully; with fewer,
     # it is shrunk toward the card's overall win rate.
     ARCH_TRUST_SAMPLES = 1000

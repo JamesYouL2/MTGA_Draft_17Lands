@@ -263,5 +263,5 @@ def test_archetype_weight_is_flat(mock_metrics):
         },
     }
 
-    # 0.1 * 55 + 0.9 * 59 = 58.6, which is 0.9 sigma above the mean
-    assert advisor._calculate_weighted_score(card) == pytest.approx(63.5)
+    # 55 + 1.5 * (59 - 55) = 61, which is 1.5 sigma above the mean
+    assert advisor._calculate_weighted_score(card) == pytest.approx(72.5)
