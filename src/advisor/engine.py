@@ -26,20 +26,20 @@ WEIGHTS = {
     "quality": 15.0,
     # GIH WR in the pool's two main colors minus over all decks, in standard
     # deviations, shrunk toward 0 when the pair has few games.
-    "lane": 12.4,
+    "lane": 12.0,
     # The pool's strength in the card's colors, in pool cards (see
     # DraftAdvisor.color_strength); a two-color card counts both colors.
     "color_support": 0.8,
     # No GIH WR yet; quality is then 0.
-    "unrated": -9.3,
+    "unrated": -8.8,
     # Colored mana symbols in the card's cost that the pool's two main colors
     # can't pay.
-    "off_pips": -14.1,
+    "off_pips": -14.6,
     # off_pips times the share of the set's 17Lands games played by decks of
     # three or more colors: off-color cards cost less where those are common.
-    "three_color_off_pips": 10.6,
+    "three_color_off_pips": 11.6,
 }
-PICK_LOG_ODDS_PER_POINT = 0.1000
+PICK_LOG_ODDS_PER_POINT = 0.0992
 # A pair's GIH WR from n games counts n / (n + LANE_PRIOR_GAMES) of its
 # difference from the all-decks rate.
 LANE_PRIOR_GAMES = 2000.0
