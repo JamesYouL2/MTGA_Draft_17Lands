@@ -76,6 +76,7 @@ def main(argv=None):
                     # What the builder's mana simulation took off the score.
                     "sim_penalty": max(0.0, score) - v["rating"],
                     "overlap": sum(min(k, names.get(n, 0)) for n, k in actual.items()),
+                    "cards": {n: k for n, k in names.items() if n not in BASICS},
                     "colors": colors,
                 }
             )
@@ -85,6 +86,9 @@ def main(argv=None):
                 "set": args.set,
                 "wr_bucket": d["wr_bucket"],
                 "spells": sum(actual.values()),
+                "actual": actual,
+                "main_colors": d["main_colors"],
+                "splash_colors": d["splash_colors"],
                 "candidates": cands,
             }
         )
