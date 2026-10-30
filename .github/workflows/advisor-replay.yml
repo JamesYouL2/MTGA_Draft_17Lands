@@ -38,7 +38,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  BASE: ${{ github.event.pull_request.base.sha || inputs.base || '48c4cbe14d75d1ab8ffa3b4c826bc1ca63f8d60f' }}
+  BASE: ${{ github.event.pull_request.base.sha || inputs.base || '48c4cbeebc96b6701800550e1415b0c07a4b7c5a' }}
   HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   DRAFTS: ${{ inputs.drafts || '3000' }}
   SALT: ${{ inputs.salt || 'arch-once' }}
