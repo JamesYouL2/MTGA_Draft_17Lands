@@ -9,7 +9,7 @@ name: Advisor replay
 
 on:
   push:
-    branches: [replay-arch-once]
+    branches: [replay-bomb-format]
   pull_request:
     paths:
       - "src/advisor/**"
@@ -38,20 +38,19 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  BASE: ${{ github.event.pull_request.base.sha || inputs.base || '48c4cbeebc96b6701800550e1415b0c07a4b7c5a' }}
+  BASE: ${{ github.event.pull_request.base.sha || inputs.base || '2c376385561daf3276c199657aad0bf7dae5c5f1' }}
   HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   DRAFTS: ${{ inputs.drafts || '3000' }}
-  SALT: ${{ inputs.salt || 'arch-once' }}
+  SALT: ${{ inputs.salt || 'bomb-format' }}
   # name:CONST=VALUE,CONST=VALUE ... (space-separated); each replays this branch with
   # DraftAdvisor constants overridden and is reported against the base.
   VARIANTS: >-
-    w0.9:ARCH_WEIGHT=0.9
-    w1.25:ARCH_WEIGHT=1.25
-    w1.5:ARCH_WEIGHT=1.5
-    w2.0:ARCH_WEIGHT=2.0
-    w2.5:ARCH_WEIGHT=2.5
-    w1.5-t300:ARCH_WEIGHT=1.5,ARCH_TRUST_SAMPLES=300
-    w1.5-t3000:ARCH_WEIGHT=1.5,ARCH_TRUST_SAMPLES=3000
+    p10:
+    p5:POWER_PER_Z=5
+    p15:POWER_PER_Z=15
+    p20:POWER_PER_Z=20
+    p10-min0:POWER_MIN_Z=0
+    p10-min1:POWER_MIN_Z=1.0
 
 jobs:
   replay:
