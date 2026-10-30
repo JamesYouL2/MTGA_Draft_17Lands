@@ -50,7 +50,19 @@ WEIGHTS = {
     **{f"cshare_{lo}_{hi}": 0.0 for lo, hi in SHARE_BINS},
     # The same by the number of the pool's nonland cards in that color.
     **{f"count_{lo}_{hi}": 0.0 for lo, hi in COUNT_BINS},
+    # Lane and off_pips against 17lands' color groups instead of the pool's two
+    # main colors: "lane_soft_K"/"off_soft_K" average them over the groups,
+    # weighted by P(group | pool) (see DraftAdvisor._group_posterior);
+    # "lane_map_K"/"off_map_K" use the most likely group, once the pool has two
+    # colors.
+    **{
+        f"{f}_{m}_{k}": 0.0
+        for k in ["k025", "k05", "k1", "k2", "k4"]
+        for m in ["soft", "map"]
+        for f in ["lane", "off"]
+    },
 }
+GROUP_KS = {"k025": 0.25, "k05": 0.5, "k1": 1.0, "k2": 2.0, "k4": 4.0}
 PICK_LOG_ODDS_PER_POINT = 0.1023
 # A pair's GIH WR from n games counts n / (n + LANE_PRIOR_GAMES) of its
 # difference from the all-decks rate.
@@ -92,6 +104,7 @@ class DraftAdvisor:
             if len(self.main_colors) == 2
             else "All Decks"
         )
+        self._groups()
 
     def _quality(self, card: dict) -> float | None:
         """GIH WR over all decks in standard deviations, or None if unrated."""
@@ -200,6 +213,8 @@ class DraftAdvisor:
             "off_pips": off_pips,
             "pip_gap": pip_gap,
             **self._share_bins(card),
+            **{k: 0.0 for k in WEIGHTS if k.startswith(("lane_", "off_"))},
+            **self._group_features(card, quality),
         }
 
     def _off_pips(self, card: dict) -> tuple[float, float]:
@@ -224,6 +239,84 @@ class DraftAdvisor:
                     self.second_strength - self.color_strength[c] for c in colors
                 )
         return float(off), gap
+
+    def _groups(self):
+        """For each K in GROUP_KS, P(group | pool) over 17lands' color groups
+        and the most likely group (None before the pool has two colors).
+
+        P(group | pool) is proportional to the group's share of 17lands decks
+        times exp(K x the pool's strength in cards the group can cast), where a
+        card counts 1 + its quality, as in color_strength."""
+        share = getattr(self.metrics, "group_share", {}) or {}
+        self.group_names = sorted(share)
+        if not self.group_names:
+            self.group_p = {}
+            return
+        prior = np.log(np.array([share[g] for g in self.group_names]))
+        fits = np.zeros(len(self.group_names))
+        for card in self.pool:
+            if "Land" in card.get("types", []):
+                continue
+            weight = max(0.0, 1.0 + (self._quality(card) or 0.0))
+            fits += weight * self._castable_mask(card.get("colors", []))
+        two_colors = sum(v > 0 for v in self.color_strength.values()) >= 2
+        self.group_p = {}
+        for key, k in GROUP_KS.items():
+            logp = prior + k * fits
+            p = np.exp(logp - logp.max())
+            p /= p.sum()
+            best = np.zeros(len(p))
+            if two_colors:
+                best[int(np.argmax(logp))] = 1.0
+            self.group_p[key] = (p, best)
+
+    def _castable_mask(self, colors):
+        cache = self.metrics.__dict__.setdefault("_castable_cache", {})
+        key = (tuple(self.group_names), "".join(sorted(colors)))
+        if key not in cache:
+            cache[key] = np.array(
+                [float(set(colors) <= set(g)) for g in self.group_names]
+            )
+        return cache[key]
+
+    def _group_vectors(self, card, quality):
+        """The card's lane and off-color pips in each group."""
+        cache = self.metrics.__dict__.setdefault("_group_cache", {})
+        key = (tuple(self.group_names), card.get("name"))
+        if key not in cache:
+            stats = card.get("deck_colors", {})
+            lane = np.zeros(len(self.group_names))
+            off = np.zeros(len(self.group_names))
+            for i, g in enumerate(self.group_names):
+                if quality is not None:
+                    pair = stats.get(g, {})
+                    pair_wr = float(pair.get("gihwr") or 0.0)
+                    if pair_wr > 0:
+                        games = float(pair.get("samples") or 0.0)
+                        overall = float(stats["All Decks"]["gihwr"])
+                        lane[i] = (
+                            (pair_wr - overall)
+                            / self.global_std
+                            * games
+                            / (games + LANE_PRIOR_GAMES)
+                        )
+                off[i] = sum(
+                    not any(c in g for c in colors) for colors in self._pips(card)
+                )
+            cache[key] = (lane, off)
+        return cache[key]
+
+    def _group_features(self, card, quality):
+        if not self.group_p:
+            return {}
+        lane, off = self._group_vectors(card, quality)
+        out = {}
+        for key, (p, best) in self.group_p.items():
+            out[f"lane_soft_{key}"] = float(p @ lane)
+            out[f"off_soft_{key}"] = float(p @ off)
+            out[f"lane_map_{key}"] = float(best @ lane)
+            out[f"off_map_{key}"] = float(best @ off)
+        return out
 
     def _reasons(self, features: dict[str, float]) -> list[str]:
         reasons = []

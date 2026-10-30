@@ -24,6 +24,7 @@ class SetMetrics:
     def __init__(self, dataset: Dataset, digits: int = 2):
         self._color_metrics: dict = {}
         self._digits: int = digits
+        self.group_share: dict = {}
         self.generate_metrics(dataset)
 
     def get_metrics(self, color: str, field: str) -> Tuple[float, float]:
@@ -60,6 +61,20 @@ class SetMetrics:
         """
         if not dataset:
             return
+
+        # How often decks are in each color group (splashes folded in), by the
+        # games 17lands has for its cards in that group.
+        games = {}
+        for card_data in (dataset.get_card_ratings() or {}).values():
+            for group, stats in card_data.get(DATA_FIELD_DECK_COLORS, {}).items():
+                if group != "All Decks":
+                    games[group] = games.get(group, 0.0) + float(
+                        stats.get("samples") or 0.0
+                    )
+        total = sum(games.values())
+        self.group_share = {
+            g: n / total for g, n in games.items() if n > 0 and total > 0
+        }
 
         # Iterate over the supported colors and generate the metrics for each color
         for field in WIN_RATE_OPTIONS:

@@ -1,15 +1,12 @@
 name: Wins experiment
 
 # Throwaway: on the advisor replay's drafts (run 41015375331), compares main
-# with the pick score refitted with different off-color terms (color_gap,
-# off_pips, a merged pip_gap, off_pips as a curve over the draft, and a harsher
-# late off_pips penalty, colored pips by their color's share or count in the
-# pool, and the other 17lands metrics),
-# on agreement and event wins.
+# with the pick score refitted with lane and off_pips against the pool's two
+# main colors or against 17lands' color groups, on agreement and event wins.
 
 on:
   push:
-    branches: [exp-pick-wins]
+    branches: [exp-pick-groups]
 
 permissions:
   contents: read
