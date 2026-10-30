@@ -36,6 +36,9 @@ NAMES = [
     "off_pips",
     "pip_gap",
 ]
+SHARE_BINS = [(0, 5), (5, 10), (10, 15), (15, 20), (20, 30), (30, 40), (40, 101)]
+SHARES = [f"share_{lo}_{hi}" for lo, hi in SHARE_BINS]
+NAMES += SHARES
 FITTED = {
     "quality": 15.0,
     "lane": 11.1,
@@ -48,6 +51,9 @@ BINS = [(0, 6), (7, 13), (14, 20), (21, 27), (28, 34), (35, 99)]
 CURVE = [f"off_pips@{lo}-{hi}" for lo, hi in BINS]
 LATE = 14  # pack 2 on, for the harsher late penalty
 CORE = ["quality", "lane", "color_support", "unrated"]
+# Pool sizes for the share bins by timing: early pack 1, late pack 1, packs 2-3.
+PHASES = [(0, 6), (7, 13), (14, 99)]
+SHARE_TIMED = [f"{k}@{lo}-{hi}" for lo, hi in PHASES for k in SHARES]
 FITS = {
     "color_gap (this PR)": CORE + ["color_gap"],
     "off_pips, no color_gap": CORE + ["off_pips"],
@@ -57,6 +63,10 @@ FITS = {
     + ["color_gap", "off_pips", "off_pips*pool"],
     "color_gap + off_pips by pool size": CORE + ["color_gap"] + CURVE,
     "off_pips by pool size, no color_gap": CORE + CURVE,
+    "color_gap + pips by pool share": CORE + ["color_gap"] + SHARES,
+    "pips by pool share, no color_gap": CORE + SHARES,
+    "color_gap + pips by pool share and pool size": CORE + ["color_gap"] + SHARE_TIMED,
+    "pips by pool share and pool size, no color_gap": CORE + SHARE_TIMED,
 }
 HARSHER = [2, 4, 8]
 BOOTSTRAP = 200
@@ -110,16 +120,17 @@ class Picks:
         self.fit_pick = self.strong[self.owner] & ~self.basic[chosen] & (nonbasic >= 2)
 
     def column(self, name):
-        """A feature per row: a raw feature, off_pips@LO-HI (off_pips when the
+        """A feature per row: a raw feature, NAME@LO-HI (the feature when the
         pool has LO to HI cards, else 0) or off_pips*pool (off_pips times the
         pool's size over 42)."""
         off = self.X[:, NAMES.index("off_pips")]
         if name in NAMES:
             return self.X[:, NAMES.index(name)]
         pool = np.repeat(self.pool, self.sizes)
-        if name.startswith("off_pips@"):
-            lo, hi = map(int, name.split("@")[1].split("-"))
-            return off * ((pool >= lo) & (pool <= hi))
+        if "@" in name:
+            raw, span = name.split("@")
+            lo, hi = map(int, span.split("-"))
+            return self.X[:, NAMES.index(raw)] * ((pool >= lo) & (pool <= hi))
         assert name == "off_pips*pool", name
         return off * pool / 42.0
 
@@ -374,6 +385,41 @@ def main(argv=None):
             + " | ".join(f"{w[k]:+.1f}" for k in CURVE)
             + " |"
         )
+    for title in ["color_gap + pips by pool share", "pips by pool share, no color_gap"]:
+        f = fits[title]
+        out += ["", f"## {title}, fitted on the other nine sets", ""]
+        out += [
+            "Points per colored mana symbol in the card's cost, by the pool's share "
+            "of colored mana symbols in that color.",
+            "",
+            "| left out | "
+            + " | ".join(f"{lo}-{min(hi, 100)}%" for lo, hi in SHARE_BINS)
+            + " |",
+            "|---|" + "---|" * len(SHARE_BINS),
+        ]
+        for code in ["all"] + sorted(k for k in f if k != "all"):
+            w = f[code][0]
+            out.append(
+                f"| {code} | " + " | ".join(f"{w[k]:+.1f}" for k in SHARES) + " |"
+            )
+    for title in [
+        "color_gap + pips by pool share and pool size",
+        "pips by pool share and pool size, no color_gap",
+    ]:
+        w = fits[title]["all"][0]
+        out += ["", f"## {title}, all ten sets", ""]
+        out += [
+            "| pool size | "
+            + " | ".join(f"{lo}-{min(hi, 100)}%" for lo, hi in SHARE_BINS)
+            + " |",
+            "|---|" + "---|" * len(SHARE_BINS),
+        ]
+        for lo, hi in PHASES:
+            out.append(
+                f"| {lo}-{hi} | "
+                + " | ".join(f"{w[f'{k}@{lo}-{hi}']:+.1f}" for k in SHARES)
+                + " |"
+            )
     print("\n".join(out))
 
 

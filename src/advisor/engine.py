@@ -21,6 +21,7 @@ from src.utils import normalize_color_string
 logger = logging.getLogger(__name__)
 
 BASE_SCORE = 50.0
+SHARE_BINS = [(0, 5), (5, 10), (10, 15), (15, 20), (20, 30), (30, 40), (40, 101)]
 WEIGHTS = {
     # GIH WR over all decks, in standard deviations of the set's GIH WR.
     "quality": 15.0,
@@ -39,6 +40,10 @@ WEIGHTS = {
     "off_pips": 0.0,
     # Each of those symbols' color gap (see color_gap), summed.
     "pip_gap": 0.0,
+    # Colored mana symbols in the card's cost, by the pool's share of colored
+    # mana symbols in that color (see DraftAdvisor.pip_share): "share_lo_hi"
+    # counts the symbols whose color has lo% to under hi% of the pool's.
+    **{f"share_{lo}_{hi}": 0.0 for lo, hi in SHARE_BINS},
 }
 PICK_LOG_ODDS_PER_POINT = 0.1023
 # A pair's GIH WR from n games counts n / (n + LANE_PRIOR_GAMES) of its
@@ -62,6 +67,7 @@ class DraftAdvisor:
             self.global_std = 4.0
 
         self.color_strength = self._color_strength()
+        self.pip_share = self._pip_share()
         ranked = sorted(constants.CARD_COLORS, key=lambda c: -self.color_strength[c])
         self.main_colors = [c for c in ranked[:2] if self.color_strength[c] > 0]
         self.second_strength = self.color_strength[ranked[1]]
@@ -92,6 +98,44 @@ class DraftAdvisor:
                 if color in strength:
                     strength[color] += weight
         return strength
+
+    @staticmethod
+    def _pips(card: dict) -> list[list[str]]:
+        """The colors of each colored mana symbol in the card's (front face's)
+        cost; empty for hybrid, {2/W} and Phyrexian symbols that need no color."""
+        cost = str(card.get("mana_cost") or "").split(" // ")[0]
+        pips = []
+        for symbol in re.findall(r"\{(.*?)\}", cost):
+            options = symbol.split("/")
+            colors = [o for o in options if o in constants.CARD_COLORS]
+            if colors and not any(o.isdigit() or o == "P" for o in options):
+                pips.append(colors)
+        return pips
+
+    def _pip_share(self) -> dict[str, float]:
+        """For each color, its percentage of the colored mana symbols in the
+        pool's nonland cards (a hybrid symbol split between its colors); all 0
+        for a pool with none."""
+        count = {c: 0.0 for c in constants.CARD_COLORS}
+        for card in self.pool:
+            if "Land" in card.get("types", []):
+                continue
+            for colors in self._pips(card):
+                for c in colors:
+                    count[c] += 1.0 / len(colors)
+        total = sum(count.values())
+        return {c: 100.0 * n / total if total else 0.0 for c, n in count.items()}
+
+    def _share_bins(self, card: dict) -> dict[str, float]:
+        """The card's colored mana symbols counted by SHARE_BINS of the pool's
+        share in their color (the larger, for a hybrid symbol)."""
+        out = {f"share_{lo}_{hi}": 0.0 for lo, hi in SHARE_BINS}
+        for colors in self._pips(card):
+            share = max(self.pip_share[c] for c in colors)
+            for lo, hi in SHARE_BINS:
+                if lo <= share < hi:
+                    out[f"share_{lo}_{hi}"] += 1.0
+        return out
 
     def pick_features(self, card: dict) -> dict[str, float] | None:
         """The card's features for this pool, or None for a basic land."""
@@ -132,6 +176,7 @@ class DraftAdvisor:
             "unrated": 1.0 if quality is None else 0.0,
             "off_pips": off_pips,
             "pip_gap": pip_gap,
+            **self._share_bins(card),
         }
 
     def _off_pips(self, card: dict) -> tuple[float, float]:
