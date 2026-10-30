@@ -7,6 +7,8 @@ name: Pick fit
 # Run by hand: Actions > Pick fit > Run workflow.
 
 on:
+  push:
+    branches: [fit-off-pips]
   workflow_dispatch:
     inputs:
       sets:

@@ -10,6 +10,7 @@ PICK_LOG_ODDS_PER_POINT of log-odds that a strong drafter takes the card.
 """
 
 import logging
+import re
 
 import numpy as np
 
@@ -34,6 +35,9 @@ WEIGHTS = {
     "color_gap": -2.0,
     # No GIH WR yet; quality is then 0.
     "unrated": -10.9,
+    # Colored mana symbols in the card's cost that the pool's two main colors
+    # can't pay.
+    "off_pips": 0.0,
 }
 PICK_LOG_ODDS_PER_POINT = 0.1023
 # A pair's GIH WR from n games counts n / (n + LANE_PRIOR_GAMES) of its
@@ -124,7 +128,26 @@ class DraftAdvisor:
             "color_support": color_support,
             "color_gap": color_gap,
             "unrated": 1.0 if quality is None else 0.0,
+            "off_pips": self._off_pips(card),
         }
+
+    def _off_pips(self, card: dict) -> float:
+        """Colored mana symbols in the card's (front face's) cost that the
+        pool's two main colors can't pay; 0 before there are two."""
+        if len(self.main_colors) < 2:
+            return 0.0
+        cost = str(card.get("mana_cost") or "").split(" // ")[0]
+        off = 0
+        for symbol in re.findall(r"\{(.*?)\}", cost):
+            options = symbol.split("/")
+            if not any(o in constants.CARD_COLORS for o in options):
+                continue
+            # Hybrid, {2/W} and Phyrexian symbols can be paid another way.
+            if not any(
+                o in self.main_colors or o.isdigit() or o == "P" for o in options
+            ):
+                off += 1
+        return float(off)
 
     def _reasons(self, features: dict[str, float]) -> list[str]:
         reasons = []
@@ -136,6 +159,8 @@ class DraftAdvisor:
             reasons.append(f"Your Colors ({points['color_support']:+.1f})")
         if points["color_gap"] <= -1.0:
             reasons.append(f"Off-Color ({points['color_gap']:+.1f})")
+        if points["off_pips"] <= -1.0:
+            reasons.append(f"Hard to Cast ({points['off_pips']:+.1f})")
         if features["unrated"]:
             reasons.append("No Win Rate Yet")
         return reasons
