@@ -3,7 +3,8 @@ name: Wins experiment
 # Throwaway: on the advisor replay's drafts (run 41015375331), compares main
 # with the pick score refitted with different off-color terms (color_gap,
 # off_pips, a merged pip_gap, off_pips as a curve over the draft, and a harsher
-# late off_pips penalty, and colored pips by the pool's share of that color),
+# late off_pips penalty, colored pips by their color's share or count in the
+# pool, and the other 17lands metrics),
 # on agreement and event wins.
 
 on:
@@ -58,7 +59,7 @@ jobs:
   report:
     needs: extract
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

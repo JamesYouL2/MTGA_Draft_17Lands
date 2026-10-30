@@ -1,6 +1,8 @@
 """Compare ways of scoring off-color cards in the pick score: color_gap,
-off_pips, both, one merged term (pip_gap), and off_pips as a curve over the
-draft; then a harsher late off_pips penalty than strong drafters' picks give.
+off_pips, both, one merged term (pip_gap), off_pips as a curve over the draft,
+and one term in place of all three (colored pips by their color's share or
+count in the pool); a harsher late off_pips penalty than strong drafters' picks
+give; and the other 17lands metrics, each added to color_gap + off_pips.
 
     python Tools/WinsExperiment/variants.py --eval features/*.eval.json.gz \
         --train features/*.train.json.gz --replay replay/ > report.md
@@ -27,18 +29,33 @@ import report as R  # noqa: E402
 from fit import fit_logit  # noqa: E402
 
 BASE = 50.0
-NAMES = [
-    "quality",
-    "lane",
-    "color_support",
-    "color_gap",
-    "unrated",
-    "off_pips",
-    "pip_gap",
+SHARE_BINS = [(0, 5), (5, 10), (10, 15), (15, 20), (20, 30), (30, 40), (40, 1000)]
+COUNT_BINS = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 6), (6, 9), (9, 1000)]
+PSHARE = [f"pshare_{lo}_{hi}" for lo, hi in SHARE_BINS]
+CSHARE = [f"cshare_{lo}_{hi}" for lo, hi in SHARE_BINS]
+COUNT = [f"count_{lo}_{hi}" for lo, hi in COUNT_BINS]
+EXTRAS = [
+    "ata",
+    "alsa",
+    "ohwr",
+    "gdwr",
+    "gpwr",
+    "gnswr",
+    "iwd",
+    "play_rate",
+    "log_games",
+    "take_rate",
+    "rare",
+    "mythic",
 ]
-SHARE_BINS = [(0, 5), (5, 10), (10, 15), (15, 20), (20, 30), (30, 40), (40, 101)]
-SHARES = [f"share_{lo}_{hi}" for lo, hi in SHARE_BINS]
-NAMES += SHARES
+NAMES = (
+    ["quality", "lane", "color_support", "color_gap", "unrated", "off_pips"]
+    + ["pip_gap"]
+    + PSHARE
+    + CSHARE
+    + COUNT
+    + EXTRAS
+)
 FITTED = {
     "quality": 15.0,
     "lane": 11.1,
@@ -50,24 +67,47 @@ FITTED = {
 BINS = [(0, 6), (7, 13), (14, 20), (21, 27), (28, 34), (35, 99)]
 CURVE = [f"off_pips@{lo}-{hi}" for lo, hi in BINS]
 LATE = 14  # pack 2 on, for the harsher late penalty
-CORE = ["quality", "lane", "color_support", "unrated"]
-# Pool sizes for the share bins by timing: early pack 1, late pack 1, packs 2-3.
+NO_COLOR = ["quality", "lane", "unrated"]
+CORE = NO_COLOR + ["color_support"]
+# Pool sizes for bins by timing: early pack 1, late pack 1, packs 2-3.
 PHASES = [(0, 6), (7, 13), (14, 99)]
-SHARE_TIMED = [f"{k}@{lo}-{hi}" for lo, hi in PHASES for k in SHARES]
+
+
+def timed(names):
+    return [f"{k}@{lo}-{hi}" for lo, hi in PHASES for k in names]
+
+
+CANDIDATE = "color_gap + off_pips"
 FITS = {
     "color_gap (this PR)": CORE + ["color_gap"],
     "off_pips, no color_gap": CORE + ["off_pips"],
     "pip_gap, no color_gap": CORE + ["pip_gap"],
-    "color_gap + off_pips": CORE + ["color_gap", "off_pips"],
+    CANDIDATE: CORE + ["color_gap", "off_pips"],
     "color_gap + off_pips + off_pips x pool size": CORE
     + ["color_gap", "off_pips", "off_pips*pool"],
     "color_gap + off_pips by pool size": CORE + ["color_gap"] + CURVE,
     "off_pips by pool size, no color_gap": CORE + CURVE,
-    "color_gap + pips by pool share": CORE + ["color_gap"] + SHARES,
-    "pips by pool share, no color_gap": CORE + SHARES,
-    "color_gap + pips by pool share and pool size": CORE + ["color_gap"] + SHARE_TIMED,
-    "pips by pool share and pool size, no color_gap": CORE + SHARE_TIMED,
+    # One color term in place of color_support, color_gap and off_pips?
+    "color_support only": NO_COLOR + ["color_support"],
+    "pips by pip share only": NO_COLOR + PSHARE,
+    "pips by card share only": NO_COLOR + CSHARE,
+    "pips by card count only": NO_COLOR + COUNT,
+    "pips by card share and pool size only": NO_COLOR + timed(CSHARE),
+    "pips by card count and pool size only": NO_COLOR + timed(COUNT),
+    "color_support + color_gap + pips by pip share": CORE + ["color_gap"] + PSHARE,
+    "color_support + color_gap + pips by card share": CORE + ["color_gap"] + CSHARE,
+    "color_support + color_gap + pips by card count": CORE + ["color_gap"] + COUNT,
+    # The other 17lands metrics, each added to the candidate.
+    f"{CANDIDATE}, no lane": ["quality", "unrated", "color_support"]
+    + ["color_gap", "off_pips"],
+    **{f"{CANDIDATE} + {m}": CORE + ["color_gap", "off_pips", m] for m in EXTRAS},
+    f"{CANDIDATE} + all of them": CORE + ["color_gap", "off_pips"] + EXTRAS,
 }
+BIN_TABLES = [
+    ("pips by pip share only", PSHARE, "share of the pool's colored mana symbols"),
+    ("pips by card share only", CSHARE, "share of the pool's nonland cards"),
+    ("pips by card count only", COUNT, "number of the pool's nonland cards"),
+]
 HARSHER = [2, 4, 8]
 BOOTSTRAP = 200
 
@@ -75,7 +115,7 @@ BOOTSTRAP = 200
 class Picks:
     """Every pick of some drafts, as flat arrays: one row per distinct pack card."""
 
-    def __init__(self, paths):
+    def __init__(self, paths, strong_only=False):
         X, basic, sizes, taken, owner, pool = [], [], [], [], [], []
         self.drafts = []
         for path in sorted(paths):
@@ -84,6 +124,8 @@ class Picks:
             assert data["names"] == NAMES, data["names"]
             fx, fb, fs, ft, fo, fp = [], [], [], [], [], []
             for draft in data["drafts"]:
+                if strong_only and not R.is_strong(draft):
+                    continue
                 d = len(self.drafts)
                 self.drafts.append(
                     {k: draft[k] for k in ("id", "skill", "games", "wins", "losses")}
@@ -209,13 +251,21 @@ def logit_fit(train, names):
     """For each set, conditional logit weights for names fitted to strong
     drafters' picks on the other sets: (points with quality 15, log-odds per
     point, picks); and the fit on all sets."""
-    X = np.column_stack([train.column(k) for k in names])
+    every, _ = train.subset(train.fit_pick)
+    X = np.column_stack([train.column(k)[every] for k in names]).astype(float)
+    where = np.full(len(train.X), -1)
+    where[every] = np.arange(len(every))
 
     def fit(mask):
         rows, data = train.subset(mask)
-        beta, _ = fit_logit(X[rows].astype(float), data)
-        points = beta / beta[0] * 15.0
-        return dict(zip(names, np.round(points, 2))), beta[0] / 15.0, len(data.sizes)
+        beta, _ = fit_logit(X[where[rows]], data)
+        # Quality is +15 points, or -15 if other terms turn its weight negative.
+        points = beta / abs(beta[0]) * 15.0
+        return (
+            dict(zip(names, np.round(points, 2))),
+            abs(beta[0]) / 15.0,
+            len(data.sizes),
+        )
 
     out = {"all": fit(train.fit_pick)}
     for code in sorted(np.unique(train.set)):
@@ -249,7 +299,9 @@ def load_replay(folder, label, ev):
 
 
 def fmt_w(w):
-    return ", ".join(f"{k} {v:+.1f}" for k, v in w.items() if k != "quality")
+    return ", ".join(
+        f"{k} {v:+.1f}" for k, v in w.items() if k != "quality" or v != 15.0
+    )
 
 
 def main(argv=None):
@@ -292,7 +344,7 @@ def main(argv=None):
     )
     del variants["this PR"]
 
-    train = Picks(args.train)
+    train = Picks(args.train, strong_only=True)
     out.append(
         f"Training sample (a different salt): {len(train.drafts):,} drafts, "
         f"{int(train.strong.sum()):,} by strong drafters, "
@@ -385,41 +437,97 @@ def main(argv=None):
             + " | ".join(f"{w[k]:+.1f}" for k in CURVE)
             + " |"
         )
-    for title in ["color_gap + pips by pool share", "pips by pool share, no color_gap"]:
+
+    def bin_label(lo, hi, unit):
+        return f"{lo}+{unit}" if hi >= 100 else f"{lo}-{hi}{unit}"
+
+    for title, keys, what in BIN_TABLES:
         f = fits[title]
+        bins = COUNT_BINS if keys is COUNT else SHARE_BINS
+        unit = "" if keys is COUNT else "%"
         out += ["", f"## {title}, fitted on the other nine sets", ""]
         out += [
-            "Points per colored mana symbol in the card's cost, by the pool's share "
-            "of colored mana symbols in that color.",
+            "Points per colored mana symbol in the card's cost, by its color's "
+            f"{what} (columns).",
             "",
-            "| left out | "
-            + " | ".join(f"{lo}-{min(hi, 100)}%" for lo, hi in SHARE_BINS)
-            + " |",
-            "|---|" + "---|" * len(SHARE_BINS),
+            "| left out | " + " | ".join(bin_label(*b, unit) for b in bins) + " |",
+            "|---|" + "---|" * len(bins),
         ]
         for code in ["all"] + sorted(k for k in f if k != "all"):
             w = f[code][0]
-            out.append(
-                f"| {code} | " + " | ".join(f"{w[k]:+.1f}" for k in SHARES) + " |"
-            )
-    for title in [
-        "color_gap + pips by pool share and pool size",
-        "pips by pool share and pool size, no color_gap",
+            out.append(f"| {code} | " + " | ".join(f"{w[k]:+.1f}" for k in keys) + " |")
+    for title, keys in [
+        ("pips by card share and pool size only", CSHARE),
+        ("pips by card count and pool size only", COUNT),
     ]:
         w = fits[title]["all"][0]
+        bins = COUNT_BINS if keys is COUNT else SHARE_BINS
+        unit = "" if keys is COUNT else "%"
         out += ["", f"## {title}, all ten sets", ""]
         out += [
-            "| pool size | "
-            + " | ".join(f"{lo}-{min(hi, 100)}%" for lo, hi in SHARE_BINS)
-            + " |",
-            "|---|" + "---|" * len(SHARE_BINS),
+            "| pool size | " + " | ".join(bin_label(*b, unit) for b in bins) + " |",
+            "|---|" + "---|" * len(bins),
         ]
         for lo, hi in PHASES:
             out.append(
                 f"| {lo}-{hi} | "
-                + " | ".join(f"{w[f'{k}@{lo}-{hi}']:+.1f}" for k in SHARES)
+                + " | ".join(f"{w[f'{k}@{lo}-{hi}']:+.1f}" for k in keys)
                 + " |"
             )
+
+    base_ll = variants[CANDIDATE][3]
+    base_t, base_n = variants[CANDIDATE][0], variants[CANDIDATE][1]
+    base_top1 = 100 * base_t[strong].sum() / base_n[strong].sum()
+    out += ["", f"## The other 17lands metrics, each added to {CANDIDATE}", ""]
+    out += [
+        "Each metric is in standard deviations over the set's rated cards "
+        "(rare and mythic are 0/1). Its weight is in log-odds per SD, fitted on all "
+        "ten sets (quality's, for comparison, is in the next column); the held-out "
+        "log-likelihood and strong drafters' top-1 are differences from "
+        f"{CANDIDATE} alone ({base_ll:.4f}, {base_top1:.1f}%).",
+        "",
+        "| metric | weight | quality's weight | Δ log-lik | Δ top-1 strong |",
+        "|---|---|---|---|---|",
+    ]
+    for m in EXTRAS + ["all of them", "no lane"]:
+        title = f"{CANDIDATE}, no lane" if m == "no lane" else f"{CANDIDATE} + {m}"
+        t, n, _r, ll = variants[title]
+        w, scale, _ = fits[title]["all"]
+        weight = f"{w[m] * scale:+.3f}" if m in w else "-"
+        top1 = 100 * t[strong].sum() / n[strong].sum()
+        out.append(
+            f"| {m} | {weight} | {w['quality'] * scale:+.3f} | "
+            f"{ll - base_ll:+.4f} | {top1 - base_top1:+.1f} |"
+        )
+
+    rows, data = ev.subset(ev.fit_pick)
+    scores = {
+        k: ev.scores({x: v for x, v in fits[title]["all"][0].items() if x in keys})
+        for k, title, keys in [
+            ("pip share score", "pips by pip share only", PSHARE),
+            ("card share score", "pips by card share only", CSHARE),
+            ("card count score", "pips by card count only", COUNT),
+        ]
+    }
+    cols = {k: ev.column(k) for k in ["lane", "color_support", "color_gap"]}
+    cols |= {k: ev.column(k) for k in ["off_pips", "pip_gap"]} | scores
+    within = []
+    for v in cols.values():
+        v = v[rows].astype(float)
+        mean = np.add.reduceat(v, data.starts) / data.sizes
+        within.append(v - np.repeat(mean, data.sizes))
+    corr = np.corrcoef(within)
+    out += ["", "## How alike the color terms are", ""]
+    out += [
+        "Correlations between the cards of the same pack (each term minus its "
+        "pack mean), over strong drafters' picks on the replay drafts. The "
+        'score rows are the fitted bins of the "only" variations, summed.',
+        "",
+        "| | " + " | ".join(cols) + " |",
+        "|---|" + "---|" * len(cols),
+    ]
+    for i, k in enumerate(cols):
+        out.append(f"| {k} | " + " | ".join(f"{c:+.2f}" for c in corr[i]) + " |")
     print("\n".join(out))
 
 

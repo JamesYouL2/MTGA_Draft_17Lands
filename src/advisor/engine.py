@@ -21,7 +21,9 @@ from src.utils import normalize_color_string
 logger = logging.getLogger(__name__)
 
 BASE_SCORE = 50.0
-SHARE_BINS = [(0, 5), (5, 10), (10, 15), (15, 20), (20, 30), (30, 40), (40, 101)]
+SHARE_BINS = [(0, 5), (5, 10), (10, 15), (15, 20), (20, 30), (30, 40), (40, 1000)]
+# 17lands counts a deck as splashing a color with 1-3 cards in it, else main.
+COUNT_BINS = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 6), (6, 9), (9, 1000)]
 WEIGHTS = {
     # GIH WR over all decks, in standard deviations of the set's GIH WR.
     "quality": 15.0,
@@ -41,9 +43,13 @@ WEIGHTS = {
     # Each of those symbols' color gap (see color_gap), summed.
     "pip_gap": 0.0,
     # Colored mana symbols in the card's cost, by the pool's share of colored
-    # mana symbols in that color (see DraftAdvisor.pip_share): "share_lo_hi"
+    # mana symbols in that color (see DraftAdvisor.pip_share): "pshare_lo_hi"
     # counts the symbols whose color has lo% to under hi% of the pool's.
-    **{f"share_{lo}_{hi}": 0.0 for lo, hi in SHARE_BINS},
+    **{f"pshare_{lo}_{hi}": 0.0 for lo, hi in SHARE_BINS},
+    # The same by the percentage of the pool's nonland cards in that color.
+    **{f"cshare_{lo}_{hi}": 0.0 for lo, hi in SHARE_BINS},
+    # The same by the number of the pool's nonland cards in that color.
+    **{f"count_{lo}_{hi}": 0.0 for lo, hi in COUNT_BINS},
 }
 PICK_LOG_ODDS_PER_POINT = 0.1023
 # A pair's GIH WR from n games counts n / (n + LANE_PRIOR_GAMES) of its
@@ -68,6 +74,16 @@ class DraftAdvisor:
 
         self.color_strength = self._color_strength()
         self.pip_share = self._pip_share()
+        self.card_count = {c: 0 for c in constants.CARD_COLORS}
+        nonland = [c for c in self.pool if "Land" not in c.get("types", [])]
+        for card in nonland:
+            for c in card.get("colors", []):
+                if c in self.card_count:
+                    self.card_count[c] += 1
+        self.card_share = {
+            c: 100.0 * n / len(nonland) if nonland else 0.0
+            for c, n in self.card_count.items()
+        }
         ranked = sorted(constants.CARD_COLORS, key=lambda c: -self.color_strength[c])
         self.main_colors = [c for c in ranked[:2] if self.color_strength[c] > 0]
         self.second_strength = self.color_strength[ranked[1]]
@@ -127,14 +143,21 @@ class DraftAdvisor:
         return {c: 100.0 * n / total if total else 0.0 for c, n in count.items()}
 
     def _share_bins(self, card: dict) -> dict[str, float]:
-        """The card's colored mana symbols counted by SHARE_BINS of the pool's
-        share in their color (the larger, for a hybrid symbol)."""
-        out = {f"share_{lo}_{hi}": 0.0 for lo, hi in SHARE_BINS}
-        for colors in self._pips(card):
-            share = max(self.pip_share[c] for c in colors)
-            for lo, hi in SHARE_BINS:
-                if lo <= share < hi:
-                    out[f"share_{lo}_{hi}"] += 1.0
+        """The card's colored mana symbols counted by bins of the pool's pip
+        share, card share and card count in their color (the larger, for a
+        hybrid symbol)."""
+        out = {}
+        for prefix, measure, bins in [
+            ("pshare", self.pip_share, SHARE_BINS),
+            ("cshare", self.card_share, SHARE_BINS),
+            ("count", self.card_count, COUNT_BINS),
+        ]:
+            out |= {f"{prefix}_{lo}_{hi}": 0.0 for lo, hi in bins}
+            for colors in self._pips(card):
+                value = max(measure[c] for c in colors)
+                for lo, hi in bins:
+                    if lo <= value < hi:
+                        out[f"{prefix}_{lo}_{hi}"] += 1.0
         return out
 
     def pick_features(self, card: dict) -> dict[str, float] | None:
