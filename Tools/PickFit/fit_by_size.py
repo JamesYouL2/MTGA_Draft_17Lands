@@ -11,6 +11,8 @@ sets it wasn't fitted on (five folds of two sets):
 - by day: a weight set per bucket.
 - quality by games: as one set, but the quality weight is a straight line
   in log10 of the dataset's game count.
+- app, quality by games: the app's weights, with quality multiplied by
+  1 + c * (log10 of the dataset's games - 6); only c is fitted.
 - by games: each weight a straight line in log10 of the dataset's game count.
 - by games, shrunk quality: the same, with each card's quality multiplied by
   samples / (samples + K), K picked by the likelihood over all picks.
@@ -78,6 +80,18 @@ def design(data, by_games=False, k=0):
     return X
 
 
+def app_quality_by_games(data):
+    points = np.array([data.weights[n] for n in data.names])
+    return np.column_stack(
+        [data.X @ points, data.X[:, data.q] * (log_games(data) + CENTER - 6.0)]
+    )
+
+
+def app_factor(beta):
+    """c in 1 + c * (log10 games - 6), from the fit of app_quality_by_games."""
+    return beta[1] / beta[0] / QUALITY_POINTS
+
+
 def quality_by_games(data):
     return np.column_stack([data.X, data.X[:, data.q] * log_games(data)])
 
@@ -94,6 +108,8 @@ def scores(tr, te, n_buckets, k):
         rows = np.repeat(te.bucket == b, te.sizes)
         u[rows] = te.X[rows] @ beta
     out["by day"] = u
+    beta, _ = fit_logit(app_quality_by_games(tr), tr)
+    out["app, quality by games"] = app_quality_by_games(te) @ beta
     beta, _ = fit_logit(quality_by_games(tr), tr)
     out["quality by games"] = quality_by_games(te) @ beta
     beta, _ = fit_logit(design(tr, True), tr)
@@ -198,6 +214,22 @@ def main(argv=None):
         print(
             f"| {label} | " + " | ".join(f"{w:+.1f}" for w in pts) + f" | {scale:.4f} |"
         )
+
+    beta, cov = fit_logit(app_quality_by_games(data), data)
+    c = app_factor(beta)
+    g = np.array([-beta[1] / beta[0] ** 2, 1 / beta[0]]) / QUALITY_POINTS
+    print()
+    print("## App, quality by games, fitted to all sets")
+    print()
+    print(
+        f"Quality multiplied by 1 + c * (log10 games - 6), c = {c:+.3f} "
+        f"± {np.sqrt(g @ cov @ g):.3f}; app scale {beta[0]:.4f} log-odds per point."
+    )
+    print()
+    print("| dataset games | quality factor |")
+    print("|---|---|")
+    for n in SHOW_GAMES:
+        print(f"| {n:,} | {1 + c * (np.log10(n) - 6):.2f} |")
 
     beta, cov = fit_logit(quality_by_games(data), data)
     print()
