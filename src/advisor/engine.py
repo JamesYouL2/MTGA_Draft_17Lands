@@ -4,7 +4,6 @@ The "Compositional Brain" (v5.5 Pro-Tour Architecture)
 Updated: Bayesian Smoothing, Top-End/Synergy Tracking, and Premium Removal Splash.
 """
 
-import statistics
 import logging
 import math
 import numpy as np
@@ -25,6 +24,9 @@ class DraftAdvisor:
     TARGET_CARD_DRAW = 2
     TARGET_EVASION = 3
     BOMB_Z_SCORE = 1.5
+    # Bomb bonus: points per SD of GIH WR above the format mean, from POWER_MIN_Z.
+    POWER_PER_Z = 10.0
+    POWER_MIN_Z = 0.5
     # Score a card at its overall win rate plus ARCH_WEIGHT times how much
     # better it does in the current archetype, from the first pick. Above 1,
     # this also covers the bonus archetype cards used to get on top. In
@@ -78,22 +80,6 @@ class DraftAdvisor:
         ]
         needs_playables = len(on_color_pool) < 20 and pack_number == 3
 
-        pack_wrs = []
-        for c in pack_cards:
-            try:
-                wr = float(
-                    c.get("deck_colors", {}).get("All Decks", {}).get("gihwr", 0.0)
-                )
-                if wr > 0:
-                    pack_wrs.append(wr)
-            except:
-                continue
-
-        pack_mean = statistics.mean(pack_wrs) if pack_wrs else self.global_mean
-        pack_std = statistics.pstdev(pack_wrs) if len(pack_wrs) > 1 else self.global_std
-        if pack_std <= 0:
-            pack_std = self.global_std
-
         pack_cards_sorted = sorted(
             pack_cards,
             key=lambda c: float(
@@ -122,13 +108,19 @@ class DraftAdvisor:
                 base_score = self._calculate_weighted_score(card)
 
                 # --- STEP 2: Bomb Detection ---
-                z_score = (raw_gihwr - pack_mean) / pack_std
+                # Against the format's spread, so a card's bonus doesn't depend
+                # on its packmates.
+                z_score = (raw_gihwr - self.global_mean) / self.global_std
                 iwd_mult = (
                     1.15
                     if (raw_iwd > self.IWD_PREMIUM_THRESHOLD and z_score > 1.0)
                     else 1.0
                 )
-                power_bonus = max(0, z_score * 10 * iwd_mult) if z_score > 0.5 else 0
+                power_bonus = (
+                    z_score * self.POWER_PER_Z * iwd_mult
+                    if z_score > self.POWER_MIN_Z
+                    else 0
+                )
 
                 # --- STEP 3: Lane ---
                 # The card's win rate in the lane's pair is already blended into

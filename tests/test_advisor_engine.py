@@ -265,3 +265,26 @@ def test_archetype_weight_is_flat(mock_metrics):
 
     # 55 + 1.5 * (59 - 55) = 61, which is 1.5 sigma above the mean
     assert advisor._calculate_weighted_score(card) == pytest.approx(72.5)
+
+
+def test_bomb_z_score_does_not_depend_on_packmates(mock_metrics):
+    """A card's z-score is measured against the format, not the pack."""
+    advisor = DraftAdvisor(mock_metrics, [])
+    mean, std = advisor.global_mean, advisor.global_std
+
+    def card(name, wr):
+        return {
+            "name": name,
+            "colors": [],
+            "deck_colors": {"All Decks": {"gihwr": wr}},
+        }
+
+    bomb = card("Bomb", mean + 2 * std)
+    weak_pack = [bomb, card("Filler", mean - std)]
+    strong_pack = [bomb, card("Other Bomb", mean + 3 * std)]
+
+    z_scores = [
+        next(r for r in advisor.evaluate_pack(pack, 1) if r.card_name == "Bomb").z_score
+        for pack in (weak_pack, strong_pack)
+    ]
+    assert z_scores == pytest.approx([2.0, 2.0])
