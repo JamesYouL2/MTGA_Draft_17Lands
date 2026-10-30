@@ -1,0 +1,114 @@
+{
+ "names": [
+  "share3_day1",
+  "share3_full",
+  "multi3_cards"
+ ],
+ "descriptions": {
+  "share3_day1": "share of 17Lands Premier Draft games on the set's first day played by decks of 3+ colors (splashes combined into the base pair)",
+  "share3_full": "the same share over the whole format (hindsight; for comparison, not usable on day 1)",
+  "multi3_cards": "share of the set's nonland cards with 3+ colors in their cost (known before the set releases)"
+ },
+ "sets": {
+  "DMU": {
+   "share3_day1": 0.4263,
+   "share3_full": 0.4516,
+   "multi3_cards": 0.0455
+  },
+  "NEO": {
+   "share3_day1": 0.052,
+   "share3_full": 0.0908,
+   "multi3_cards": 0.0268
+  },
+  "VOW": {
+   "share3_day1": 0.0267,
+   "share3_full": 0.0329,
+   "multi3_cards": 0.0
+  },
+  "MID": {
+   "share3_day1": 0.0422,
+   "share3_full": 0.0454,
+   "multi3_cards": 0.0
+  },
+  "STX": {
+   "share3_day1": 0.102,
+   "share3_full": 0.202,
+   "multi3_cards": 0.0041
+  },
+  "LTR": {
+   "share3_day1": 0.0764,
+   "share3_full": 0.1041,
+   "multi3_cards": 0.0154
+  },
+  "OTJ": {
+   "share3_day1": 0.1707,
+   "share3_full": 0.2278,
+   "multi3_cards": 0.0441
+  },
+  "BLB": {
+   "share3_day1": 0.0456,
+   "share3_full": 0.0531,
+   "multi3_cards": 0.0149
+  },
+  "DSK": {
+   "share3_day1": 0.0961,
+   "share3_full": 0.1131,
+   "multi3_cards": 0.0149
+  },
+  "EOE": {
+   "share3_day1": 0.0527,
+   "share3_full": 0.0705,
+   "multi3_cards": 0.0076
+  },
+  "DFT": {
+   "share3_day1": 0.0903,
+   "share3_full": 0.1332,
+   "multi3_cards": 0.0153
+  },
+  "FDN": {
+   "share3_day1": 0.0306,
+   "share3_full": 0.0378,
+   "multi3_cards": 0.0072
+  },
+  "TDM": {
+   "share3_day1": 0.8133,
+   "share3_full": 0.7785,
+   "multi3_cards": 0.2857
+  },
+  "FIN": {
+   "share3_day1": 0.1188,
+   "share3_full": 0.1438,
+   "multi3_cards": 0.0532
+  },
+  "TLA": {
+   "share3_day1": 0.1485,
+   "share3_full": 0.1812,
+   "multi3_cards": 0.0256
+  },
+  "FRA": {
+   "share3_day1": 0.1508,
+   "share3_full": 0.2255,
+   "multi3_cards": 0.0145
+  },
+  "HOB": {
+   "share3_day1": 0.0297,
+   "share3_full": 0.0347,
+   "multi3_cards": 0.0056
+  },
+  "MSH": {
+   "share3_day1": 0.097,
+   "share3_full": 0.1289,
+   "multi3_cards": 0.016
+  },
+  "SOS": {
+   "share3_day1": 0.1465,
+   "share3_full": 0.2101,
+   "multi3_cards": 0.005
+  },
+  "TMT": {
+   "share3_day1": 0.0673,
+   "share3_full": 0.0937,
+   "multi3_cards": 0.0094
+  }
+ }
+}
