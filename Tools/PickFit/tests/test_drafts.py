@@ -51,3 +51,16 @@ def test_sample_is_the_lowest_priorities():
     expected = sorted(sorted(ids, key=drafts.draft_priority)[:5])
 
     assert [d["id"] for d in sample(text, 5)] == expected
+
+
+def test_keeps_only_drafts_in_the_date_range():
+    text = HEADER + rows("a") + rows("b") + rows("c")
+    text = text.replace(",a,t,", ",a,2026-01-01 10:00:00,")
+    text = text.replace(",b,t,", ",b,2026-01-02 10:00:00,")
+    text = text.replace(",c,t,", ",c,2026-01-03 10:00:00,")
+
+    kept = drafts.sample_drafts(
+        io.StringIO(text), 10, dates=("2026-01-02", "2026-01-03")
+    )
+
+    assert [d["id"] for d in kept] == ["b"]

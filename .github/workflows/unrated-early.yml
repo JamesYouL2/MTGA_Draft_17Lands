@@ -1,0 +1,100 @@
+name: Unrated early
+
+# Throwaway: fits the pick score's unrated weight on strong drafters' picks
+# from the format's first days, scored with the ratings the app would have had
+# then (rebuilt from 17Lands game data by Tools/PickFit/early_ratings.py).
+# Picks on day N+1 use ratings from drafts in the first N days.
+
+on:
+  push:
+    branches: [exp-unrated-early]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DRAFTS: "4000"
+
+jobs:
+  features:
+    name: Features ${{ matrix.set }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ["DFT", "FDN", "FIN", "FRA", "HOB", "MSH", "SOS", "TDM", "TLA", "TMT"]
+    env:
+      SET: ${{ matrix.set }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - run: poetry run pip install pandas
+      - name: Download the game data, the draft data and the app's dataset
+        run: |
+          curl -fsSL --retry 3 -o games.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o drafts.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o dataset.json.gz \
+            "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+      - name: Rebuild early ratings
+        run: poetry run python Tools/PickFit/early_ratings.py --games games.csv.gz --dataset dataset.json.gz --days 1 2 3 --out early
+      - name: Features, picks on day N+1 with ratings from the first N days
+        run: |
+          START=$(cat early/start.txt)
+          for N in 1 2 3; do
+            FROM=$(date -I -d "$START + $N day")
+            TO=$(date -I -d "$START + $((N + 1)) day")
+            poetry run python Tools/PickFit/drafts.py --dump drafts.csv.gz --drafts "$DRAFTS" \
+              --from-date "$FROM" --to-date "$TO" --out "day$N.json.gz"
+            mkdir -p "results/day$N"
+            poetry run python Tools/PickFit/features.py --src . --drafts "day$N.json.gz" \
+              --dataset "early/day$N.json.gz" --set "$SET" --out "results/day$N/$SET.json.gz"
+          done
+      - name: Features, the whole format with the app's dataset
+        run: |
+          poetry run python Tools/PickFit/drafts.py --dump drafts.csv.gz --drafts "$DRAFTS" --out full.json.gz
+          mkdir -p results/full
+          poetry run python Tools/PickFit/features.py --src . --drafts full.json.gz \
+            --dataset dataset.json.gz --set "$SET" --out "results/full/$SET.json.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: features-${{ matrix.set }}
+          path: results/
+
+  fit:
+    needs: features
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: features-*
+          path: results
+          merge-multiple: true
+      - name: Fit
+        shell: bash
+        run: |
+          {
+            echo "# Unrated weight on early picks at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python Tools/PickFit/fit_unrated.py \
+              "day 1=results/day1" "day 2=results/day2" "day 3=results/day3" "whole format=results/full"
+          } | tee report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unrated-report
+          path: report.md

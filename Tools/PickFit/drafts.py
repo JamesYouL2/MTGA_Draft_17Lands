@@ -48,13 +48,14 @@ def _split(line):
     return line.rstrip("\r\n").split(",")
 
 
-def sample_drafts(lines, n_drafts, min_skill=0.6, min_games=50, salt=""):
+def sample_drafts(lines, n_drafts, min_skill=0.6, min_games=50, salt="", dates=None):
     """The n_drafts strong drafters' drafts with the lowest priority, in
     draft_id order.
 
     lines is the dump's CSV text, one line per pick. Each draft has its "id"
     and its "picks": [pack, pick, taken card, cards in the pack, cards already
-    taken], with pack and pick from 1.
+    taken], with pack and pick from 1. If dates is given, only drafts started
+    from dates[0] (ISO) up to but not including dates[1] are kept.
     """
     lines = iter(lines)
     header = next(csv.reader([next(lines)]))
@@ -87,6 +88,9 @@ def sample_drafts(lines, n_drafts, min_skill=0.6, min_games=50, salt=""):
                 and skill >= min_skill
                 and games >= min_games
             )
+            if dates:
+                date = row[col["draft_time"]][:10]
+                strong = strong and dates[0] <= date < dates[1]
             priority = draft_priority(draft_id, salt)
             keep = strong and (
                 draft_id in drafts or len(kept) < n_drafts or priority < -kept[0][0]
@@ -118,13 +122,20 @@ def main(argv=None):
     parser.add_argument("--min-skill", type=float, default=0.6)
     parser.add_argument("--min-games", type=float, default=50)
     parser.add_argument("--salt", default="", help="Changes which drafts are kept")
+    parser.add_argument("--from-date", help="First draft date (ISO)")
+    parser.add_argument("--to-date", help="Day after the last draft date (ISO)")
     parser.add_argument("--out", required=True, help="Where to write (.json.gz)")
     args = parser.parse_args(argv)
 
     opener = gzip.open if args.dump.endswith(".gz") else open
     with opener(args.dump, "rt", newline="", encoding="utf-8") as f:
         drafts = sample_drafts(
-            f, args.drafts, args.min_skill, args.min_games, args.salt
+            f,
+            args.drafts,
+            args.min_skill,
+            args.min_games,
+            args.salt,
+            (args.from_date, args.to_date) if args.from_date else None,
         )
     with gzip.open(args.out, "wt", encoding="utf-8") as f:
         json.dump(drafts, f)
