@@ -71,6 +71,7 @@ def transform_payload(
     start_date,
     end_date,
     total_games,
+    three_color_share=None,
 ) -> dict:
     logger.info(f"Transforming payload for {set_code} {draft_format}...")
 
@@ -105,6 +106,8 @@ def transform_payload(
         "color_ratings": safe_color_ratings,
         "card_ratings": {},
     }
+    if three_color_share is not None:
+        payload["meta"]["three_color_share"] = round(three_color_share, 4)
 
     all_decks_stats_map = seventeenlands_data.get("All Decks", {})
 

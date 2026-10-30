@@ -481,6 +481,19 @@ def read_dataset_info(filename: str, codes=None, names=None):
     return ()
 
 
+def three_color_share(color_ratings: list) -> float | None:
+    """The share of games played by decks of three or more colors, from the
+    rows of 17Lands' color_ratings/data (splashes combined, so a splash doesn't
+    count as a color); None if there are no games."""
+    games = {
+        row.get("short_name"): row.get("games") or 0
+        for row in color_ratings
+        if row.get("is_summary")
+    }
+    total = sum(games.get(n, 0) for n in range(1, 6))
+    return sum(games.get(n, 0) for n in (3, 4, 5)) / total if total else None
+
+
 def normalize_color_string(color_string: str) -> str:
     """
     Standardizes any combination of color symbols (GW, WG, RUG)

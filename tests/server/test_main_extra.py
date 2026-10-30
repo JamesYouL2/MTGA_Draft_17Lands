@@ -52,7 +52,7 @@ def test_run_pipeline(
     mock_basic_lands.return_value = {"Island": {"arena_ids": [1]}}
     mock_scryfall_data.return_value = {"Bolt": {"arena_ids": [2]}}
     mock_scryfall_tags.return_value = {"Bolt": ["removal"]}
-    mock_color_ratings.return_value = ({"WG": 55.0}, {"WG": 1000}, 10000)
+    mock_color_ratings.return_value = ({"WG": 55.0}, {"WG": 1000}, 10000, 0.1)
     mock_17lands.return_value = {"All Decks": {"Bolt": {}}, "WG": {"Bolt": {}}}
     mock_transform.return_value = {"card_ratings": {}}
     mock_save_dataset.return_value = {"filename": "test.gz", "size_kb": 10}

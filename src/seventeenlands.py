@@ -11,7 +11,12 @@ import logging
 import tempfile
 import math
 from typing import List, Dict, Any, Optional
-from src.utils import is_cache_stale, normalize_color_string, sanitize_card_name
+from src.utils import (
+    is_cache_stale,
+    normalize_color_string,
+    sanitize_card_name,
+    three_color_share,
+)
 from src.constants import BASE_DIR
 
 logger = logging.getLogger(__name__)
@@ -276,7 +281,8 @@ class Seventeenlands:
         threshold=5000,
         color_filter=None,
     ):
-        """Retrieves general color performance data."""
+        """Retrieves general color performance data: win rates by color group,
+        the game count and the share of games by decks of 3+ colors."""
         params = {
             "expansion": set_code,
             "event_type": draft,
@@ -302,7 +308,7 @@ class Seventeenlands:
         data = response.json()
 
         results, game_count = self._process_color_ratings(data, color_filter, threshold)
-        return results, game_count
+        return results, game_count, three_color_share(data)
 
     def _process_color_ratings(self, data, color_filter, threshold=5000):
         results = {}

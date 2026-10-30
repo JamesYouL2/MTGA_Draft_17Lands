@@ -20,6 +20,23 @@ def test_transform_payload_missing_games():
     assert "UNKNOWN_LightningBolt" in payload["card_ratings"]
 
 
+@pytest.mark.parametrize("share", [0.25, None])
+def test_transform_payload_three_color_share(share):
+    payload = transform_payload(
+        set_code="M10",
+        draft_format="PremierDraft",
+        scryfall_cards={},
+        seventeenlands_data={},
+        card_tags={},
+        color_ratings=None,
+        start_date="2020-01-01",
+        end_date="2020-02-01",
+        total_games=0,
+        three_color_share=share,
+    )
+    assert payload["meta"].get("three_color_share") == share
+
+
 def test_transform_payload_basic_lands():
     scryfall_cards = {
         "Island": {

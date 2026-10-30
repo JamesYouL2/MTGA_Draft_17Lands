@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       sets:
-        description: 'JSON list of set codes, e.g. ["FRA", "TDM"] (empty: all ten)'
+        description: 'JSON list of set codes, e.g. ["FRA", "TDM"] (empty: all seventeen)'
         default: ""
       drafts:
         description: Strong drafters' drafts per set
@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        set: ${{ fromJSON(inputs.sets || '["DFT", "FDN", "FIN", "FRA", "HOB", "MSH", "SOS", "TDM", "TLA", "TMT"]') }}
+        set: ${{ fromJSON(inputs.sets || '["BLB", "DFT", "DMU", "DSK", "EOE", "FDN", "FIN", "FRA", "HOB", "LTR", "MSH", "NEO", "OTJ", "SOS", "TDM", "TLA", "TMT"]') }}
     env:
       SET: ${{ matrix.set }}
     steps:
@@ -50,6 +50,8 @@ jobs:
             "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
           curl -fsSL --retry 3 -o dataset.json.gz \
             "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+      - name: Add the three-color share if the dataset predates it
+        run: poetry run python Tools/PickFit/three_color_share.py --src . --dataset dataset.json.gz --set "$SET"
       - name: Sample drafts
         run: poetry run python Tools/PickFit/drafts.py --dump drafts.csv.gz --drafts "$DRAFTS" --salt "$SALT" --out drafts.json.gz
       - name: Compute features
@@ -63,7 +65,7 @@ jobs:
     needs: features
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

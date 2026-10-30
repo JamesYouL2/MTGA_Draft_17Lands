@@ -118,17 +118,21 @@ def test_extract_color_ratings(mock_client):
     mock_response = MagicMock()
     mock_response.json.return_value = [
         {"is_summary": True, "color_name": "All Decks", "games": 50000},
+        {"is_summary": True, "short_name": 2, "games": 40000},
+        {"is_summary": True, "short_name": 3, "games": 9000},
+        {"is_summary": True, "short_name": 4, "games": 1000},
         {"short_name": "GW", "games": 1000, "wins": 550},  # Valid, but backwards name
         {"short_name": "UR", "games": 100, "wins": 50},  # Below threshold (100 < 500)
     ]
     mock_client.respectful_get.return_value = mock_response
 
-    ratings, games_played, total_games = extract_color_ratings(
+    ratings, games_played, total_games, share = extract_color_ratings(
         mock_client, "M10", "PremierDraft", "All", "ALL_TIME"
     )
 
     # Assertions
     assert total_games == 50000
+    assert share == pytest.approx(0.2)  # (9000 + 1000) / 50000
     assert "WG" in ratings  # Normalized from GW -> WG
     assert ratings["WG"] == 55.0  # (550/1000) * 100
     assert "UR" not in ratings  # Excluded due to low game count

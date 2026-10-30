@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from server import config
 from server.transform import parse_scryfall_types
-from src.utils import normalize_color_string
+from src.utils import normalize_color_string, three_color_share
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +270,7 @@ def extract_color_ratings(
     draft_format: str,
     user_group: str,
     time_period: str,
-) -> tuple[dict, dict, int]:
+) -> tuple[dict, dict, int, float | None]:
     logger.info(
         f"Fetching color ratings for {set_code} {draft_format} ({user_group})..."
     )
@@ -287,9 +287,11 @@ def extract_color_ratings(
     url = "https://www.17lands.com/color_ratings/data"
     ratings, games_played = {}, {}
     total_games = 0
+    share = None
 
     try:
         data = client.respectful_get(url, params=params).json()
+        share = three_color_share(data)
         for entry in data:
             if entry.get("is_summary"):
                 if "All Decks" in entry.get("color_name", ""):
@@ -320,7 +322,7 @@ def extract_color_ratings(
     except Exception as e:
         logger.warning(f"Failed to fetch color ratings: {e}")
 
-    return ratings, games_played, total_games
+    return ratings, games_played, total_games, share
 
 
 def extract_basic_lands(client) -> dict:

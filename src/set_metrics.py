@@ -24,6 +24,8 @@ class SetMetrics:
     def __init__(self, dataset: Dataset, digits: int = 2):
         self._color_metrics: dict = {}
         self._digits: int = digits
+        # The share of games played by decks of three or more colors, or None.
+        self.three_color_share = dataset.get_three_color_share() if dataset else None
         self.generate_metrics(dataset)
 
     def get_metrics(self, color: str, field: str) -> Tuple[float, float]:

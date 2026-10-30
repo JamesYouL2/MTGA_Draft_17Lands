@@ -141,7 +141,7 @@ def run_pipeline():
                     f"   No Scryfall base cards found for {set_code}. Will rely on 17Lands card names."
                 )
 
-            color_ratings, games_played, total_games = extract_color_ratings(
+            color_ratings, games_played, total_games, share = extract_color_ratings(
                 client, set_code, draft_format, user_group, time_period
             )
 
@@ -202,6 +202,7 @@ def run_pipeline():
                 start_date_str,
                 end_date_str,
                 total_games,
+                three_color_share=share,
             )
 
             label = f"{set_code} {draft_format} ({user_group})"

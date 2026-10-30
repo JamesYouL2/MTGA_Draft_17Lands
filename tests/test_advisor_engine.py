@@ -2,7 +2,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.advisor.engine import BASE_SCORE, LANE_PRIOR_GAMES, WEIGHTS, DraftAdvisor
+from src.advisor.engine import (
+    BASE_SCORE,
+    LANE_PRIOR_GAMES,
+    TYPICAL_THREE_COLOR_SHARE,
+    WEIGHTS,
+    DraftAdvisor,
+)
 
 
 @pytest.fixture
@@ -10,6 +16,7 @@ def mock_metrics():
     metrics = MagicMock()
     # get_metrics returns (mean, std)
     metrics.get_metrics.return_value = (55.0, 4.0)
+    metrics.three_color_share = None
     return metrics
 
 
@@ -246,6 +253,36 @@ def test_no_off_pips_before_two_colors(mock_metrics):
         advisor.pick_features(card("X", "B", 55.0, mana_cost="{B}{B}"))["off_pips"]
         == 0.0
     )
+
+
+@pytest.mark.parametrize(
+    "share, expected", [(0.8, 0.8), (0.0, 0.0), (None, TYPICAL_THREE_COLOR_SHARE)]
+)
+def test_three_color_off_pips(mock_metrics, share, expected):
+    """off_pips times the set's three-color share, or a typical share if the
+    dataset has none."""
+    mock_metrics.three_color_share = share
+    pool = [card(f"W{i}", "W", 55.0) for i in range(5)]
+    pool += [card(f"U{i}", "U", 55.0) for i in range(3)]
+    advisor = DraftAdvisor(mock_metrics, pool)
+
+    features = advisor.pick_features(card("X", "B", 55.0, mana_cost="{B}{B}"))
+
+    assert features["three_color_off_pips"] == pytest.approx(2 * expected)
+
+
+def test_off_color_reason_includes_the_three_color_term(mock_metrics):
+    mock_metrics.three_color_share = 0.8
+    pool = [card(f"W{i}", "W", 55.0) for i in range(5)]
+    pool += [card(f"U{i}", "U", 55.0) for i in range(3)]
+    advisor = DraftAdvisor(mock_metrics, pool)
+
+    (rec,) = advisor.evaluate_pack(
+        [card("Off", "B", 55.0, mana_cost="{1}{B}")], current_pick=3
+    )
+
+    points = WEIGHTS["off_pips"] + 0.8 * WEIGHTS["three_color_off_pips"]
+    assert f"Off-Color ({points:+.1f})" in rec.reasoning
 
 
 def test_lane_shrinks_with_few_games(mock_metrics):

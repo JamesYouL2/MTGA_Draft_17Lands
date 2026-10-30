@@ -1288,7 +1288,7 @@ class FileExtractor(UIProgress):
 
         while retry:
             try:
-                self.combined_data["color_ratings"], game_count = (
+                self.combined_data["color_ratings"], game_count, share = (
                     seventeenlands.download_color_ratings(
                         self.selected_sets.seventeenlands[0],
                         self.draft,
@@ -1298,6 +1298,8 @@ class FileExtractor(UIProgress):
                     )
                 )
                 self.set_game_count(game_count)
+                if share is not None:
+                    self.combined_data["meta"]["three_color_share"] = round(share, 4)
                 result = True
                 break
 

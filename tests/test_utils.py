@@ -2,7 +2,7 @@ import pytest
 import os
 from src.constants import SETS_FOLDER, BASE_DIR
 from src.utils import retrieve_local_set_list, Result
-from src.utils import normalize_color_string
+from src.utils import normalize_color_string, three_color_share
 from unittest.mock import patch
 
 MOCKED_SET_CODES = ["MH3", "OTJ"]
@@ -177,6 +177,21 @@ def test_normalize_color_string(input_color, expected_output):
     Verify that color strings are normalized to WUBRG order.
     """
     assert normalize_color_string(input_color) == expected_output
+
+
+def test_three_color_share():
+    """Games by decks of 3+ colors over all games, from 17Lands' summary rows."""
+    rows = [
+        {"is_summary": True, "short_name": 1, "games": 50},
+        {"is_summary": True, "short_name": 2, "games": 700},
+        {"is_summary": True, "short_name": 3, "games": 200},
+        {"is_summary": True, "short_name": 4, "games": 40},
+        {"is_summary": True, "short_name": 5, "games": 10},
+        {"is_summary": True, "short_name": "All", "games": 1000},
+        {"is_summary": False, "short_name": "WUB", "games": 200},
+    ]
+    assert three_color_share(rows) == 0.25
+    assert three_color_share([]) is None
 
 
 def test_purge_raw_cache_removes_files(tmp_path, monkeypatch):

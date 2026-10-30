@@ -34,12 +34,18 @@ WEIGHTS = {
     "unrated": -9.3,
     # Colored mana symbols in the card's cost that the pool's two main colors
     # can't pay.
-    "off_pips": -11.8,
+    "off_pips": -14.1,
+    # off_pips times the share of the set's 17Lands games played by decks of
+    # three or more colors: off-color cards cost less where those are common.
+    "three_color_off_pips": 10.6,
 }
 PICK_LOG_ODDS_PER_POINT = 0.1000
 # A pair's GIH WR from n games counts n / (n + LANE_PRIOR_GAMES) of its
 # difference from the all-decks rate.
 LANE_PRIOR_GAMES = 2000.0
+# The three-color share for a dataset that doesn't have one (made before it was
+# recorded): about the middle of recent sets.
+TYPICAL_THREE_COLOR_SHARE = 0.13
 
 
 class DraftAdvisor:
@@ -57,6 +63,10 @@ class DraftAdvisor:
         if self.global_std <= 0:
             self.global_std = 4.0
 
+        share = self.metrics.three_color_share
+        self.three_color_share = (
+            TYPICAL_THREE_COLOR_SHARE if share is None else float(share)
+        )
         self.color_strength = self._color_strength()
         ranked = sorted(constants.CARD_COLORS, key=lambda c: -self.color_strength[c])
         self.main_colors = [c for c in ranked[:2] if self.color_strength[c] > 0]
@@ -113,12 +123,14 @@ class DraftAdvisor:
 
         colors = [c for c in card.get("colors", []) if c in self.color_strength]
         color_support = sum(self.color_strength[c] for c in colors)
+        off_pips = self._off_pips(card)
         return {
             "quality": quality or 0.0,
             "lane": lane,
             "color_support": color_support,
             "unrated": 1.0 if quality is None else 0.0,
-            "off_pips": self._off_pips(card),
+            "off_pips": off_pips,
+            "three_color_off_pips": off_pips * self.three_color_share,
         }
 
     def _off_pips(self, card: dict) -> float:
@@ -147,8 +159,9 @@ class DraftAdvisor:
             reasons.append(f"{better} in {self.main_archetype} ({points['lane']:+.1f})")
         if points["color_support"] >= 1.0:
             reasons.append(f"Your Colors ({points['color_support']:+.1f})")
-        if points["off_pips"] <= -1.0:
-            reasons.append(f"Off-Color ({points['off_pips']:+.1f})")
+        off_color = points["off_pips"] + points["three_color_off_pips"]
+        if off_color <= -1.0:
+            reasons.append(f"Off-Color ({off_color:+.1f})")
         if features["unrated"]:
             reasons.append("No Win Rate Yet")
         return reasons

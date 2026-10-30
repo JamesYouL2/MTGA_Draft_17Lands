@@ -23,6 +23,8 @@ all sets together, and writes a report to the run's summary.
 By hand, for one set:
 
 ```sh
+python Tools/PickFit/three_color_share.py --src . \
+    --dataset FRA_PremierDraft_All_Data.json.gz --set FRA
 python Tools/PickFit/drafts.py --dump draft_data_public.FRA.PremierDraft.csv.gz \
     --drafts 4000 --out drafts.json.gz
 python Tools/PickFit/features.py --src . --drafts drafts.json.gz \
@@ -30,6 +32,8 @@ python Tools/PickFit/features.py --src . --drafts drafts.json.gz \
 python Tools/PickFit/fit.py results/*.json.gz > report.md
 ```
 
+`three_color_share.py` adds the share of the set's games played by decks of
+three or more colors to a dataset made before datasets recorded it.
 `fit.py` needs NumPy. With LightGBM installed, the report adds a ranking model
 that can use more facts about each card and any shape it likes, as a yardstick:
 if it doesn't pick much better, the simple score isn't leaving much out.

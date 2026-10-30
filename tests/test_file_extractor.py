@@ -133,7 +133,7 @@ def test_retrieve_17lands_color_ratings_passes_threshold(
     Verify that FileExtractor passes its configured threshold to the Seventeenlands client.
     """
     mock_sl_instance = mock_seventeenlands_cls.return_value
-    mock_sl_instance.download_color_ratings.return_value = ({}, 0)
+    mock_sl_instance.download_color_ratings.return_value = ({}, 0, None)
 
     # Setup extractor with a custom threshold
     custom_threshold = 1234
@@ -150,6 +150,23 @@ def test_retrieve_17lands_color_ratings_passes_threshold(
     mock_sl_instance.download_color_ratings.assert_called_once()
     call_kwargs = mock_sl_instance.download_color_ratings.call_args.kwargs
     assert call_kwargs["threshold"] == custom_threshold
+
+
+@patch("src.file_extractor.Seventeenlands")
+def test_retrieve_17lands_color_ratings_records_three_color_share(
+    mock_seventeenlands_cls, file_extractor
+):
+    mock_seventeenlands_cls.return_value.download_color_ratings.return_value = (
+        {"WU": 55.0},
+        1000,
+        0.25,
+    )
+    file_extractor.selected_sets = MagicMock()
+    file_extractor.selected_sets.seventeenlands = ["SET"]
+
+    file_extractor.retrieve_17lands_color_ratings()
+
+    assert file_extractor.combined_data["meta"]["three_color_share"] == 0.25
 
 
 def test_file_extractor_default_threshold():

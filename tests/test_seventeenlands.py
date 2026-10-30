@@ -187,7 +187,7 @@ def test_download_color_ratings(mock_session, seventeenlands):
     user_group = constants.LIMITED_USER_GROUP_ALL
 
     # Act
-    color_ratings, game_count = seventeenlands.download_color_ratings(
+    color_ratings, game_count, _ = seventeenlands.download_color_ratings(
         set_code, draft, time_period, user_group
     )
 
@@ -211,7 +211,7 @@ def test_seventeenlands_color_ratings_normalization(mock_session, seventeenlands
 
     # We pass a filter that includes the *Normalized* key "WG"
     # The function should be able to map "GW" from API to "WG"
-    ratings, game_count = seventeenlands.download_color_ratings(
+    ratings, game_count, _ = seventeenlands.download_color_ratings(
         "SET", "Draft", "ALL_TIME", "User", color_filter=["WG"]
     )
 

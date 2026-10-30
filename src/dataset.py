@@ -565,6 +565,12 @@ class Dataset:
     def get_color_ratings(self) -> Dict:
         return self._dataset.get("color_ratings", {}) if self._dataset else {}
 
+    def get_three_color_share(self) -> float | None:
+        """The share of the set's games played by decks of three or more
+        colors, or None if the dataset predates it."""
+        meta = self._dataset.get("meta", {}) if self._dataset else {}
+        return meta.get("three_color_share")
+
     def get_all_names(self) -> List[str]:
         if self._dataset:
             ratings = self._dataset.get("card_ratings", {})

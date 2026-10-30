@@ -1,0 +1,277 @@
+import os
+import json
+import logging
+import time
+import traceback
+from datetime import datetime, timezone
+
+from server import config
+from server.utils import APIClient
+from server.events import fetch_event_calendar, get_scheduled_events
+from server.extract import (
+    extract_scryfall_data,
+    extract_scryfall_tags,
+    extract_17lands_data,
+    extract_color_ratings,
+    get_historical_start_dates,
+    extract_basic_lands,
+)
+from server.transform import transform_payload
+from server.validate import validate_dataset, enough_history_to_enforce
+from server.load import save_dataset, save_manifest, save_report, save_calendar, deploy_web_assets
+from server.report import PipelineReport
+from src.dataset_manifest import validate_manifest
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+def load_existing_manifest() -> dict:
+    filepath = os.path.join(config.OUTPUT_DIR, "manifest.json")
+    if not os.path.exists(filepath) and os.environ.get("ETL_ALLOW_INITIALIZE") == "1":
+        return {"datasets": {}}
+    # A lost/corrupt warehouse must stop publication, not become an empty one.
+    with open(filepath, "r", encoding="utf-8") as f:
+        manifest = validate_manifest(json.load(f))
+    for info in manifest["datasets"].values():
+        if not os.path.isfile(os.path.join(config.OUTPUT_DIR, info["filename"])):
+            raise FileNotFoundError(f"Missing historical dataset: {info['filename']}")
+    return manifest
+
+
+def run_pipeline():
+    logger.info("Starting Daily MTGpile-Scheduled ETL Pipeline...")
+    client = APIClient()
+
+    report = PipelineReport()
+    report.attach_log_handler()
+
+    try:
+        manifest = load_existing_manifest()
+        calendar = fetch_event_calendar(client)
+    except Exception:
+        logger.exception("Cannot restore warehouse or determine active events; stopping ETL.")
+        final_report = report.finalize(client)
+        save_report(final_report)
+        report.log_summary(final_report)
+        raise
+    active_sets = get_scheduled_events(calendar)
+    save_calendar(calendar)
+    deploy_web_assets()
+    report.record_intent(active_sets, config.ARCHETYPES)
+
+    manifest["updated_at"] = datetime.now(timezone.utc).isoformat()
+    manifest["active_sets"] = list(active_sets.keys())
+    if not active_sets:
+        # Clear yesterday's live sets while preserving the historical warehouse.
+        save_manifest(manifest)
+        logger.warning("No active events found in the MTGpile schedule for today. Exiting.")
+        final_report = report.finalize(client)
+        save_report(final_report)
+        report.log_summary(final_report)
+        return
+
+    if "datasets" not in manifest:
+        manifest["datasets"] = {}
+
+    end_date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    historical_dates = get_historical_start_dates(client)
+
+    jobs = []
+    for set_code, data in active_sets.items():
+        # The date range no longer drives the 17Lands request (it uses a
+        # time_period preset now), but we still record the true start date in
+        # each dataset's meta so the UI can show the window being represented.
+        if "CUBE" in set_code.upper():
+            true_start_date_str = data["start_date"]
+        else:
+            if set_code in historical_dates:
+                true_start_date_str = historical_dates[set_code].split("T")[0]
+            else:
+                true_start_date_str = data["start_date"]
+
+        for draft_format in data["formats"]:
+            for user_group in ["All", "Top"]:
+                jobs.append((set_code, draft_format, user_group, true_start_date_str))
+
+    scryfall_cache_mem = {}
+    tags_cache_mem = {}
+    basic_lands_mem = None
+
+    for set_code, draft_format, user_group, start_date_str in jobs:
+        logger.info(f"==== Processing {set_code} | {draft_format} | {user_group} ====")
+        time_period = config.default_time_period(set_code)
+        logger.info(
+            f"   Requesting 17Lands time_period={time_period} "
+            f"(represents {start_date_str} -> {end_date_str})"
+        )
+
+        try:
+            if basic_lands_mem is None:
+                basic_lands_mem = extract_basic_lands(client)
+
+            if set_code not in scryfall_cache_mem:
+                scryfall_cache_mem[set_code] = extract_scryfall_data(client, set_code)
+                tags_cache_mem[set_code] = extract_scryfall_tags(client, set_code)
+
+            scryfall_cards = {}
+            for k, v in scryfall_cache_mem[set_code].items():
+                scryfall_cards[k] = {
+                    k2: (v2.copy() if isinstance(v2, list) else v2)
+                    for k2, v2 in v.items()
+                }
+
+            for b_name, b_card in basic_lands_mem.items():
+                if b_name in scryfall_cards:
+                    for a_id in b_card["arena_ids"]:
+                        if a_id not in scryfall_cards[b_name]["arena_ids"]:
+                            scryfall_cards[b_name]["arena_ids"].append(a_id)
+                else:
+                    scryfall_cards[b_name] = {
+                        k: (v.copy() if isinstance(v, list) else v)
+                        for k, v in b_card.items()
+                    }
+
+            card_tags = tags_cache_mem[set_code]
+
+            if not scryfall_cards:
+                logger.info(
+                    f"   No Scryfall base cards found for {set_code}. Will rely on 17Lands card names."
+                )
+
+            color_ratings, games_played, total_games = extract_color_ratings(
+                client, set_code, draft_format, user_group, time_period
+            )
+
+            valid_archetypes = ["All Decks"]
+            skipped_count = 0
+            for arch in config.ARCHETYPES:
+                if arch == "All Decks":
+                    continue
+
+                # Verify using the blank mapping string
+                games_played_key = "" if arch == "All Decks" else arch
+                if games_played.get(games_played_key, 0) >= config.MIN_GAMES_THRESHOLD:
+                    valid_archetypes.append(arch)
+                else:
+                    skipped_count += 1
+
+            if skipped_count > 0:
+                logger.info(
+                    f"   Filtered out {skipped_count} archetypes ( < {config.MIN_GAMES_THRESHOLD} games)."
+                )
+
+            seventeenlands_data = extract_17lands_data(
+                client,
+                set_code,
+                draft_format,
+                valid_archetypes,
+                user_group,
+                time_period,
+            )
+
+            if not seventeenlands_data.get("All Decks"):
+                logger.warning(
+                    f"No baseline data for {set_code} {draft_format} ({user_group})."
+                )
+                continue
+
+            missing_names = []
+            for name in seventeenlands_data["All Decks"].keys():
+                if name not in scryfall_cards:
+                    missing_names.append(name)
+
+            if missing_names:
+                from server.extract import extract_scryfall_by_names
+
+                logger.info(
+                    f"   [Scryfall] Fetching {len(missing_names)} bonus sheet cards..."
+                )
+                bonus_cards = extract_scryfall_by_names(client, missing_names)
+                scryfall_cards.update(bonus_cards)
+
+            final_dataset = transform_payload(
+                set_code,
+                draft_format,
+                scryfall_cards,
+                seventeenlands_data,
+                card_tags,
+                color_ratings,
+                start_date_str,
+                end_date_str,
+                total_games,
+            )
+
+            label = f"{set_code} {draft_format} ({user_group})"
+            warnings_found, critical_issues = validate_dataset(
+                set_code, draft_format, user_group, final_dataset, total_games
+            )
+            for msg in warnings_found:
+                logger.warning(f"   [Validation] {label}: {msg}")
+
+            if critical_issues and enough_history_to_enforce(
+                start_date_str, end_date_str
+            ):
+                # Mature set with clearly broken data: do NOT overwrite the
+                # previously published file -- the old (good) dataset keeps serving.
+                for msg in critical_issues:
+                    logger.error(f"   [Validation] {label}: {msg}")
+                report.record_skipped(
+                    set_code,
+                    draft_format,
+                    f"Failed validation, kept prior data: {critical_issues[0]}",
+                )
+                continue
+            elif critical_issues:
+                # Too early in the set's life to trust the signal -- publish anyway
+                # but keep it visible in the report.
+                for msg in critical_issues:
+                    logger.warning(
+                        f"   [Validation] {label}: {msg} "
+                        f"(< {config.VALIDATION_ENFORCE_MIN_DAYS}d of data; publishing anyway)"
+                    )
+
+            file_info = save_dataset(set_code, draft_format, user_group, final_dataset)
+            file_info["start_date"] = start_date_str
+            file_info["end_date"] = end_date_str
+
+            manifest_key = f"{set_code}_{draft_format}_{user_group}"
+            manifest["datasets"][manifest_key] = file_info
+
+            card_count = len(final_dataset.get("card_ratings", {}))
+
+            report.record_dataset(
+                set_code,
+                draft_format,
+                user_group,
+                file_info,
+                card_count,
+                start_date_str,
+                end_date_str,
+                total_games,
+            )
+
+            # Give the 17Lands/Cloudflare servers a short breather between major datasets
+            time.sleep(15.0)
+
+        except Exception as e:
+            logger.error(
+                f"Failed processing {set_code} {draft_format} ({user_group}): {e}"
+            )
+            logger.debug(traceback.format_exc())
+            report.record_skipped(set_code, draft_format, f"Processing failed: {e}")
+
+    save_manifest(manifest)
+    report.record_warehouse_state(manifest)
+
+    logger.info("Pipeline Complete!")
+    final_report = report.finalize(client)
+    save_report(final_report)
+
+    report.log_summary(final_report)
+
+
+if __name__ == "__main__":
+    run_pipeline()
