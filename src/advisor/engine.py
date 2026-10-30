@@ -10,6 +10,7 @@ PICK_LOG_ODDS_PER_POINT of log-odds that a strong drafter takes the card.
 """
 
 import logging
+import re
 
 import numpy as np
 
@@ -25,17 +26,17 @@ WEIGHTS = {
     "quality": 15.0,
     # GIH WR in the pool's two main colors minus over all decks, in standard
     # deviations, shrunk toward 0 when the pair has few games.
-    "lane": 11.1,
+    "lane": 12.4,
     # The pool's strength in the card's colors, in pool cards (see
     # DraftAdvisor.color_strength); a two-color card counts both colors.
-    "color_support": 0.9,
-    # How far the card's colors are behind the pool's second color, in pool
-    # cards.
-    "color_gap": -2.0,
+    "color_support": 0.8,
     # No GIH WR yet; quality is then 0.
-    "unrated": -10.9,
+    "unrated": -9.3,
+    # Colored mana symbols in the card's cost that the pool's two main colors
+    # can't pay.
+    "off_pips": -11.8,
 }
-PICK_LOG_ODDS_PER_POINT = 0.1023
+PICK_LOG_ODDS_PER_POINT = 0.1000
 # A pair's GIH WR from n games counts n / (n + LANE_PRIOR_GAMES) of its
 # difference from the all-decks rate.
 LANE_PRIOR_GAMES = 2000.0
@@ -59,7 +60,6 @@ class DraftAdvisor:
         self.color_strength = self._color_strength()
         ranked = sorted(constants.CARD_COLORS, key=lambda c: -self.color_strength[c])
         self.main_colors = [c for c in ranked[:2] if self.color_strength[c] > 0]
-        self.second_strength = self.color_strength[ranked[1]]
         self.main_archetype = (
             normalize_color_string("".join(self.main_colors))
             if len(self.main_colors) == 2
@@ -113,18 +113,31 @@ class DraftAdvisor:
 
         colors = [c for c in card.get("colors", []) if c in self.color_strength]
         color_support = sum(self.color_strength[c] for c in colors)
-        color_gap = sum(
-            self.second_strength - self.color_strength[c]
-            for c in colors
-            if c not in self.main_colors
-        )
         return {
             "quality": quality or 0.0,
             "lane": lane,
             "color_support": color_support,
-            "color_gap": color_gap,
             "unrated": 1.0 if quality is None else 0.0,
+            "off_pips": self._off_pips(card),
         }
+
+    def _off_pips(self, card: dict) -> float:
+        """Colored mana symbols in the card's (front face's) cost that the
+        pool's two main colors can't pay; 0 before there are two."""
+        if len(self.main_colors) < 2:
+            return 0.0
+        cost = str(card.get("mana_cost") or "").split(" // ")[0]
+        off = 0
+        for symbol in re.findall(r"\{(.*?)\}", cost):
+            options = symbol.split("/")
+            if not any(o in constants.CARD_COLORS for o in options):
+                continue
+            # Hybrid, {2/W} and Phyrexian symbols can be paid another way.
+            if not any(
+                o in self.main_colors or o.isdigit() or o == "P" for o in options
+            ):
+                off += 1
+        return float(off)
 
     def _reasons(self, features: dict[str, float]) -> list[str]:
         reasons = []
@@ -134,8 +147,8 @@ class DraftAdvisor:
             reasons.append(f"{better} in {self.main_archetype} ({points['lane']:+.1f})")
         if points["color_support"] >= 1.0:
             reasons.append(f"Your Colors ({points['color_support']:+.1f})")
-        if points["color_gap"] <= -1.0:
-            reasons.append(f"Off-Color ({points['color_gap']:+.1f})")
+        if points["off_pips"] <= -1.0:
+            reasons.append(f"Off-Color ({points['off_pips']:+.1f})")
         if features["unrated"]:
             reasons.append("No Win Rate Yet")
         return reasons
@@ -179,7 +192,7 @@ class DraftAdvisor:
                     )
                     reasons = self._reasons(features)
                     quality = features["quality"]
-                    on_lane = features["color_gap"] == 0
+                    on_lane = features["off_pips"] == 0
                     is_elite = quality >= self.BOMB_Z_SCORE and on_lane
 
                 recommendations.append(

@@ -175,7 +175,7 @@ def test_evaluate_pack_elite_detection(mock_metrics):
     assert recs[0].is_elite is True
 
 
-def card(name, colors, gihwr, types=("Creature",), **pairs):
+def card(name, colors, gihwr, types=("Creature",), mana_cost="", **pairs):
     """A card with an all-decks GIH WR and optional pair stats as (gihwr, samples)."""
     deck_colors = {"All Decks": {"gihwr": gihwr}}
     for pair, (wr, samples) in pairs.items():
@@ -184,6 +184,7 @@ def card(name, colors, gihwr, types=("Creature",), **pairs):
         "name": name,
         "colors": list(colors),
         "types": list(types),
+        "mana_cost": mana_cost,
         "deck_colors": deck_colors,
     }
 
@@ -203,23 +204,6 @@ def test_color_strength_counts_card_quality(mock_metrics):
     assert strength["B"] == 0.0
 
 
-def test_color_gap(mock_metrics):
-    """How far a card's colors are behind the pool's second color."""
-    pool = [card(f"W{i}", "W", 55.0) for i in range(5)]
-    pool += [card(f"U{i}", "U", 55.0) for i in range(3)]
-    pool += [card("B0", "B", 55.0)]
-    advisor = DraftAdvisor(mock_metrics, pool)
-
-    def gap(colors):
-        return advisor.pick_features(card("X", colors, 55.0))["color_gap"]
-
-    assert advisor.main_colors == ["W", "U"]
-    assert gap("W") == gap("U") == gap("WU") == gap("") == 0.0
-    assert gap("B") == pytest.approx(2.0)
-    assert gap("R") == pytest.approx(3.0)
-    assert gap("BR") == pytest.approx(5.0)
-
-
 def test_color_support(mock_metrics):
     """The pool's strength in the card's colors, both colors for a gold card."""
     pool = [card(f"W{i}", "W", 55.0) for i in range(5)]
@@ -234,12 +218,34 @@ def test_color_support(mock_metrics):
     assert support("B") == support("") == 0.0
 
 
-def test_one_color_pool_has_no_gap(mock_metrics):
+def test_off_pips(mock_metrics):
+    """Colored mana symbols the pool's two main colors can't pay."""
+    pool = [card(f"W{i}", "W", 55.0) for i in range(5)]
+    pool += [card(f"U{i}", "U", 55.0) for i in range(3)]
+    advisor = DraftAdvisor(mock_metrics, pool)
+
+    def off(cost):
+        return advisor.pick_features(card("X", "", 55.0, mana_cost=cost))["off_pips"]
+
+    assert off("{2}{W}{U}") == off("{X}{C}") == off("") == 0.0
+    assert off("{1}{B}") == 1.0
+    assert off("{B}{B}{R}") == 3.0
+    # Hybrid, {2/B} and Phyrexian symbols can be paid another way.
+    assert off("{W/B}") == off("{2/B}") == off("{B/P}") == 0.0
+    assert off("{B/R}") == 1.0
+    # Only the front face of a two-faced card.
+    assert off("{1}{W} // {B}{B}") == 0.0
+
+
+def test_no_off_pips_before_two_colors(mock_metrics):
     """With one color in the pool, any second color is still open."""
     advisor = DraftAdvisor(mock_metrics, [card("W0", "W", 60.0)])
 
     assert advisor.main_archetype == "All Decks"
-    assert advisor.pick_features(card("X", "R", 55.0))["color_gap"] == 0.0
+    assert (
+        advisor.pick_features(card("X", "B", 55.0, mana_cost="{B}{B}"))["off_pips"]
+        == 0.0
+    )
 
 
 def test_lane_shrinks_with_few_games(mock_metrics):
@@ -269,7 +275,7 @@ def test_score_is_the_weighted_sum(mock_metrics):
     advisor = DraftAdvisor(mock_metrics, pool)
     pack = [
         card("On", "W", 59.0, WU=(60.0, 1_000_000)),
-        card("Off", "B", 63.0),
+        card("Off", "B", 63.0, mana_cost="{1}{B}"),
     ]
 
     recs = {r.card_name: r for r in advisor.evaluate_pack(pack, current_pick=3)}
