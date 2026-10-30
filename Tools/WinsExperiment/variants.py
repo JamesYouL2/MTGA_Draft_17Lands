@@ -1,17 +1,18 @@
-"""Score pick-weight variations on the advisor replay's drafts and compare them
-with main, on agreement with drafters and on event wins.
+"""Compare main, main with parts of its score switched off, and the pick score
+refitted with and without castability, on agreement with drafters and on
+event wins.
 
     python Tools/WinsExperiment/variants.py --eval features/*.eval.json.gz \
         --train features/*.train.json.gz --replay replay/ > report.md
 
 --replay holds the advisor replay's SET.base.json (main) and SET.head.json
-(this branch) for the same drafts as the --eval features.
+(this branch) for the same drafts as the --eval features, and SET.LABEL.json
+from ablate.py.
 """
 
 import argparse
 import glob
 import gzip
-import itertools
 import json
 import os
 import sys
@@ -27,7 +28,16 @@ import report as R  # noqa: E402
 from fit import fit_logit  # noqa: E402
 
 BASE = 50.0
-NAMES = ["quality", "lane", "color_support", "color_gap", "unrated"]
+NAMES = [
+    "quality",
+    "lane",
+    "color_support",
+    "color_gap",
+    "unrated",
+    "off_pips",
+    "late_off_pips",
+]
+CASTABILITY = ["off_pips", "late_off_pips"]
 FITTED = {
     "quality": 15.0,
     "lane": 11.1,
@@ -35,25 +45,16 @@ FITTED = {
     "color_gap": -2.0,
     "unrated": -10.9,
 }
-PLACEHOLDER = {
-    "quality": 15.0,
-    "lane": 5.0,
-    "color_support": 1.0,
-    "color_gap": -5.0,
-    "unrated": 0.0,
-}
-GRID = {
-    "lane": [0.0, 5.0, 11.1, 20.0],
-    "color_support": [0.0, 0.5, 0.9, 2.0],
-    "color_gap": [0.0, -1.0, -2.0, -5.0, -10.0],
-    "unrated": [0.0, -10.9, -25.0],
-}
-WINNERS_MIN_WINS = 6
+ABLATIONS = [
+    ("nocast", "main without castability"),
+    ("nocomp", "main without composition"),
+    ("nocastcomp", "main without either"),
+]
 BOOTSTRAP = 200
 
 
 def vec(w):
-    return np.array([w[k] for k in NAMES])
+    return np.array([w.get(k, 0.0) for k in NAMES])
 
 
 class Picks:
@@ -133,40 +134,15 @@ class Picks:
         return top1, regret
 
 
-# --- Variations fitted to wins ------------------------------------------------
+# --- Refits -------------------------------------------------------------------
 
 
-def grid_fit(train):
-    """For each set, the grid weights whose regret best predicts losses on the
-    other sets' training drafts; and the best over all sets."""
-    keep = train.complete & (train.n_picks > 0)
-    sets = sorted(np.unique(train.set))
-    idx = np.flatnonzero(keep)
-    sub = [train.drafts[i] for i in idx]
-    wins = np.array([d["wins"] for d in sub], dtype=float)
-    ctrl = R.controls(sub, [d["set"] for d in sub])
-    sub_set = train.set[idx]
-    results = []
-    for combo in itertools.product(*GRID.values()):
-        w = {"quality": 15.0} | dict(zip(GRID, combo))
-        _, regret = train.per_pick(w)
-        x = train.per_draft(regret)[idx]
-        slopes = {"all": R.wins_slope(x, wins, ctrl)}
-        for code in sets:
-            m = sub_set != code
-            slopes[code] = R.wins_slope(x[m], wins[m], ctrl[m])
-        results.append((w, slopes))
-    best = {key: min(results, key=lambda r: r[1][key])[0] for key in ["all"] + sets}
-    return best, results
-
-
-def winners_fit(train):
-    """For each set, conditional logit weights fitted to the picks of the other
-    sets' drafts that won WINNERS_MIN_WINS or more, in points (quality 15)."""
-    winners = train.complete & np.array(
-        [(d["wins"] or 0) >= WINNERS_MIN_WINS for d in train.drafts]
-    )
-    pick_ok = winners[train.owner].copy()
+def logit_fit(train, names):
+    """For each set, conditional logit weights for the features names, fitted to
+    strong drafters' picks on the other sets, in points (quality 15); and the
+    fit on all sets."""
+    cols = [NAMES.index(k) for k in names]
+    pick_ok = train.strong[train.owner].copy()
     chosen_row = train.starts + train.taken
     pick_ok &= ~train.basic[chosen_row]
     nonbasic = np.add.reduceat((~train.basic).astype(int), train.starts)
@@ -186,9 +162,10 @@ def winners_fit(train):
             chosen=starts + offset,
             draft=train.owner[picks],
         )
-        beta, _ = fit_logit(train.X[np.flatnonzero(keep_row)], data)
+        X = train.X[np.flatnonzero(keep_row)][:, cols]
+        beta, _ = fit_logit(X, data)
         points = beta / beta[0] * 15.0
-        return dict(zip(NAMES, np.round(points, 1))), len(picks)
+        return dict(zip(names, np.round(points, 1))), len(picks)
 
     out = {"all": fit(pick_ok)}
     for code in sorted(np.unique(train.set)):
@@ -222,7 +199,7 @@ def load_replay(folder, label, ev):
 
 
 def fmt_w(w):
-    return ", ".join(f"{w[k]:+g}" for k in NAMES[1:])
+    return ", ".join(f"{w.get(k, 0.0):+g}" for k in NAMES[1:])
 
 
 def main(argv=None):
@@ -235,12 +212,13 @@ def main(argv=None):
     ev = Picks(args.eval)
     out = []
 
-    # Main and this branch, as the replay scored them.
+    # Main, main with parts switched off, and this branch, as the replay scored them.
     variants = {}
-    for label, title in [("base", "main"), ("head", "this PR (replay)")]:
+    for label, title in [("base", "main")] + ABLATIONS + [("head", "this PR (replay)")]:
         t, n, r, missing = load_replay(args.replay, label, ev)
-        variants[title] = (t, n, r, None)
         out.append(f"<!-- {label}: {missing} eval drafts missing from the replay -->")
+        if missing < len(ev.drafts):
+            variants[title] = (t, n, r, None)
 
     def offline(title, w_for, shown):
         top1, regret = ev.by_set(w_for)
@@ -254,7 +232,7 @@ def main(argv=None):
     offline("this PR", lambda s: FITTED, fmt_w(FITTED))
 
     # The offline scoring should reproduce the replay of this branch.
-    rep_t, rep_n, rep_r, _ = variants["this PR (replay)"]
+    rep_t, rep_n, rep_r, _ = variants.pop("this PR (replay)")
     off_t, off_n, off_r, _ = variants["this PR"]
     same_n = np.mean(rep_n == off_n)
     ok = (rep_n > 0) & (off_n > 0)
@@ -264,36 +242,23 @@ def main(argv=None):
         f"top-1 counts, and drafts' mean regret to within "
         f"{np.nanmax(np.abs(rep_r[ok] - off_r[ok])):.4f}.\n"
     )
-    del variants["this PR (replay)"]
-
-    offline("placeholder weights", lambda s: PLACEHOLDER, fmt_w(PLACEHOLDER))
-    for title, change in [
-        ("stronger off-color penalty", {"color_gap": -5.0}),
-        ("half the lane weight", {"lane": 5.0}),
-        ("no color support", {"color_support": 0.0}),
-        ("GIH WR only", {"lane": 0.0, "color_support": 0.0, "color_gap": 0.0}),
-    ]:
-        w = FITTED | change
-        offline(title, lambda s, w=w: w, fmt_w(w))
 
     train = Picks(args.train)
     out.append(
         f"Training sample (a different salt): {len(train.drafts):,} drafts, "
-        f"{int(train.complete.sum()):,} complete events, {len(train.sizes):,} picks.\n"
+        f"{int(train.strong.sum()):,} by strong drafters, {len(train.sizes):,} picks.\n"
     )
-    winners = winners_fit(train)
-    offline(
-        f"fitted to winners' picks ({WINNERS_MIN_WINS}+ wins)",
-        lambda s: winners[s][0],
-        fmt_w(winners["all"][0]) + f" ({winners['all'][1]:,} picks)",
-    )
-    best, grid = grid_fit(train)
-    offline(
-        "fitted to wins (grid search)",
-        lambda s: best[s],
-        fmt_w(best["all"]),
-    )
+    refits = {
+        "refit, no castability": logit_fit(train, NAMES[:5]),
+        "refit with castability": logit_fit(train, NAMES),
+    }
     del train
+    for title, fits in refits.items():
+        offline(
+            title,
+            lambda s, fits=fits: fits[s][0],
+            fmt_w(fits["all"][0]) + f" ({fits['all'][1]:,} picks)",
+        )
 
     keep = ev.complete & (ev.n_picks > 0)
     for t, n, r, _ in variants.values():
@@ -316,8 +281,9 @@ def main(argv=None):
         "drafter's win rate and games buckets, as in the replay report; in brackets, "
         "the difference from main and its paired bootstrap SE.",
         "",
-        "Weights are lane, color_support, color_gap, unrated (quality is 15). Fitted "
-        "variations are scored on each set with weights fitted on the other nine.",
+        "Weights are " + ", ".join(NAMES[1:]) + " (quality is 15). Refits are "
+        "scored on each set with weights fitted to strong drafters' picks on the "
+        "other nine.",
         "",
         "| variation | weights | top-1 all | top-1 strong | regret → wins "
         "(more negative is better) | top-1 share → wins (more positive is better) |",
@@ -344,22 +310,13 @@ def main(argv=None):
         )
 
     out += ["", "## Weights fitted on the other nine sets", ""]
-    out += ["| left out | winners' picks | wins grid |", "|---|---|---|"]
-    for code in sorted(k for k in best if k != "all"):
-        out.append(f"| {code} | {fmt_w(winners[code][0])} | {fmt_w(best[code])} |")
-
-    out += [
-        "",
-        "## Wins grid, all training sets: the best 15 and the shipped weights",
-        "",
-        "| weights | regret → wins |",
-        "|---|---|",
-    ]
-    ranked = sorted(grid, key=lambda r: r[1]["all"])
-    shown = ranked[:15] + [r for r in ranked if r[0] == FITTED]
-    for w, slopes in shown:
-        out.append(f"| {fmt_w(w)} | {slopes['all']:+.3f} |")
-    out.append(f"\nGrid size {len(grid)}; worst {ranked[-1][1]['all']:+.3f}.")
+    out += ["| left out | " + " | ".join(refits) + " |", "|---|---|---|"]
+    for code in sorted(k for k in refits["refit with castability"] if k != "all"):
+        out.append(
+            f"| {code} | "
+            + " | ".join(fmt_w(fits[code][0]) for fits in refits.values())
+            + " |"
+        )
     print("\n".join(out))
 
 

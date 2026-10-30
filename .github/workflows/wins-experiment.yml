@@ -1,7 +1,8 @@
 name: Wins experiment
 
-# Throwaway: scores pick-weight variations on the advisor replay's drafts
-# (run 41015375331) and compares them with main on agreement and event wins.
+# Throwaway: on the advisor replay's drafts (run 41015375331), compares main,
+# main with castability or composition switched off, and the pick score refitted
+# with and without castability features, on agreement and event wins.
 
 on:
   push:
@@ -18,7 +19,7 @@ jobs:
   extract:
     name: Extract ${{ matrix.set }} ${{ matrix.sample }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -32,6 +33,12 @@ jobs:
       DRAFTS: ${{ matrix.sample == 'eval' && '3000' || '8000' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Check out main as the replay ran it
+        if: matrix.sample == 'eval'
+        uses: actions/checkout@v4
+        with:
+          ref: 8fae6c0d2c8632690c78cc8e3aac6304285f14e3
+          path: base
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -51,6 +58,19 @@ jobs:
         with:
           name: features-${{ matrix.set }}-${{ matrix.sample }}
           path: features/
+      - name: Replay main with parts of its score switched off
+        if: matrix.sample == 'eval'
+        run: |
+          for label in nocast nocomp nocastcomp; do
+            poetry run python Tools/WinsExperiment/ablate.py "$label" --src base \
+              --drafts drafts.json.gz --dataset dataset.json.gz --set "$SET" \
+              --label "$label" --out "ablate/$SET.$label.json"
+          done
+      - if: matrix.sample == 'eval'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ablate-${{ matrix.set }}
+          path: ablate/
 
   report:
     needs: extract
@@ -76,6 +96,12 @@ jobs:
           merge-multiple: true
           run-id: ${{ env.REPLAY_RUN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download main's replays with parts switched off
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ablate-*
+          path: replay
+          merge-multiple: true
       - name: Report
         shell: bash
         run: |
