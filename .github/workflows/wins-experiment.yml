@@ -1,0 +1,92 @@
+name: Wins experiment
+
+# Throwaway: scores pick-weight variations on the advisor replay's drafts
+# (run 41015375331) and compares them with main on agreement and event wins.
+
+on:
+  push:
+    branches: [exp-pick-wins]
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  REPLAY_RUN: "41015375331"
+
+jobs:
+  extract:
+    name: Extract ${{ matrix.set }} ${{ matrix.sample }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ["DFT", "FDN", "FIN", "FRA", "HOB", "MSH", "SOS", "TDM", "TLA", "TMT"]
+        sample: [eval, train]
+    env:
+      SET: ${{ matrix.set }}
+      SAMPLE: ${{ matrix.sample }}
+      # eval: the replay's drafts. train: an independent, larger sample.
+      SALT: ${{ matrix.sample == 'eval' && 'split-227' || 'wins-train' }}
+      DRAFTS: ${{ matrix.sample == 'eval' && '3000' || '8000' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - name: Download the draft dump and the app's dataset
+        run: |
+          curl -fsSL --retry 3 -o dump.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o dataset.json.gz \
+            "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+      - name: Sample drafts
+        run: poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts "$DRAFTS" --salt "$SALT" --out drafts.json.gz
+      - name: Extract features
+        run: poetry run python Tools/WinsExperiment/extract.py --drafts drafts.json.gz --dataset dataset.json.gz --set "$SET" --out "features/$SET.$SAMPLE.json.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: features-${{ matrix.set }}-${{ matrix.sample }}
+          path: features/
+
+  report:
+    needs: extract
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: features-*
+          path: features
+          merge-multiple: true
+      - name: Download the replay of main and this PR
+        uses: actions/download-artifact@v4
+        with:
+          pattern: replay-*
+          path: replay
+          merge-multiple: true
+          run-id: ${{ env.REPLAY_RUN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Report
+        shell: bash
+        run: |
+          ls replay features
+          {
+            echo "# Wins experiment at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python Tools/WinsExperiment/variants.py \
+              --eval features/*.eval.json.gz --train features/*.train.json.gz --replay replay
+          } | tee report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wins-report
+          path: report.md
