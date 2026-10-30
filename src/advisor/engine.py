@@ -27,6 +27,9 @@ class DraftAdvisor:
     # Bomb bonus: points per SD of GIH WR above the format mean, from POWER_MIN_Z.
     POWER_PER_Z = 10.0
     POWER_MIN_Z = 0.5
+    # Throwaway: which uses of the bomb z are measured against the format.
+    POWER_Z_FORMAT = True
+    CAST_Z_FORMAT = True
     # Score a card at its overall win rate plus ARCH_WEIGHT times how much
     # better it does in the current archetype, from the first pick. Above 1,
     # this also covers the bonus archetype cards used to get on top. In
@@ -111,6 +114,20 @@ class DraftAdvisor:
                 # Against the format's spread, so a card's bonus doesn't depend
                 # on its packmates.
                 z_score = (raw_gihwr - self.global_mean) / self.global_std
+                import statistics
+                pack_wrs = [
+                    float(c.get("deck_colors", {}).get("All Decks", {}).get("gihwr", 0.0) or 0.0)
+                    for c in pack_cards
+                ]
+                pack_wrs = [w for w in pack_wrs if w > 0]
+                pack_mean = statistics.mean(pack_wrs) if pack_wrs else self.global_mean
+                pack_std = statistics.pstdev(pack_wrs) if len(pack_wrs) > 1 else self.global_std
+                if pack_std <= 0:
+                    pack_std = self.global_std
+                pack_z = (raw_gihwr - pack_mean) / pack_std
+                cast_z = z_score if self.CAST_Z_FORMAT else pack_z
+                if not self.POWER_Z_FORMAT:
+                    z_score = pack_z
                 iwd_mult = (
                     1.15
                     if (raw_iwd > self.IWD_PREMIUM_THRESHOLD and z_score > 1.0)
@@ -135,7 +152,7 @@ class DraftAdvisor:
 
                 # --- STEP 4: Castability (Pip-Sensitive Discipline & Premium Splashing) ---
                 cast_mult, cast_reason = self._calculate_castability_v5(
-                    card, pack_number, safe_pick, z_score
+                    card, pack_number, safe_pick, cast_z
                 )
                 if cast_reason:
                     reasons.append(cast_reason)
