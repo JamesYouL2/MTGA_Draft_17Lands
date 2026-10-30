@@ -41,16 +41,14 @@ env:
   BASE: ${{ github.event.pull_request.base.sha || inputs.base || 'a9d54b607b05ed4a939dbdaa6d9e5d7bf96e82a9' }}
   HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   DRAFTS: ${{ inputs.drafts || '3000' }}
-  SALT: ${{ inputs.salt || 'arch-main' }}
+  SALT: ${{ inputs.salt || 'arch-main-2' }}
   # name:CONST=VALUE,CONST=VALUE ... (space-separated); each replays this branch with
   # DraftAdvisor constants overridden and is reported against the base.
   VARIANTS: >-
-    s1:
-    s1.5:ARCH_WEIGHT_START=0.3,ARCH_WEIGHT_RAMP=1.05,ARCH_WEIGHT_MAX=1.35
-    s2:ARCH_WEIGHT_START=0.4,ARCH_WEIGHT_RAMP=1.4,ARCH_WEIGHT_MAX=1.8
     s2.5:ARCH_WEIGHT_START=0.5,ARCH_WEIGHT_RAMP=1.75,ARCH_WEIGHT_MAX=2.25
     s3:ARCH_WEIGHT_START=0.6,ARCH_WEIGHT_RAMP=2.1,ARCH_WEIGHT_MAX=2.7
-    steep:ARCH_WEIGHT_RAMP=2.1,ARCH_WEIGHT_MAX=2.7
+    s4:ARCH_WEIGHT_START=0.8,ARCH_WEIGHT_RAMP=2.8,ARCH_WEIGHT_MAX=3.6
+    s5:ARCH_WEIGHT_START=1.0,ARCH_WEIGHT_RAMP=3.5,ARCH_WEIGHT_MAX=4.5
 
 jobs:
   replay:
