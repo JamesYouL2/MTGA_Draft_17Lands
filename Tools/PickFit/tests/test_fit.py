@@ -4,7 +4,7 @@ import fit
 import numpy as np
 import pytest
 
-TRUE = {"quality": 1.2, "color_gap": -0.4, "unrated": 0.3}
+TRUE = {"quality": 1.2, "off_pips": -0.4, "unrated": 0.3}
 
 
 def simulated(sets=("AAA", "BBB"), drafts=150, seed=0):
@@ -44,7 +44,7 @@ def simulated(sets=("AAA", "BBB"), drafts=150, seed=0):
                 "names": names,
                 "weights": {
                     "quality": 15.0,
-                    "color_gap": -5.0,
+                    "off_pips": -5.0,
                     "unrated": 0.0,
                     "constant": 0.0,
                 },
