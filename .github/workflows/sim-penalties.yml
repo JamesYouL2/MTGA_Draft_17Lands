@@ -1,24 +1,24 @@
-name: Build compare
+name: Sim penalties
 
-# Throwaway: the deck builder's top suggestion for real pools under the old
-# deck scorer, the new one, and the new one with a fixing penalty.
+# Throwaway: fits the deck builder's Monte Carlo penalties (color screw, mana
+# screw, flood risk) to which candidate build drafters chose.
 
 on:
   push:
-    branches: [exp-build-compare]
+    branches: [exp-sim-penalties]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  DRAFTS: "300"
+  DRAFTS: "1500"
 
 jobs:
-  compare:
-    name: Compare ${{ matrix.set }}
+  candidates:
+    name: Candidates ${{ matrix.set }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -38,20 +38,19 @@ jobs:
             "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
           curl -fsSL --retry 3 -o dataset.json.gz \
             "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
-      - name: Compare
+      - name: Collect candidate builds
         run: |
           mkdir -p results
-          poetry run python Tools/BuildCompare/compare.py --src . \
-            --old-scorer Tools/BuildCompare/old_deck_scorer.py \
+          poetry run python Tools/BuildCompare/candidates.py --src . \
             --games games.csv.gz --dataset dataset.json.gz --set "$SET" \
-            --drafts "$DRAFTS" --fix-weights -2.5 -6 --out "results/$SET.json"
+            --drafts "$DRAFTS" --out "results/$SET.json"
       - uses: actions/upload-artifact@v4
         with:
-          name: compare-${{ matrix.set }}
+          name: candidates-${{ matrix.set }}
           path: results/
 
-  summarize:
-    needs: compare
+  fit:
+    needs: candidates
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
@@ -59,19 +58,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: python -m pip install numpy
       - uses: actions/download-artifact@v4
         with:
-          pattern: compare-*
+          pattern: candidates-*
           path: results
           merge-multiple: true
-      - name: Summarize
+      - name: Fit
         run: |
-          python Tools/BuildCompare/summarize.py --examples examples.md results/*.json \
+          python Tools/BuildCompare/fit_sim.py results/*.json \
             | tee report.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
-          name: build-compare
-          path: |
-            report.md
-            examples.md
-            results/
+          name: sim-penalties
+          path: report.md

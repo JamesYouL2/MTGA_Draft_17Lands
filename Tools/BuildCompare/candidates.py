@@ -18,6 +18,8 @@ import time
 sys.path.insert(0, os.path.dirname(__file__))
 from compare import BASICS, read_drafts  # noqa: E402
 
+SIM_STATS = ("color_screw_t3", "screw_t3", "flood_t5")
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
@@ -33,7 +35,9 @@ def main(argv=None):
     sys.path.insert(0, args.src)
     from compare import App
 
-    app = App(args.dataset, os.path.join(os.path.dirname(__file__), "old_deck_scorer.py"), [])
+    app = App(
+        args.dataset, os.path.join(os.path.dirname(__file__), "old_deck_scorer.py"), []
+    )
     from src.advisor import deck_scorer
     from src.advisor.mana_base import ManaSourceAnalyzer
 
@@ -78,6 +82,8 @@ def main(argv=None):
                     "overlap": sum(min(k, names.get(n, 0)) for n, k in actual.items()),
                     "cards": {n: k for n, k in names.items() if n not in BASICS},
                     "colors": colors,
+                    # The Monte Carlo results the builder's penalties use.
+                    "sim": {k: (v.get("stats") or {}).get(k) for k in SIM_STATS},
                 }
             )
         out.append(
@@ -93,7 +99,9 @@ def main(argv=None):
             }
         )
         if i % 50 == 0:
-            print(f"{args.set} {i}/{len(drafts)} {time.time() - t0:.0f}s", file=sys.stderr)
+            print(
+                f"{args.set} {i}/{len(drafts)} {time.time() - t0:.0f}s", file=sys.stderr
+            )
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(out, f)
 
