@@ -92,9 +92,8 @@ jobs:
         run: |
           for v in $VARIANTS; do
             name="${v%%:*}"; consts="${v#*:}"
-            args=(); IFS=',' read -ra cs <<< "$consts"; for c in "${cs[@]}"; do args+=(--const "$c"); done
             mkdir -p "results/$name"
-            poetry run python Tools/AdvisorReplay/variant.py "${args[@]}" -- --src . --drafts drafts.json.gz --dataset dataset.json.gz --set "$SET" --label head --out "results/$name/$SET.head.json"
+            CONSTS="$consts" poetry run python Tools/AdvisorReplay/variant.py --src . --drafts drafts.json.gz --dataset dataset.json.gz --set "$SET" --label head --out "results/$name/$SET.head.json"
           done
       - uses: actions/upload-artifact@v4
         with:
