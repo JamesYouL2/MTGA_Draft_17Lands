@@ -8,6 +8,8 @@ name: Advisor replay
 # (Actions > Advisor replay > Run workflow) to compare a branch with any ref.
 
 on:
+  push:
+    branches: [replay-arch-once]
   pull_request:
     paths:
       - "src/advisor/**"
@@ -36,16 +38,26 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  BASE: ${{ github.event.pull_request.base.sha || inputs.base }}
+  BASE: ${{ github.event.pull_request.base.sha || inputs.base || '48c4cbe14d75d1ab8ffa3b4c826bc1ca63f8d60f' }}
   HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   DRAFTS: ${{ inputs.drafts || '3000' }}
-  SALT: ${{ inputs.salt }}
+  SALT: ${{ inputs.salt || 'arch-once' }}
+  # name:CONST=VALUE,CONST=VALUE ... (space-separated); each replays this branch with
+  # DraftAdvisor constants overridden and is reported against the base.
+  VARIANTS: >-
+    w0.9:ARCH_WEIGHT=0.9
+    w1.25:ARCH_WEIGHT=1.25
+    w1.5:ARCH_WEIGHT=1.5
+    w2.0:ARCH_WEIGHT=2.0
+    w2.5:ARCH_WEIGHT=2.5
+    w1.5-t300:ARCH_WEIGHT=1.5,ARCH_TRUST_SAMPLES=300
+    w1.5-t3000:ARCH_WEIGHT=1.5,ARCH_TRUST_SAMPLES=3000
 
 jobs:
   replay:
     name: Replay ${{ matrix.set }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -73,9 +85,17 @@ jobs:
       - name: Sample drafts
         run: poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts "$DRAFTS" --salt "$SALT" --out drafts.json.gz
       - name: Replay the base
-        run: poetry run python Tools/AdvisorReplay/replay.py --src base --drafts drafts.json.gz --dataset dataset.json.gz --set "$SET" --label base --out "results/$SET.base.json"
-      - name: Replay this branch
-        run: poetry run python Tools/AdvisorReplay/replay.py --src . --drafts drafts.json.gz --dataset dataset.json.gz --set "$SET" --label head --out "results/$SET.head.json"
+        run: |
+          mkdir -p results/base
+          poetry run python Tools/AdvisorReplay/replay.py --src base --drafts drafts.json.gz --dataset dataset.json.gz --set "$SET" --label base --out "results/base/$SET.base.json"
+      - name: Replay the variants
+        run: |
+          for v in $VARIANTS; do
+            name="${v%%:*}"; consts="${v#*:}"
+            args=(); IFS=',' read -ra cs <<< "$consts"; for c in "${cs[@]}"; do args+=(--const "$c"); done
+            mkdir -p "results/$name"
+            poetry run python Tools/AdvisorReplay/variant.py "${args[@]}" -- --src . --drafts drafts.json.gz --dataset dataset.json.gz --set "$SET" --label head --out "results/$name/$SET.head.json"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: replay-${{ matrix.set }}
@@ -102,8 +122,11 @@ jobs:
         run: |
           {
             echo "# Advisor replay: base \`${BASE::7}\`, head \`${HEAD::7}\`"
-            echo
-            poetry run python Tools/AdvisorReplay/report.py results/*.json
+            for v in $VARIANTS; do
+              name="${v%%:*}"
+              echo; echo "# Variant $name (\`${v#*:}\`)"; echo
+              poetry run python Tools/AdvisorReplay/report.py results/base/*.json "results/$name"/*.json
+            done
           } | tee report.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
