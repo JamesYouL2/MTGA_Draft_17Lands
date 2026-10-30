@@ -4,7 +4,7 @@ can be scored offline the way Tools/AdvisorReplay/replay.py scores them.
     python Tools/WinsExperiment/extract.py --drafts drafts.json.gz \
         --dataset FRA_PremierDraft_All_Data.json.gz --set FRA --out FRA.eval.json.gz
 
-Picks are filtered as replay.py filters them. Each pick keeps the pack's
+Picks are filtered as replay.py filters them, and keep the pool's size. Each pick keeps the pack's
 distinct cards in the order replay.py breaks ties by, with None for basic lands
 (scored 0).
 """
@@ -47,7 +47,7 @@ def extract_draft(app, draft, skipped):
                 if features is None
                 else [round(features[k], 5) for k in app.feature_names]
             )
-        picks.append([pack_no, pick_no, names.index(taken), rows])
+        picks.append([pack_no, pick_no, names.index(taken), rows, len(pool)])
     return {k: draft[k] for k in ("id", "skill", "games", "wins", "losses")} | {
         "picks": picks
     }

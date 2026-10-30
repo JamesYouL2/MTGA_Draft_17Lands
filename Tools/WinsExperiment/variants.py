@@ -1,13 +1,12 @@
-"""Compare main, main with parts of its score switched off, and the pick score
-refitted with and without castability, on agreement with drafters and on
-event wins.
+"""Compare ways of scoring off-color cards in the pick score: color_gap,
+off_pips, both, one merged term (pip_gap), and off_pips as a curve over the
+draft; then a harsher late off_pips penalty than strong drafters' picks give.
 
     python Tools/WinsExperiment/variants.py --eval features/*.eval.json.gz \
         --train features/*.train.json.gz --replay replay/ > report.md
 
 --replay holds the advisor replay's SET.base.json (main) and SET.head.json
-(this branch) for the same drafts as the --eval features, and SET.LABEL.json
-from ablate.py.
+(this branch) for the same drafts as the --eval features.
 """
 
 import argparse
@@ -35,9 +34,8 @@ NAMES = [
     "color_gap",
     "unrated",
     "off_pips",
-    "late_off_pips",
+    "pip_gap",
 ]
-CASTABILITY = ["off_pips", "late_off_pips"]
 FITTED = {
     "quality": 15.0,
     "lane": 11.1,
@@ -45,74 +43,96 @@ FITTED = {
     "color_gap": -2.0,
     "unrated": -10.9,
 }
-ABLATIONS = [
-    ("nocast", "main without castability"),
-    ("nocast_p1", "main without castability in pack 1"),
-    ("nocast_late", "main without castability in packs 2-3"),
-    ("nocomp", "main without composition"),
-    ("nocastcomp", "main without either"),
-    ("nopower", "main without the pack power bonus"),
-    ("nosynergy", "main without the archetype synergy bonus"),
-    ("nolane", "main without the on-lane boost"),
-    ("noarch", "main without archetype win rates in the base score"),
-    ("nocurve", "main without composition: curve too heavy"),
-    ("nocreatures", "main without composition: needs creatures"),
-    ("notags", "main without composition: synergy tags"),
-    ("nofixing", "main without composition: fixing"),
-    ("noremoval", "main without composition: removal"),
-    ("nodrops", "main without composition: 2-drops"),
-]
+# Pool sizes (cards taken before the pick) for off_pips as a curve.
+BINS = [(0, 6), (7, 13), (14, 20), (21, 27), (28, 34), (35, 99)]
+CURVE = [f"off_pips@{lo}-{hi}" for lo, hi in BINS]
+LATE = 14  # pack 2 on, for the harsher late penalty
+CORE = ["quality", "lane", "color_support", "unrated"]
+FITS = {
+    "color_gap (this PR)": CORE + ["color_gap"],
+    "off_pips, no color_gap": CORE + ["off_pips"],
+    "pip_gap, no color_gap": CORE + ["pip_gap"],
+    "color_gap + off_pips": CORE + ["color_gap", "off_pips"],
+    "color_gap + off_pips + off_pips x pool size": CORE
+    + ["color_gap", "off_pips", "off_pips*pool"],
+    "color_gap + off_pips by pool size": CORE + ["color_gap"] + CURVE,
+    "off_pips by pool size, no color_gap": CORE + CURVE,
+}
+HARSHER = [2, 4, 8]
 BOOTSTRAP = 200
-
-
-def vec(w):
-    return np.array([w.get(k, 0.0) for k in NAMES])
 
 
 class Picks:
     """Every pick of some drafts, as flat arrays: one row per distinct pack card."""
 
     def __init__(self, paths):
-        X, basic, sizes, taken, owner = [], [], [], [], []
-        self.drafts, self.keys = [], []
+        X, basic, sizes, taken, owner, pool = [], [], [], [], [], []
+        self.drafts = []
         for path in sorted(paths):
             with gzip.open(path, "rt", encoding="utf-8") as f:
                 data = json.load(f)
             assert data["names"] == NAMES, data["names"]
-            fx, fb, fs, ft, fo = [], [], [], [], []
+            fx, fb, fs, ft, fo, fp = [], [], [], [], [], []
             for draft in data["drafts"]:
                 d = len(self.drafts)
                 self.drafts.append(
                     {k: draft[k] for k in ("id", "skill", "games", "wins", "losses")}
                     | {"set": data["set"]}
                 )
-                for pack, pick, t, rows in draft["picks"]:
+                for _pack, _pick, t, rows, pool_size in draft["picks"]:
                     fs.append(len(rows))
                     ft.append(t)
                     fo.append(d)
-                    self.keys.append((d, pack, pick))
+                    fp.append(pool_size)
                     for r in rows:
                         fb.append(r is None)
                         fx.append(r or [0.0] * len(NAMES))
-            X.append(np.array(fx, dtype=float).reshape(-1, len(NAMES)))
+            X.append(np.array(fx, dtype=np.float32).reshape(-1, len(NAMES)))
             basic.append(np.array(fb, dtype=bool))
             sizes.append(np.array(fs, dtype=int))
             taken.append(np.array(ft, dtype=int))
             owner.append(np.array(fo, dtype=int))
+            pool.append(np.array(fp, dtype=int))
             del data, fx, fb
         self.X, self.basic = np.vstack(X), np.concatenate(basic)
         self.sizes, self.taken = np.concatenate(sizes), np.concatenate(taken)
-        self.owner = np.concatenate(owner)
+        self.owner, self.pool = np.concatenate(owner), np.concatenate(pool)
         self.starts = np.concatenate([[0], np.cumsum(self.sizes)[:-1]]).astype(int)
         self.row_pick = np.repeat(np.arange(len(self.sizes)), self.sizes)
         self.set = np.array([d["set"] for d in self.drafts])
         self.complete = np.array([R.is_complete(d) for d in self.drafts])
         self.strong = np.array([R.is_strong(d) for d in self.drafts])
         self.n_picks = np.bincount(self.owner, minlength=len(self.drafts))
+        self.pick_set = self.set[self.owner]
+        # Strong drafters' picks of a non-basic card from 2+ non-basic cards.
+        chosen = self.starts + self.taken
+        nonbasic = np.add.reduceat((~self.basic).astype(int), self.starts)
+        self.fit_pick = self.strong[self.owner] & ~self.basic[chosen] & (nonbasic >= 2)
 
-    def per_pick(self, w, rows=None):
+    def column(self, name):
+        """A feature per row: a raw feature, off_pips@LO-HI (off_pips when the
+        pool has LO to HI cards, else 0) or off_pips*pool (off_pips times the
+        pool's size over 42)."""
+        off = self.X[:, NAMES.index("off_pips")]
+        if name in NAMES:
+            return self.X[:, NAMES.index(name)]
+        pool = np.repeat(self.pool, self.sizes)
+        if name.startswith("off_pips@"):
+            lo, hi = map(int, name.split("@")[1].split("-"))
+            return off * ((pool >= lo) & (pool <= hi))
+        assert name == "off_pips*pool", name
+        return off * pool / 42.0
+
+    def scores(self, w):
+        s = np.full(len(self.X), BASE)
+        for k, v in w.items():
+            if v:
+                s += v * self.column(k)
+        return s
+
+    def per_pick(self, w):
         """(top-1, regret) per pick, as replay.py computes them for score weights w."""
-        s = np.round(BASE + self.X @ vec(w), 1)
+        s = np.round(self.scores(w), 1)
         s[self.basic] = 0.0
         top = np.maximum.reduceat(s, self.starts)
         mean = np.add.reduceat(s, self.starts) / self.sizes
@@ -138,50 +158,57 @@ class Picks:
         """(top-1, regret) per pick, with each set scored by weights_for(set)."""
         top1 = np.zeros(len(self.sizes), dtype=bool)
         regret = np.zeros(len(self.sizes))
-        pick_set = self.set[self.owner]
         for code in np.unique(self.set):
             t, r = self.per_pick(weights_for(code))
-            mask = pick_set == code
+            mask = self.pick_set == code
             top1[mask], regret[mask] = t[mask], r[mask]
         return top1, regret
 
+    def subset(self, mask):
+        """Data for fit_logit: the non-basic rows of the picks in mask."""
+        picks = np.flatnonzero(mask)
+        keep_row = np.repeat(mask, self.sizes) & ~self.basic
+        before = np.cumsum(keep_row) - keep_row  # kept rows before each row
+        sizes = np.add.reduceat(keep_row.astype(int), self.starts)[picks]
+        starts = np.concatenate([[0], np.cumsum(sizes)[:-1]]).astype(int)
+        chosen = self.starts[picks] + self.taken[picks]
+        offset = before[chosen] - before[self.starts[picks]]
+        data = SimpleNamespace(
+            sizes=sizes, starts=starts, chosen=starts + offset, draft=self.owner[picks]
+        )
+        return np.flatnonzero(keep_row), data
 
-# --- Refits -------------------------------------------------------------------
+    def log_lik(self, weights_for, scale_for):
+        """Mean log-likelihood of strong drafters' picks, each set scored by
+        weights_for(set) in points times scale_for(set) log-odds per point."""
+        total, n = 0.0, 0
+        for code in np.unique(self.set):
+            rows, data = self.subset(self.fit_pick & (self.pick_set == code))
+            w = weights_for(code)
+            u = scale_for(code) * (self.scores(w)[rows] - BASE)
+            top = np.maximum.reduceat(u, data.starts)
+            e = np.exp(u - np.repeat(top, data.sizes))
+            lse = top + np.log(np.add.reduceat(e, data.starts))
+            total += float(np.sum(u[data.chosen] - lse))
+            n += len(data.sizes)
+        return total / n
 
 
 def logit_fit(train, names):
-    """For each set, conditional logit weights for the features names, fitted to
-    strong drafters' picks on the other sets, in points (quality 15); and the
-    fit on all sets."""
-    cols = [NAMES.index(k) for k in names]
-    pick_ok = train.strong[train.owner].copy()
-    chosen_row = train.starts + train.taken
-    pick_ok &= ~train.basic[chosen_row]
-    nonbasic = np.add.reduceat((~train.basic).astype(int), train.starts)
-    pick_ok &= nonbasic >= 2
-    pick_set = train.set[train.owner]
+    """For each set, conditional logit weights for names fitted to strong
+    drafters' picks on the other sets: (points with quality 15, log-odds per
+    point, picks); and the fit on all sets."""
+    X = np.column_stack([train.column(k) for k in names])
 
     def fit(mask):
-        picks = np.flatnonzero(mask)
-        keep_row = np.repeat(mask, train.sizes) & ~train.basic
-        before = np.cumsum(keep_row) - keep_row  # kept rows before each row
-        sizes = np.add.reduceat(keep_row.astype(int), train.starts)[picks]
-        starts = np.concatenate([[0], np.cumsum(sizes)[:-1]]).astype(int)
-        offset = before[chosen_row[picks]] - before[train.starts[picks]]
-        data = SimpleNamespace(
-            sizes=sizes,
-            starts=starts,
-            chosen=starts + offset,
-            draft=train.owner[picks],
-        )
-        X = train.X[np.flatnonzero(keep_row)][:, cols]
-        beta, _ = fit_logit(X, data)
+        rows, data = train.subset(mask)
+        beta, _ = fit_logit(X[rows].astype(float), data)
         points = beta / beta[0] * 15.0
-        return dict(zip(names, np.round(points, 1))), len(picks)
+        return dict(zip(names, np.round(points, 2))), beta[0] / 15.0, len(data.sizes)
 
-    out = {"all": fit(pick_ok)}
+    out = {"all": fit(train.fit_pick)}
     for code in sorted(np.unique(train.set)):
-        out[code] = fit(pick_ok & (pick_set != code))
+        out[code] = fit(train.fit_pick & (train.pick_set != code))
     return out
 
 
@@ -211,7 +238,7 @@ def load_replay(folder, label, ev):
 
 
 def fmt_w(w):
-    return ", ".join(f"{w.get(k, 0.0):+g}" for k in NAMES[1:])
+    return ", ".join(f"{k} {v:+.1f}" for k, v in w.items() if k != "quality")
 
 
 def main(argv=None):
@@ -224,53 +251,58 @@ def main(argv=None):
     ev = Picks(args.eval)
     out = []
 
-    # Main, main with parts switched off, and this branch, as the replay scored them.
     variants = {}
-    for label, title in [("base", "main")] + ABLATIONS + [("head", "this PR (replay)")]:
+    for label, title in [("base", "main"), ("head", "this PR (replay)")]:
         t, n, r, missing = load_replay(args.replay, label, ev)
         out.append(f"<!-- {label}: {missing} eval drafts missing from the replay -->")
-        if missing < len(ev.drafts):
-            variants[title] = (t, n, r, None)
+        variants[title] = (t, n, r, None)
 
-    def offline(title, w_for, shown):
+    def offline(title, w_for, ll=None):
         top1, regret = ev.by_set(w_for)
         variants[title] = (
             np.bincount(ev.owner, top1, len(ev.drafts)),
             ev.n_picks.astype(float),
             ev.per_draft(regret),
-            shown,
+            ll,
         )
 
-    offline("this PR", lambda s: FITTED, fmt_w(FITTED))
+    offline("this PR", lambda s: FITTED)
 
     # The offline scoring should reproduce the replay of this branch.
     rep_t, rep_n, rep_r, _ = variants.pop("this PR (replay)")
     off_t, off_n, off_r, _ = variants["this PR"]
-    same_n = np.mean(rep_n == off_n)
     ok = (rep_n > 0) & (off_n > 0)
     out.append(
-        f"Check: offline scoring matches the replay of this PR on {100 * same_n:.2f}% of "
-        f"drafts' pick counts, {100 * np.mean(rep_t[ok] == off_t[ok]):.2f}% of drafts' "
-        f"top-1 counts, and drafts' mean regret to within "
+        f"Check: offline scoring matches the replay of this PR on "
+        f"{100 * np.mean(rep_n == off_n):.2f}% of drafts' pick counts, "
+        f"{100 * np.mean(rep_t[ok] == off_t[ok]):.2f}% of drafts' top-1 counts, "
+        f"and drafts' mean regret to within "
         f"{np.nanmax(np.abs(rep_r[ok] - off_r[ok])):.4f}.\n"
     )
+    del variants["this PR"]
 
     train = Picks(args.train)
     out.append(
         f"Training sample (a different salt): {len(train.drafts):,} drafts, "
-        f"{int(train.strong.sum()):,} by strong drafters, {len(train.sizes):,} picks.\n"
+        f"{int(train.strong.sum()):,} by strong drafters, "
+        f"{int(train.fit_pick.sum()):,} of their picks fitted.\n"
     )
-    refits = {
-        "refit, no castability": logit_fit(train, NAMES[:5]),
-        "refit with castability": logit_fit(train, NAMES),
-    }
+    fits = {title: logit_fit(train, names) for title, names in FITS.items()}
     del train
-    for title, fits in refits.items():
-        offline(
-            title,
-            lambda s, fits=fits: fits[s][0],
-            fmt_w(fits["all"][0]) + f" ({fits['all'][1]:,} picks)",
-        )
+
+    for title, f in fits.items():
+        ll = ev.log_lik(lambda s, f=f: f[s][0], lambda s, f=f: f[s][1])
+        offline(title, lambda s, f=f: f[s][0], ll)
+    base = fits["color_gap + off_pips"]
+    for k in HARSHER:
+
+        def harsher(s, k=k):
+            w = dict(base[s][0])
+            w[f"off_pips@{LATE}-99"] = (k - 1) * w["off_pips"]
+            return w
+
+        ll = ev.log_lik(harsher, lambda s: base[s][1])
+        offline(f"color_gap + off_pips, late off_pips x{k}", harsher, ll)
 
     keep = ev.complete & (ev.n_picks > 0)
     for t, n, r, _ in variants.values():
@@ -293,40 +325,53 @@ def main(argv=None):
         "drafter's win rate and games buckets, as in the replay report; in brackets, "
         "the difference from main and its paired bootstrap SE.",
         "",
-        "Weights are " + ", ".join(NAMES[1:]) + " (quality is 15). Refits are "
-        "scored on each set with weights fitted to strong drafters' picks on the "
-        "other nine.",
+        "Every fitted row is scored on each set with weights fitted to strong "
+        "drafters' picks on the other nine. Log-likelihood is per strong drafter's "
+        "pick on the replay drafts (higher is better; the fit's own objective).",
         "",
-        "| variation | weights | top-1 all | top-1 strong | regret → wins "
+        "| variation | log-lik | top-1 all | top-1 strong | regret → wins "
         "(more negative is better) | top-1 share → wins (more positive is better) |",
         "|---|---|---|---|---|---|",
     ]
-    for title, (t, n, r, shown) in variants.items():
+    for title, (t, n, r, ll) in variants.items():
         all_top1 = 100 * t.sum() / n.sum()
         strong_top1 = 100 * t[strong].sum() / n[strong].sum()
         share = t / np.where(n > 0, n, 1)
         cells = []
-        for x, base in [(r, main_r), (share, main_share)]:
+        for x, b in [(r, main_r), (share, main_share)]:
             s = slope(x)
             if title == "main":
                 cells.append(f"{s:+.3f}")
                 continue
             se = R.bootstrap(
-                lambda i: slope(x, i) - slope(base, i), len(idx), samples=BOOTSTRAP
+                lambda i: slope(x, i) - slope(b, i), len(idx), samples=BOOTSTRAP
             )
-            cells.append(f"{s:+.3f} ({s - slope(base):+.3f} ± {se:.3f})")
+            cells.append(f"{s:+.3f} ({s - slope(b):+.3f} ± {se:.3f})")
+        ll_cell = "-" if ll is None else f"{ll:.4f}"
         out.append(
-            f"| {title} | {shown or '-'} | {all_top1:.1f} | {strong_top1:.1f} | "
+            f"| {title} | {ll_cell} | {all_top1:.1f} | {strong_top1:.1f} | "
             + " | ".join(cells)
             + " |"
         )
 
-    out += ["", "## Weights fitted on the other nine sets", ""]
-    out += ["| left out | " + " | ".join(refits) + " |", "|---|---|---|"]
-    for code in sorted(k for k in refits["refit with castability"] if k != "all"):
+    out += ["", "## Weights fitted on all ten sets", ""]
+    out += ["| variation | picks | weights (points; quality is 15) |", "|---|---|---|"]
+    for title, f in fits.items():
+        out.append(f"| {title} | {f['all'][2]:,} | {fmt_w(f['all'][0])} |")
+
+    curve = fits["color_gap + off_pips by pool size"]
+    out += ["", "## off_pips by pool size, fitted on the other nine sets", ""]
+    out += [
+        "| left out | color_gap | "
+        + " | ".join(f"pool {lo}-{hi}" for lo, hi in BINS)
+        + " |",
+        "|---|---|" + "---|" * len(BINS),
+    ]
+    for code in ["all"] + sorted(k for k in curve if k != "all"):
+        w = curve[code][0]
         out.append(
-            f"| {code} | "
-            + " | ".join(fmt_w(fits[code][0]) for fits in refits.values())
+            f"| {code} | {w['color_gap']:+.1f} | "
+            + " | ".join(f"{w[k]:+.1f}" for k in CURVE)
             + " |"
         )
     print("\n".join(out))

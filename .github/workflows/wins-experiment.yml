@@ -1,8 +1,9 @@
 name: Wins experiment
 
-# Throwaway: on the advisor replay's drafts (run 41015375331), compares main,
-# main with castability or composition switched off, and the pick score refitted
-# with and without castability features, on agreement and event wins.
+# Throwaway: on the advisor replay's drafts (run 41015375331), compares main
+# with the pick score refitted with different off-color terms (color_gap,
+# off_pips, a merged pip_gap, off_pips as a curve over the draft, and a harsher
+# late off_pips penalty), on agreement and event wins.
 
 on:
   push:
@@ -53,53 +54,8 @@ jobs:
           name: features-${{ matrix.set }}-${{ matrix.sample }}
           path: features/
 
-  ablate:
-    name: Ablate ${{ matrix.set }} ${{ matrix.group }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        set: ["DFT", "FDN", "FIN", "FRA", "HOB", "MSH", "SOS", "TDM", "TLA", "TMT"]
-        group: [cast, score, rules]
-    env:
-      SET: ${{ matrix.set }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check out main as the replay ran it
-        uses: actions/checkout@v4
-        with:
-          ref: 8fae6c0d2c8632690c78cc8e3aac6304285f14e3
-          path: base
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: python -m pip install poetry==2.4.1
-      - run: poetry install --no-interaction
-      - name: Download the draft dump and the app's dataset
-        run: |
-          curl -fsSL --retry 3 -o dump.csv.gz \
-            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
-          curl -fsSL --retry 3 -o dataset.json.gz \
-            "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
-      - name: Sample the replay's drafts
-        run: poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts 3000 --salt split-227 --out drafts.json.gz
-      - name: Replay main with parts of its score switched off
-        env:
-          LABELS: ${{ matrix.group == 'cast' && 'nocast nocast_p1 nocast_late nocomp nocastcomp' || matrix.group == 'score' && 'nopower nosynergy nolane noarch' || 'nocurve nocreatures notags nofixing noremoval nodrops' }}
-        run: |
-          for label in $LABELS; do
-            poetry run python Tools/WinsExperiment/ablate.py "$label" --src base \
-              --drafts drafts.json.gz --dataset dataset.json.gz --set "$SET" \
-              --label "$label" --out "ablate/$SET.$label.json"
-          done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ablate-${{ matrix.set }}-${{ matrix.group }}
-          path: ablate/
-
   report:
-    needs: [extract, ablate]
+    needs: extract
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -122,12 +78,6 @@ jobs:
           merge-multiple: true
           run-id: ${{ env.REPLAY_RUN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Download main's replays with parts switched off
-        uses: actions/download-artifact@v4
-        with:
-          pattern: ablate-*
-          path: replay
-          merge-multiple: true
       - name: Report
         shell: bash
         run: |
