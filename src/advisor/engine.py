@@ -516,8 +516,7 @@ class DraftAdvisor:
             global_wr = float(stats.get("All Decks", {}).get("gihwr", 0.0))
             ramp_pick = min(pick_number, self.ARCH_RAMP_PICKS)
             arch_weight = (
-                self.ARCH_WEIGHT_START
-                + (ramp_pick / self.ARCH_RAMP_PICKS) * self.ARCH_WEIGHT_RAMP
+                0.0
             )
             arch_stats = stats.get(self.main_archetype, {})
             arch_wr = float(arch_stats.get("gihwr", global_wr))
