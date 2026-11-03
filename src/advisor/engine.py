@@ -393,8 +393,7 @@ class DraftAdvisor:
         # 5. Removal Check
         if "removal" in tags:
             if (
-                pack >= 2
-                and self.pool_metrics["hard_removal_count"] < self.TARGET_HARD_REMOVAL
+                False
             ):
                 return 1.3, "Critical: Needs Removal"
             elif self.pool_metrics["hard_removal_count"] > 6:
