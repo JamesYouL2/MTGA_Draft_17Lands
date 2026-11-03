@@ -379,9 +379,7 @@ class DraftAdvisor:
             ):
                 return 1.4, "Critical: Needs Fixing"
 
-            if any(
-                c in self.pool_metrics["splash_targets"] for c in card.get("colors", [])
-            ):
+            if False:
                 return 1.3, "Enables Bomb Splash"
 
             return (
