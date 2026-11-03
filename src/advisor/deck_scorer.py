@@ -120,7 +120,7 @@ WEIGHTS = {
     # 1 if the deck has two colors or fewer.
     "two_colors": 3.5,
     # 1 if a deck of 3+ colors has 2+ domain payoffs and 4+ fixing cards.
-    "domain_supported": 3.2,
+    "domain_supported": 0.0,
     # For a deck of 3+ colors that isn't a supported domain deck, fixing cards
     # short of one per color beyond the first. Players rarely build such decks,
     # so game results can't fit it; this is fit instead to which of the deck
