@@ -1,0 +1,1118 @@
+{
+  "variant": "no-removal-saturation",
+  "selection": {
+    "sampled_drafts": 66000,
+    "first_strict_disagreements": 25379,
+    "chose_neither": 8525,
+    "missing_or_incomplete_selected_outcomes": 3435
+  },
+  "coverage": {
+    "BLB": {
+      "changed_picks": 1798,
+      "drafts_with_strict_disagreement": 1098,
+      "chose_neither": 314,
+      "chose_1": 519,
+      "chose_0": 265,
+      "tied_disagreements": 25,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "Cube - Powered": {
+      "parity_checks": 100,
+      "unmatched_taken_picks": 32446,
+      "unmatched_taken_names": {
+        "Comet, Stellar Pup": 349,
+        "Guide of Souls": 334,
+        "Death-Greeter's Champion": 331,
+        "Inspiring Vantage": 331,
+        "Goblin Bombardment": 330,
+        "Draconautics Engineer": 328,
+        "Karakas": 321,
+        "Nia, Skysail Storyteller": 317,
+        "Makdee and Itla, Skysnarers": 312,
+        "Yera and Oski, Weaver and Guide": 309,
+        "Lightning Bolt": 304,
+        "Kumano Faces Kakkazan": 304,
+        "Ademi of the Silkchutes": 301,
+        "Luminarch Aspirant": 298,
+        "Detective's Phoenix": 297,
+        "Hired Claw": 296,
+        "Voice of Victory": 294,
+        "Skyclave Apparition": 294,
+        "Witch Enchanter": 290,
+        "Ajani, Nacatl Pariah": 290
+      }
+    },
+    "DFT": {
+      "changed_picks": 1694,
+      "drafts_with_strict_disagreement": 1030,
+      "chose_neither": 339,
+      "chose_1": 470,
+      "chose_0": 221,
+      "tied_disagreements": 24,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "DMU": {
+      "changed_picks": 2353,
+      "drafts_with_strict_disagreement": 1326,
+      "chose_0": 240,
+      "chose_neither": 543,
+      "chose_1": 543,
+      "tied_disagreements": 25,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "DSK": {
+      "changed_picks": 2708,
+      "drafts_with_strict_disagreement": 1496,
+      "chose_1": 607,
+      "chose_neither": 511,
+      "chose_0": 378,
+      "tied_disagreements": 35,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "EOE": {
+      "changed_picks": 1999,
+      "drafts_with_strict_disagreement": 1267,
+      "chose_1": 513,
+      "chose_0": 362,
+      "chose_neither": 392,
+      "tied_disagreements": 26,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "FDN": {
+      "changed_picks": 2035,
+      "drafts_with_strict_disagreement": 1241,
+      "chose_0": 306,
+      "chose_1": 548,
+      "chose_neither": 387,
+      "tied_disagreements": 22,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "FIN": {
+      "changed_picks": 1903,
+      "drafts_with_strict_disagreement": 1125,
+      "chose_1": 525,
+      "chose_neither": 334,
+      "chose_0": 266,
+      "tied_disagreements": 14,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "FRA": {
+      "changed_picks": 3730,
+      "drafts_with_strict_disagreement": 1864,
+      "chose_neither": 643,
+      "chose_0": 374,
+      "chose_1": 847,
+      "tied_disagreements": 54,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "HOB": {
+      "changed_picks": 1386,
+      "drafts_with_strict_disagreement": 929,
+      "chose_neither": 257,
+      "chose_1": 479,
+      "chose_0": 193,
+      "tied_disagreements": 12,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "LTR": {
+      "changed_picks": 3417,
+      "drafts_with_strict_disagreement": 1702,
+      "chose_neither": 556,
+      "chose_1": 822,
+      "chose_0": 324,
+      "tied_disagreements": 49,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "MH3": {
+      "changed_picks": 2121,
+      "strict_disagreement_with_incomplete_card_mapping": 192,
+      "drafts_with_strict_disagreement": 1152,
+      "chose_0": 287,
+      "chose_neither": 449,
+      "chose_1": 416,
+      "tied_disagreements": 17,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 352,
+      "unmatched_taken_names": {
+        "Bespoke Battlewagon": 352
+      }
+    },
+    "MID": {
+      "changed_picks": 1861,
+      "drafts_with_strict_disagreement": 1066,
+      "chose_neither": 339,
+      "chose_1": 474,
+      "tied_disagreements": 32,
+      "chose_0": 253,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "MSH": {
+      "changed_picks": 1600,
+      "drafts_with_strict_disagreement": 988,
+      "chose_1": 483,
+      "chose_0": 191,
+      "chose_neither": 314,
+      "tied_disagreements": 17,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "NEO": {
+      "changed_picks": 2025,
+      "drafts_with_strict_disagreement": 1179,
+      "chose_1": 511,
+      "chose_0": 265,
+      "chose_neither": 403,
+      "tied_disagreements": 17,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "OTJ": {
+      "changed_picks": 2034,
+      "drafts_with_strict_disagreement": 1213,
+      "chose_1": 459,
+      "chose_neither": 478,
+      "chose_0": 276,
+      "tied_disagreements": 26,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "SOS": {
+      "changed_picks": 1554,
+      "drafts_with_strict_disagreement": 962,
+      "chose_0": 244,
+      "chose_1": 424,
+      "chose_neither": 294,
+      "tied_disagreements": 19,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "STX": {
+      "changed_picks": 798,
+      "drafts_with_strict_disagreement": 558,
+      "chose_neither": 185,
+      "chose_1": 231,
+      "chose_0": 142,
+      "tied_disagreements": 21,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "TDM": {
+      "changed_picks": 1874,
+      "drafts_with_strict_disagreement": 1160,
+      "chose_neither": 534,
+      "chose_0": 242,
+      "chose_1": 384,
+      "tied_disagreements": 30,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "TLA": {
+      "changed_picks": 2404,
+      "drafts_with_strict_disagreement": 1364,
+      "chose_1": 605,
+      "chose_0": 330,
+      "chose_neither": 429,
+      "tied_disagreements": 30,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    },
+    "TMT": {
+      "changed_picks": 2831,
+      "drafts_with_strict_disagreement": 1290,
+      "chose_1": 582,
+      "chose_0": 317,
+      "chose_neither": 391,
+      "strict_disagreement_with_incomplete_card_mapping": 427,
+      "tied_disagreements": 37,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 530,
+      "unmatched_taken_names": {
+        "Bespoke B?": 530
+      }
+    },
+    "VOW": {
+      "changed_picks": 2535,
+      "drafts_with_strict_disagreement": 1369,
+      "chose_1": 594,
+      "chose_neither": 433,
+      "chose_0": 342,
+      "tied_disagreements": 56,
+      "parity_checks": 100,
+      "unmatched_taken_picks": 0,
+      "unmatched_taken_names": {}
+    }
+  },
+  "secondary": {
+    "all": {
+      "picks": 2518848,
+      "agreement_difference_pp": 0.33392249155169346
+    },
+    "strong": {
+      "picks": 460323,
+      "agreement_difference_pp": 0.3779954510202619
+    },
+    "win_fraction_regret_slopes": {
+      "base_regret": -0.026654440961109447,
+      "head_regret": -0.026775639720259172,
+      "fixed_head_regret": -0.0005450029124853463
+    }
+  },
+  "raw": {
+    "0": {
+      "drafts": 4651,
+      "wins": 15445.0,
+      "games": 28383.0,
+      "win_rate_percent": 54.41637599971814
+    },
+    "1": {
+      "drafts": 8768,
+      "wins": 29935.0,
+      "games": 54132.0,
+      "win_rate_percent": 55.300007389344565
+    },
+    "difference_pp": 0.883631389626423
+  },
+  "diagnostics": {
+    "rows": 13419,
+    "arms": {
+      "1": 8768,
+      "0": 4651
+    },
+    "propensity_min": 0.030491901357674402,
+    "propensity_max": 0.9919786285226811,
+    "propensity_clipped_percent": 6.811237797153289,
+    "outcome_crossfit_rmse": {
+      "event_wins": 2.109511697991126,
+      "event_games": 1.826984686624141,
+      "event_win_fraction": 0.22075333385374282
+    },
+    "propensity_brier": 0.17233828694023812,
+    "effective_arm_samples": {
+      "0": 2538.220541100804,
+      "1": 6780.335905038502
+    },
+    "features": [
+      "set_category",
+      "skill_bucket",
+      "log_historical_games",
+      "base_alsa",
+      "base_cast",
+      "base_cmc",
+      "base_colors",
+      "base_gihwr",
+      "base_iwd",
+      "base_margin",
+      "base_role",
+      "base_samples",
+      "base_tag_card_draw",
+      "base_tag_fixing_ramp",
+      "base_tag_removal",
+      "base_type_Artifact",
+      "base_type_Creature",
+      "base_type_Enchantment",
+      "base_type_Instant",
+      "base_type_Land",
+      "base_type_Sorcery",
+      "draft_day",
+      "global_mean",
+      "global_std",
+      "head_alsa",
+      "head_cast",
+      "head_cmc",
+      "head_colors",
+      "head_gihwr",
+      "head_iwd",
+      "head_margin",
+      "head_role",
+      "head_samples",
+      "head_tag_card_draw",
+      "head_tag_fixing_ramp",
+      "head_tag_removal",
+      "head_type_Artifact",
+      "head_type_Creature",
+      "head_type_Enchantment",
+      "head_type_Instant",
+      "head_type_Land",
+      "head_type_Sorcery",
+      "lane_B",
+      "lane_G",
+      "lane_R",
+      "lane_U",
+      "lane_W",
+      "lane_colors",
+      "pack",
+      "pack_unique_cards",
+      "pick",
+      "pool_artifacts",
+      "pool_counters_enablers",
+      "pool_creature_count",
+      "pool_early_plays",
+      "pool_fixing_count",
+      "pool_graveyard_enablers",
+      "pool_hard_removal_count",
+      "pool_heavy_drops",
+      "pool_off_color_playables",
+      "pool_size",
+      "pool_splash_targets",
+      "published_skill_is_match"
+    ]
+  },
+  "adjusted": {
+    "drafts": 13419,
+    "sets": 21,
+    "baseline_rate_percent": 54.46483284374919,
+    "removal_rate_percent": 55.28970148440189,
+    "difference_pp": 0.8248686406526984,
+    "draft_se_pp": 0.4529484848954882,
+    "simultaneous_draft_ci_pp": [
+      -0.25948088254550017,
+      1.9092181638508967
+    ],
+    "set_cluster_se_pp": 0.48684045054711567,
+    "simultaneous_set_cluster_ci_pp": [
+      -0.4470436237897517,
+      2.0967809050951485
+    ],
+    "event_average_fraction_difference_pp": 1.2765191680874037,
+    "event_average_fraction_se_pp": 0.5150646340367798
+  },
+  "original_sets": {
+    "drafts": 6133,
+    "sets": 10,
+    "baseline_rate_percent": 54.707005762840396,
+    "removal_rate_percent": 55.210959914275435,
+    "difference_pp": 0.5039541514350376,
+    "draft_se_pp": 0.677632150771012,
+    "simultaneous_draft_ci_pp": [
+      -1.1182835292183362,
+      2.1261918320884114
+    ],
+    "set_cluster_se_pp": 0.8896900320186246,
+    "simultaneous_set_cluster_ci_pp": [
+      -2.105795050671421,
+      3.113703353541496
+    ],
+    "event_average_fraction_difference_pp": 1.2181527859174162,
+    "event_average_fraction_se_pp": 0.767075365320207
+  },
+  "new_sets": {
+    "drafts": 7286,
+    "sets": 11,
+    "baseline_rate_percent": 54.259940976820054,
+    "removal_rate_percent": 55.35596032695529,
+    "difference_pp": 1.0960193501352355,
+    "draft_se_pp": 0.6085835543147201,
+    "simultaneous_draft_ci_pp": [
+      -0.36091738539595564,
+      2.552956085666427
+    ],
+    "set_cluster_se_pp": 0.5258665808951041,
+    "simultaneous_set_cluster_ci_pp": [
+      -0.41325589163002574,
+      2.605294591900497
+    ],
+    "event_average_fraction_difference_pp": 1.3256491463811908,
+    "event_average_fraction_se_pp": 0.6950085739155455
+  },
+  "overlap_only": {
+    "drafts": 11140,
+    "sets": 21,
+    "baseline_rate_percent": 54.62478766049301,
+    "removal_rate_percent": 55.04377637601012,
+    "difference_pp": 0.41898871551711014,
+    "draft_se_pp": 0.42679662747185343,
+    "simultaneous_draft_ci_pp": [
+      -0.6027537892811728,
+      1.4407312203153932
+    ],
+    "set_cluster_se_pp": 0.5441572646800309,
+    "simultaneous_set_cluster_ci_pp": [
+      -1.0026686220237142,
+      1.8406460530579345
+    ],
+    "event_average_fraction_difference_pp": 0.7281908272824441,
+    "event_average_fraction_se_pp": 0.4946146562331621
+  },
+  "per_set": {
+    "BLB": {
+      "drafts": 596,
+      "sets": 1,
+      "baseline_rate_percent": 53.444690735817204,
+      "removal_rate_percent": 55.99154489095156,
+      "difference_pp": 2.5468541551343593,
+      "draft_se_pp": 2.1241178996105097,
+      "simultaneous_draft_ci_pp": [
+        -2.5382411889661234,
+        7.631949499234842
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 2.234524172736593,
+      "event_average_fraction_se_pp": 2.4257474770207588,
+      "raw": {
+        "0": {
+          "drafts": 199,
+          "wins": 621.0,
+          "games": 1180.0,
+          "win_rate_percent": 52.6271186440678
+        },
+        "1": {
+          "drafts": 397,
+          "wins": 1352.0,
+          "games": 2455.0,
+          "win_rate_percent": 55.07128309572301
+        },
+        "difference_pp": 2.4441644516552117
+      }
+    },
+    "DFT": {
+      "drafts": 506,
+      "sets": 1,
+      "baseline_rate_percent": 58.1741827359559,
+      "removal_rate_percent": 53.18083164552748,
+      "difference_pp": -4.993351090428422,
+      "draft_se_pp": 2.3425037303183993,
+      "simultaneous_draft_ci_pp": [
+        -10.601257701810177,
+        0.6145555209533332
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": -4.064176758172807,
+      "event_average_fraction_se_pp": 3.0560171367005653,
+      "raw": {
+        "0": {
+          "drafts": 162,
+          "wins": 593.0,
+          "games": 1033.0,
+          "win_rate_percent": 57.405614714424004
+        },
+        "1": {
+          "drafts": 344,
+          "wins": 1116.0,
+          "games": 2075.0,
+          "win_rate_percent": 53.78313253012048
+        },
+        "difference_pp": -3.6224821843035215
+      }
+    },
+    "DMU": {
+      "drafts": 714,
+      "sets": 1,
+      "baseline_rate_percent": 52.58326459182513,
+      "removal_rate_percent": 55.93407983386006,
+      "difference_pp": 3.3508152420349324,
+      "draft_se_pp": 2.239240904818679,
+      "simultaneous_draft_ci_pp": [
+        -2.0098822510283094,
+        8.711512735098175
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 3.2569113323886323,
+      "event_average_fraction_se_pp": 2.5241908755955564,
+      "raw": {
+        "0": {
+          "drafts": 218,
+          "wins": 702.0,
+          "games": 1318.0,
+          "win_rate_percent": 53.262518968133534
+        },
+        "1": {
+          "drafts": 496,
+          "wins": 1678.0,
+          "games": 3036.0,
+          "win_rate_percent": 55.27009222661397
+        },
+        "difference_pp": 2.007573258480434
+      }
+    },
+    "DSK": {
+      "drafts": 762,
+      "sets": 1,
+      "baseline_rate_percent": 53.71490865027438,
+      "removal_rate_percent": 54.2348699458524,
+      "difference_pp": 0.5199612955780197,
+      "draft_se_pp": 1.9030500292295964,
+      "simultaneous_draft_ci_pp": [
+        -4.03590203244166,
+        5.0758246235977
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": -0.6388223593373442,
+      "event_average_fraction_se_pp": 1.9840565204784648,
+      "raw": {
+        "0": {
+          "drafts": 297,
+          "wins": 955.0,
+          "games": 1799.0,
+          "win_rate_percent": 53.085047248471376
+        },
+        "1": {
+          "drafts": 465,
+          "wins": 1538.0,
+          "games": 2828.0,
+          "win_rate_percent": 54.38472418670438
+        },
+        "difference_pp": 1.2996769382330058
+      }
+    },
+    "EOE": {
+      "drafts": 682,
+      "sets": 1,
+      "baseline_rate_percent": 53.414666809960956,
+      "removal_rate_percent": 52.88583676586133,
+      "difference_pp": -0.5288300440996263,
+      "draft_se_pp": 1.7220424618938701,
+      "simultaneous_draft_ci_pp": [
+        -4.651364912303288,
+        3.5937048241040355
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": -0.8773106632867814,
+      "event_average_fraction_se_pp": 1.9669456108889205,
+      "raw": {
+        "0": {
+          "drafts": 281,
+          "wins": 858.0,
+          "games": 1638.0,
+          "win_rate_percent": 52.38095238095238
+        },
+        "1": {
+          "drafts": 401,
+          "wins": 1318.0,
+          "games": 2434.0,
+          "win_rate_percent": 54.14954806902219
+        },
+        "difference_pp": 1.7685956880698086
+      }
+    },
+    "FDN": {
+      "drafts": 694,
+      "sets": 1,
+      "baseline_rate_percent": 51.0251905401978,
+      "removal_rate_percent": 55.91134010308056,
+      "difference_pp": 4.886149562882769,
+      "draft_se_pp": 2.25517668768587,
+      "simultaneous_draft_ci_pp": [
+        -0.512697872458822,
+        10.284996998224361
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 5.308125966352063,
+      "event_average_fraction_se_pp": 2.45228206965787,
+      "raw": {
+        "0": {
+          "drafts": 254,
+          "wins": 765.0,
+          "games": 1483.0,
+          "win_rate_percent": 51.58462575859744
+        },
+        "1": {
+          "drafts": 440,
+          "wins": 1564.0,
+          "games": 2772.0,
+          "win_rate_percent": 56.42135642135642
+        },
+        "difference_pp": 4.836730662758981
+      }
+    },
+    "FIN": {
+      "drafts": 628,
+      "sets": 1,
+      "baseline_rate_percent": 56.23899615067247,
+      "removal_rate_percent": 54.77529089196428,
+      "difference_pp": -1.4637052587081922,
+      "draft_se_pp": 2.4450507222449707,
+      "simultaneous_draft_ci_pp": [
+        -7.317107297294312,
+        4.389696779877927
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": -1.183792357864527,
+      "event_average_fraction_se_pp": 2.5788651072920867,
+      "raw": {
+        "0": {
+          "drafts": 207,
+          "wins": 698.0,
+          "games": 1272.0,
+          "win_rate_percent": 54.874213836477985
+        },
+        "1": {
+          "drafts": 421,
+          "wins": 1378.0,
+          "games": 2562.0,
+          "win_rate_percent": 53.786104605776735
+        },
+        "difference_pp": -1.0881092307012494
+      }
+    },
+    "FRA": {
+      "drafts": 924,
+      "sets": 1,
+      "baseline_rate_percent": 52.710256161681876,
+      "removal_rate_percent": 54.94367886058023,
+      "difference_pp": 2.2334226988983463,
+      "draft_se_pp": 1.880627976155011,
+      "simultaneous_draft_ci_pp": [
+        -2.2687626869903172,
+        6.7356080847870095
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 2.645954249331781,
+      "event_average_fraction_se_pp": 2.1498749778112796,
+      "raw": {
+        "0": {
+          "drafts": 280,
+          "wins": 920.0,
+          "games": 1706.0,
+          "win_rate_percent": 53.92731535756155
+        },
+        "1": {
+          "drafts": 644,
+          "wins": 2159.0,
+          "games": 3922.0,
+          "win_rate_percent": 55.04844467108618
+        },
+        "difference_pp": 1.1211293135246336
+      }
+    },
+    "HOB": {
+      "drafts": 531,
+      "sets": 1,
+      "baseline_rate_percent": 57.95732827304836,
+      "removal_rate_percent": 54.68201140735156,
+      "difference_pp": -3.275316865696798,
+      "draft_se_pp": 2.083606427863484,
+      "simultaneous_draft_ci_pp": [
+        -8.263428564773983,
+        1.712794833380387
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": -1.8991200672853017,
+      "event_average_fraction_se_pp": 2.533617412960464,
+      "raw": {
+        "0": {
+          "drafts": 153,
+          "wins": 552.0,
+          "games": 973.0,
+          "win_rate_percent": 56.73175745118191
+        },
+        "1": {
+          "drafts": 378,
+          "wins": 1309.0,
+          "games": 2365.0,
+          "win_rate_percent": 55.348837209302324
+        },
+        "difference_pp": -1.3829202418795887
+      }
+    },
+    "LTR": {
+      "drafts": 833,
+      "sets": 1,
+      "baseline_rate_percent": 54.68409533850414,
+      "removal_rate_percent": 55.79524663970077,
+      "difference_pp": 1.1111513011966223,
+      "draft_se_pp": 1.9909060724452483,
+      "simultaneous_draft_ci_pp": [
+        -3.65503761957331,
+        5.877340221966555
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 2.0697780834192754,
+      "event_average_fraction_se_pp": 2.3115908617391736,
+      "raw": {
+        "0": {
+          "drafts": 242,
+          "wins": 805.0,
+          "games": 1462.0,
+          "win_rate_percent": 55.06155950752394
+        },
+        "1": {
+          "drafts": 591,
+          "wins": 2063.0,
+          "games": 3695.0,
+          "win_rate_percent": 55.83220568335589
+        },
+        "difference_pp": 0.7706461758319492
+      }
+    },
+    "MH3": {
+      "drafts": 531,
+      "sets": 1,
+      "baseline_rate_percent": 52.194700179978824,
+      "removal_rate_percent": 56.42797386686086,
+      "difference_pp": 4.233273686882033,
+      "draft_se_pp": 1.9504568092388326,
+      "simultaneous_draft_ci_pp": [
+        -0.43608051485419796,
+        8.902627888618264
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 5.851526948278801,
+      "event_average_fraction_se_pp": 2.443624086122405,
+      "raw": {
+        "0": {
+          "drafts": 220,
+          "wins": 745.0,
+          "games": 1357.0,
+          "win_rate_percent": 54.90051584377303
+        },
+        "1": {
+          "drafts": 311,
+          "wins": 1104.0,
+          "games": 1959.0,
+          "win_rate_percent": 56.355283307810105
+        },
+        "difference_pp": 1.4547674640370758
+      }
+    },
+    "MID": {
+      "drafts": 684,
+      "sets": 1,
+      "baseline_rate_percent": 56.09427627503525,
+      "removal_rate_percent": 56.795184513881715,
+      "difference_pp": 0.7009082388464649,
+      "draft_se_pp": 2.026440748603763,
+      "simultaneous_draft_ci_pp": [
+        -4.150349978840044,
+        5.552166456532974
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 2.209578536842183,
+      "event_average_fraction_se_pp": 2.4558381871668273,
+      "raw": {
+        "0": {
+          "drafts": 240,
+          "wins": 837.0,
+          "games": 1496.0,
+          "win_rate_percent": 55.94919786096256
+        },
+        "1": {
+          "drafts": 444,
+          "wins": 1556.0,
+          "games": 2765.0,
+          "win_rate_percent": 56.274864376130196
+        },
+        "difference_pp": 0.325666515167633
+      }
+    },
+    "MSH": {
+      "drafts": 520,
+      "sets": 1,
+      "baseline_rate_percent": 52.17662603737012,
+      "removal_rate_percent": 54.77555870477312,
+      "difference_pp": 2.5989326674029978,
+      "draft_se_pp": 1.9585143855906646,
+      "simultaneous_draft_ci_pp": [
+        -2.089711209355014,
+        7.287576544161009
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 2.0930725501764065,
+      "event_average_fraction_se_pp": 2.226490585518317,
+      "raw": {
+        "0": {
+          "drafts": 150,
+          "wins": 474.0,
+          "games": 903.0,
+          "win_rate_percent": 52.49169435215947
+        },
+        "1": {
+          "drafts": 370,
+          "wins": 1265.0,
+          "games": 2281.0,
+          "win_rate_percent": 55.45813239807102
+        },
+        "difference_pp": 2.966438045911552
+      }
+    },
+    "NEO": {
+      "drafts": 674,
+      "sets": 1,
+      "baseline_rate_percent": 56.85161348931944,
+      "removal_rate_percent": 56.192906940604296,
+      "difference_pp": -0.6587065487151489,
+      "draft_se_pp": 2.054045888291105,
+      "simultaneous_draft_ci_pp": [
+        -5.576050913184323,
+        4.2586378157540254
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": -0.9753313395492291,
+      "event_average_fraction_se_pp": 2.240487103576126,
+      "raw": {
+        "0": {
+          "drafts": 231,
+          "wins": 760.0,
+          "games": 1410.0,
+          "win_rate_percent": 53.90070921985816
+        },
+        "1": {
+          "drafts": 443,
+          "wins": 1576.0,
+          "games": 2782.0,
+          "win_rate_percent": 56.649892163910856
+        },
+        "difference_pp": 2.7491829440526985
+      }
+    },
+    "OTJ": {
+      "drafts": 572,
+      "sets": 1,
+      "baseline_rate_percent": 53.42164175302931,
+      "removal_rate_percent": 51.00932030728603,
+      "difference_pp": -2.412321445743282,
+      "draft_se_pp": 1.8859005704847178,
+      "simultaneous_draft_ci_pp": [
+        -6.927129315949901,
+        2.1024864244633372
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": -3.928811248849831,
+      "event_average_fraction_se_pp": 2.133095464845742,
+      "raw": {
+        "0": {
+          "drafts": 211,
+          "wins": 725.0,
+          "games": 1314.0,
+          "win_rate_percent": 55.17503805175038
+        },
+        "1": {
+          "drafts": 361,
+          "wins": 1083.0,
+          "games": 2107.0,
+          "win_rate_percent": 51.40009492168961
+        },
+        "difference_pp": -3.7749431300607696
+      }
+    },
+    "SOS": {
+      "drafts": 505,
+      "sets": 1,
+      "baseline_rate_percent": 53.95105935650542,
+      "removal_rate_percent": 56.42047844993563,
+      "difference_pp": 2.469419093430214,
+      "draft_se_pp": 1.9323436086371093,
+      "simultaneous_draft_ci_pp": [
+        -2.1565724719554313,
+        7.09541065881586
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 4.021124704525131,
+      "event_average_fraction_se_pp": 2.3246340391876905,
+      "raw": {
+        "0": {
+          "drafts": 181,
+          "wins": 598.0,
+          "games": 1108.0,
+          "win_rate_percent": 53.97111913357401
+        },
+        "1": {
+          "drafts": 324,
+          "wins": 1112.0,
+          "games": 1997.0,
+          "win_rate_percent": 55.6835252879319
+        },
+        "difference_pp": 1.7124061543578932
+      }
+    },
+    "STX": {
+      "drafts": 355,
+      "sets": 1,
+      "baseline_rate_percent": 55.87419395380241,
+      "removal_rate_percent": 56.33325933580075,
+      "difference_pp": 0.4590653819983359,
+      "draft_se_pp": 3.1973555843752437,
+      "simultaneous_draft_ci_pp": [
+        -7.195339299832907,
+        8.113470063829578
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 1.78873020219348,
+      "event_average_fraction_se_pp": 3.6724290763046388,
+      "raw": {
+        "0": {
+          "drafts": 137,
+          "wins": 466.0,
+          "games": 854.0,
+          "win_rate_percent": 54.566744730679154
+        },
+        "1": {
+          "drafts": 218,
+          "wins": 781.0,
+          "games": 1378.0,
+          "win_rate_percent": 56.67634252539913
+        },
+        "difference_pp": 2.109597794719974
+      }
+    },
+    "TDM": {
+      "drafts": 491,
+      "sets": 1,
+      "baseline_rate_percent": 56.71378060876954,
+      "removal_rate_percent": 56.979615010701934,
+      "difference_pp": 0.2658344019323966,
+      "draft_se_pp": 2.387734476014533,
+      "simultaneous_draft_ci_pp": [
+        -5.450353700976631,
+        5.982022504841424
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 0.733492137310065,
+      "event_average_fraction_se_pp": 2.835925608137409,
+      "raw": {
+        "0": {
+          "drafts": 190,
+          "wins": 688.0,
+          "games": 1214.0,
+          "win_rate_percent": 56.672158154859964
+        },
+        "1": {
+          "drafts": 301,
+          "wins": 1073.0,
+          "games": 1900.0,
+          "win_rate_percent": 56.473684210526315
+        },
+        "difference_pp": -0.1984739443336494
+      }
+    },
+    "TLA": {
+      "drafts": 674,
+      "sets": 1,
+      "baseline_rate_percent": 54.00920964733241,
+      "removal_rate_percent": 54.592194653371386,
+      "difference_pp": 0.5829850060389719,
+      "draft_se_pp": 2.196530864002456,
+      "simultaneous_draft_ci_pp": [
+        -4.675465512060806,
+        5.84143552413875
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 1.437954052566872,
+      "event_average_fraction_se_pp": 2.2182790762702673,
+      "raw": {
+        "0": {
+          "drafts": 249,
+          "wins": 798.0,
+          "games": 1477.0,
+          "win_rate_percent": 54.02843601895734
+        },
+        "1": {
+          "drafts": 425,
+          "wins": 1403.0,
+          "games": 2578.0,
+          "win_rate_percent": 54.422032583397986
+        },
+        "difference_pp": 0.3935965644406423
+      }
+    },
+    "TMT": {
+      "drafts": 660,
+      "sets": 1,
+      "baseline_rate_percent": 55.565849076989295,
+      "removal_rate_percent": 55.87130480333021,
+      "difference_pp": 0.30545572634091966,
+      "draft_se_pp": 1.7033292524601162,
+      "simultaneous_draft_ci_pp": [
+        -3.7722800964885623,
+        4.383191549170402
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 1.0638883520867248,
+      "event_average_fraction_se_pp": 1.8947472577831777,
+      "raw": {
+        "0": {
+          "drafts": 230,
+          "wins": 786.0,
+          "games": 1423.0,
+          "win_rate_percent": 55.23541813070977
+        },
+        "1": {
+          "drafts": 430,
+          "wins": 1509.0,
+          "games": 2694.0,
+          "win_rate_percent": 56.01336302895323
+        },
+        "difference_pp": 0.7779448982434616
+      }
+    },
+    "VOW": {
+      "drafts": 883,
+      "sets": 1,
+      "baseline_rate_percent": 54.49199357210143,
+      "removal_rate_percent": 56.613640960819666,
+      "difference_pp": 2.1216473887182397,
+      "draft_se_pp": 1.529842359931788,
+      "simultaneous_draft_ci_pp": [
+        -1.5407643178651398,
+        5.784059095301619
+      ],
+      "set_cluster_se_pp": null,
+      "simultaneous_set_cluster_ci_pp": null,
+      "event_average_fraction_difference_pp": 3.4129032340076444,
+      "event_average_fraction_se_pp": 1.8006215030261494,
+      "raw": {
+        "0": {
+          "drafts": 319,
+          "wins": 1099.0,
+          "games": 1963.0,
+          "win_rate_percent": 55.98573611818645
+        },
+        "1": {
+          "drafts": 564,
+          "wins": 1998.0,
+          "games": 3547.0,
+          "win_rate_percent": 56.32929235974063
+        },
+        "difference_pp": 0.3435562415541753
+      }
+    }
+  }
+}

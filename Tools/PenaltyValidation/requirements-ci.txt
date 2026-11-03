@@ -1,0 +1,3 @@
+# Application dependencies come from poetry.lock (main group only).
+pytest==9.1.1
+scikit-learn==1.9.1
