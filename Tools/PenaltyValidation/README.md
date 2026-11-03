@@ -1,5 +1,9 @@
 # All-set validation of three composition rules
 
+The [committed results](../../experiments/2026-11-03-all-set-validation/RESULTS.md)
+include all three comparisons, per-set breakdowns, coverage exclusions and the
+decision to retain the rules until stronger evidence establishes their effect.
+
 This follow-up holds the application at
 `99dc21e1c894d03ce155cdc494063c3d5c93b358` and separately disables fixing hunger,
 removal saturation and the heavy-curve penalty. The analysis specification was
@@ -63,3 +67,12 @@ estimand and the prospective experiment needed to establish actual strength.
 
 Public data: 17Lands, CC BY 4.0,
 https://www.17lands.com/public_datasets.
+
+The `Ablation and outcome validation` GitHub Actions workflow runs the 23
+ablation, outcome-estimator and replay tests on relevant pull requests and on
+manual dispatch. It checks source-edit parity, composition fallthrough,
+historical export parsing, exclusion sampling and the estimator's known-effect
+and uncertainty calculations. It uses locked application dependencies plus the
+pinned validation dependencies in `requirements-ci.txt`. Test XML is retained as
+an Actions artifact. Full dataset downloads and research replays remain explicit
+commands above; the CI job checks the harness without rerunning the study.

@@ -1,0 +1,53 @@
+name: Ablation and outcome validation
+
+on:
+  pull_request:
+    paths:
+      - "Tools/Ablations/**"
+      - "Tools/AdvisorReplay/**"
+      - "Tools/PenaltyValidation/**"
+      - "src/**"
+      - "pyproject.toml"
+      - "poetry.lock"
+      - ".github/workflows/penalty-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: penalty-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install locked application dependencies
+        run: |
+          python -m pip install poetry==2.4.1
+          poetry install --only main --no-root --no-interaction
+      - name: Install validation dependencies
+        run: poetry run python -m pip install -r Tools/PenaltyValidation/requirements-ci.txt
+      - name: Test ablations and outcome estimator
+        run: >-
+          poetry run python -m pytest Tools/Ablations/tests Tools/PenaltyValidation/tests
+          -q --junitxml=validation-results/ablation-outcomes.xml
+      - name: Test draft replay
+        run: >-
+          poetry run python -m pytest Tools/AdvisorReplay/tests
+          -q --junitxml=validation-results/replay.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-test-results
+          path: validation-results/*.xml
+          if-no-files-found: ignore
