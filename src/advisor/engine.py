@@ -405,7 +405,7 @@ class DraftAdvisor:
             projected = self.pool_metrics["early_plays"] * (
                 self.TOTAL_PICKS / max(1, len(self.pool))
             )
-            if projected < self.TARGET_EARLY_PLAYS:
+            if False:
                 return (
                     (
                         1.0 + min(0.5, (self.TARGET_EARLY_PLAYS - projected) * 0.15),
