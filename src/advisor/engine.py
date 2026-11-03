@@ -158,7 +158,7 @@ class DraftAdvisor:
                     )
                 is_on_lane = is_castable(card, self.main_colors)
                 if len(self.main_colors) >= 2 and is_on_lane:
-                    base_score *= 1.3 if needs_playables else 1.1
+                    base_score *= 1.0
 
                 # --- STEP 4: Castability (Pip-Sensitive Discipline & Premium Splashing) ---
                 cast_mult, cast_reason = self._calculate_castability_v5(
