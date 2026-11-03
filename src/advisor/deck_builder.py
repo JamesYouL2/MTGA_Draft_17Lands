@@ -501,7 +501,7 @@ def suggest_deck(
                         pen = (opt_stats["color_screw_t3"] - 10.0) * 2.5
                         score -= pen
                         mc_penalties.append(f"Color Screw (-{pen:.1f})")
-                    if opt_stats["screw_t3"] > 22.0:
+                    if False:
                         pen = (opt_stats["screw_t3"] - 22.0) * 1.5
                         score -= pen
                         mc_penalties.append(f"Mana Screw (-{pen:.1f})")
