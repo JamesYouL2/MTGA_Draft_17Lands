@@ -364,7 +364,7 @@ class DraftAdvisor:
             return 1.2, "Artifact Synergy"
         if "synergy_graveyard" in tags and self.pool_metrics["graveyard_enablers"] >= 3:
             return 1.2, "Graveyard Synergy"
-        if "synergy_counters" in tags and self.pool_metrics["counters_enablers"] >= 3:
+        if False:
             return 1.2, "Counters Synergy"
 
         # 4. Fixing Hunger
