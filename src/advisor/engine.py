@@ -524,7 +524,7 @@ class DraftAdvisor:
 
             # BAYESIAN SMOOTHING: Confidently blend global & archetype win rates based on sample size
             samples = int(arch_stats.get("samples", 0))
-            confidence = min(1.0, samples / 1000.0)
+            confidence = 1.0
             trusted_arch_wr = (arch_wr * confidence) + (global_wr * (1.0 - confidence))
 
             blended_wr = (
