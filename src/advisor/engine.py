@@ -419,61 +419,6 @@ class DraftAdvisor:
     def _calculate_castability_v5(
         self, card: Dict, pack: int, pick: int, z_score: float
     ) -> Tuple[float, str]:
-        top_2_lane = self.main_colors[:2]
-
-        off_color = off_color_requirements(card, top_2_lane)
-        off_color_pips = len(off_color)
-        is_on_lane = not off_color
-
-        if pack == 1:
-            if is_on_lane:
-                return 1.0, ""
-            pressure = 1.0 - (max(0, ((pack - 1) * 15 + (pick - 1)) - 7) * 0.05)
-            return (
-                (max(0.2, pressure - 0.2), "Off-Color Gold")
-                if len(set(assign_mana_colors([card])[0])) > 1 and off_color_pips > 0
-                else (max(0.4, pressure), "Off-Color")
-            )
-
-        if not is_on_lane:
-            if (
-                pack >= 2
-                and off_color_pips >= 2
-                and self.pool_metrics["fixing_count"] < 2
-            ):
-                return 0.01, "Uncastable (Double Pip)"
-
-            # AND across symbols, OR within each hybrid symbol. A payable
-            # hybrid elsewhere cannot excuse an unrelated solid off-color pip.
-            has_specific_fixing = all(
-                any(self.fixing_map.get(c, 0) > 0 for c in options)
-                for options in off_color
-            )
-
-            is_premium_removal = "removal" in card.get("tags", []) and z_score >= 1.0
-
-            # Allow premium 1-for-1s to be splashed just like game-winning bombs
-            if z_score >= self.BOMB_Z_SCORE or is_premium_removal:
-                if off_color_pips == 1:
-                    if has_specific_fixing:
-                        reason = (
-                            "Bomb Splash"
-                            if z_score >= self.BOMB_Z_SCORE
-                            else "Premium Removal Splash"
-                        )
-                        return (0.35 if pack == 3 else 0.45), reason
-                elif (
-                    off_color_pips == 2
-                    and get_functional_cmc(card) >= 5
-                    and z_score >= self.BOMB_Z_SCORE
-                ):
-                    if has_specific_fixing and self.pool_metrics["fixing_count"] >= 4:
-                        return 0.30, "Greedy Bomb Splash"
-
-            if off_color_pips == 1 and has_specific_fixing:
-                return 0.3, "Splashable"
-
-            return 0.01 if pack == 3 else 0.05, "Off-Color"
         return 1.0, ""
 
     def _wheel_chance(
