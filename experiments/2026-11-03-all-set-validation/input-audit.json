@@ -1,0 +1,198 @@
+{
+  "application_base_sha": "99dc21e1c894d03ce155cdc494063c3d5c93b358",
+  "sample_salt": "confirm-three-rules-all-sets-v1-20261103",
+  "drafts": 66000,
+  "catalog_sets": 27,
+  "replayed_sets": 22,
+  "prior_draft_ids_excluded": 10000,
+  "excluded_ids_sha256": "351f576d43fd9d606f574877badea0db69d3cf451b86445c8255439ea54cfad7",
+  "publisher_manifest_sha256": "c98c281f3fef34dfd89d491ec81231a27ba3a7a347e80831653831a7db73c6f4",
+  "protocol_sha256": "78129efe44c9f9aad4b69c8b24c4311e44ae7835fae792d49a1bf58ecdb587d7",
+  "inputs": [
+    {
+      "set": "BLB",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "84d0df7507da8d82417e9e2f94eca5999c1349e52eb1d696a53df6c2c2bb8887",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "852f93f3d4a456d80b6aeb9a231bccf47f9233a1ba361c2597d72f315cdc4b4f"
+    },
+    {
+      "set": "Cube - Powered",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "65c6570af7c9864027d6f5808ff3a01540a6cb4952d65d4c9abbb41f68712a4d",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "b96b1467894c7ff13c6a36b8a0366f1007622f0e1c90c8cd8e1f6704b5da589b"
+    },
+    {
+      "set": "DFT",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "0e4d50628ac73277d65bdae9506edf96deb414f536d0233d85da2e81468cd104",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "aaea93be31a4a614c789859b1bebd0073378025579aedb50b5f2ed31afe8c140"
+    },
+    {
+      "set": "DMU",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "e84777b54b7b98601c078f8685fc900a5359c14531dd1076d75bc814dcf1fe4e",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "ccc08fd4e8715430fe2265d7b9a5732d9e0558911fb83bcace19028e2783801b"
+    },
+    {
+      "set": "DSK",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "69f66b4db50356eca5759aff38888bba26ceec356284d59112a1d53a11516104",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "d29f40fb3e58eee480e2237d17ae3f131069f6cabb29758f314f799660f734d5"
+    },
+    {
+      "set": "EOE",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "0bf7919e31fe50d27feee117f4403f077d2ed0089fc6ceee0526821eea2346a5",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "1b1ea49e0138ef533a12a5d2e8ac0f090a6d2ed854165ba04e31e2ae01cf4470"
+    },
+    {
+      "set": "FDN",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "c2a8959cc02aba3e7aafcac1065fedc0c5fce823a7d71bcbb5f93f48ab6633de",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "79664ac00a9f26391dbe7036f13cf304395af5acd786e8307358e8424a8d16dc"
+    },
+    {
+      "set": "FIN",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "81964bb6e9ec92e85643c31230c63cac5fe80589cc6af383461be9c72ceb3917",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "5e44d300f52eae9230e8c1271e1d1d20927fcc17b12b9aa67f9cd174d430079a"
+    },
+    {
+      "set": "FRA",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "29d73a698358478dd314501c8031190747875eaffb2aa433bf1f8b04def79458",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "3d1ca598c0d77b0cca163a2e6c90c1d2740fce4232b1be90894fd4001ba69c77"
+    },
+    {
+      "set": "HOB",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "27cb669d92b9958df6060576777544a621afcd2d3de9c1c2a781450243fe7ce9",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "4bd63c0c5f1c570c8324a80a2111ab4957126bea8d6b6df1837b4cc2517f8904"
+    },
+    {
+      "set": "LTR",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "267984c9d9ed09f23bda5c6b22f12fdf639ebe5c08a2ebda912feb9a99676fab",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "4e34edccf665d4da9bdc1527e592c2118cb601274f35f8c8162a78a12acecc23"
+    },
+    {
+      "set": "MH3",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "451bd33f7aff2ef962a5727a2154567e765f6d19a559758e2a16fb83130cb16e",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "e0cee393a4fa1b5fe3758374637f5b54e26c2001e911dcc55cbc781ceec64087"
+    },
+    {
+      "set": "MID",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "90ad3b974dfd988abadc96ed80067c72a53bfb52b268e403b7265ae6a0bc3435",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "47a5e63bd02e8e34437f97134f3406f9522adb3fe2c3735ecc39d4ff02d79e5c"
+    },
+    {
+      "set": "MSH",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "af043e31549e584d994754959ac3c5a2e9253a75dea9dbd1bfa2b059e2b7331f",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "9fd1d1f4ed7e3f7e6c90dd1fef1d0a68656cce7bdb92aeefd6aaa72e2c4536fd"
+    },
+    {
+      "set": "NEO",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "f223e220de114d89b7111c64270e5dc2e78022e1a3d957e1414ee2721b5ddea6",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "15bab4db0ed896484920f9ab4e795e2c2201a6a73f1259521e94ca9182319588"
+    },
+    {
+      "set": "OTJ",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "7dc10b7680fcb9a2bb5113d831b94ed7d8fe8fd2870281e72d337ac31332ae8c",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "85c05f283a7ef1ac01d3176b6f522094d8a841d60d99d44f625851791258d8fb"
+    },
+    {
+      "set": "SOS",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "0bb99e9c282e460826cc2dc53233cf0997593c00a2f029aa66287d0050b96fe7",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "1f323115ef8a2bbaf6f4eeedf26ade4e0fe2c82e96f662bc2582a11b6bd3125b"
+    },
+    {
+      "set": "STX",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "ee83301225f231bfd3b8aaa6dd82c11e99432ab62efb6564ba7865ec8753e08f",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "daa29fe0849bab0b7fd887a62c5f4b83da4b8ff3666c7c0da215f93f1388ebd1"
+    },
+    {
+      "set": "TDM",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "9958f651af7a05b7fb596876cdc8f586dd04c88ef1f5dc20a562520b0f4b3580",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "d8850ed36db51d6ca9bab38181914ded172ab639da9535e4fdef4f3b9d1f8a00"
+    },
+    {
+      "set": "TLA",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "c2143e8f1c3715f7bc36df2d14cbb1f15ff90f04e003d766398c7b4729bf43b0",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "5a98fb1eb182b863f17761e4b8c29a9afa0cb7be82fe6251ce2a27e978aeef06"
+    },
+    {
+      "set": "TMT",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "33d99fc153a433d038da2d014ae4f5b632587ce750d2e219ac6d13a18219a52a",
+      "same_public_source_as_original_screen": true,
+      "baseline_trace_sha256": "e4a05c45575821edaaa12cbc605803701f6d517d7a39d130ecc5442956f75971"
+    },
+    {
+      "set": "VOW",
+      "format": "PremierDraft",
+      "drafts": 3000,
+      "sample_uncompressed_sha256": "3d0516fd63512144548dab190243c261bade58f4931ca0e2efe3c598fcff2fd3",
+      "same_public_source_as_original_screen": null,
+      "baseline_trace_sha256": "b78f93843a050a003473ecdb038396ce1091eecbbd5638be53ea5efc3cc51d60"
+    }
+  ],
+  "raw_output_sha256": {
+    "no-curve-heavy-crossfit.json.gz": "fae65e7d54c42f4dd306c0da07e37500ba3d251e810e20b310c224aaa41df2f9",
+    "no-curve-heavy.json.gz": "1f4f1714aafd810a6796954216cb9a99c96e0a140b0d649884c783812ba29ee5",
+    "no-fixing-hunger-crossfit.json.gz": "0b58c5cf84d83207c37e960853d46d91da0cc73cc8f0c2b927c35412794ce969",
+    "no-fixing-hunger.json.gz": "e0d4d9f6673a4c681624296b3d4e90d741782bdb38363f7fbc6166351a49a723",
+    "no-removal-saturation-crossfit.json.gz": "86bcc8bcf4cea65dde35f6865adbfcda9307eb23c666ce0bfe1bc4831df64e13",
+    "no-removal-saturation.json.gz": "4ad3f7f3fe3b0303b257143ebe758b061660980804f279127a9421355567d7a3"
+  },
+  "reproduction": "Frozen rating bytes and selected draft IDs are included. Re-download each public dump from its receipt, verify its SHA-256, and run prepare.py with the saved manifest/exclusions/salt to reconstruct the sampled packs. Check the uncompressed sample SHA-256; gzip timestamps need not match."
+}

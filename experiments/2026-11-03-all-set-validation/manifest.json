@@ -1,0 +1,27 @@
+{
+  "protocol_sha256": "78129efe44c9f9aad4b69c8b24c4311e44ae7835fae792d49a1bf58ecdb587d7",
+  "package_versions": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.9.1",
+    "numba": "0.68.1",
+    "pydantic": "2.14.2"
+  },
+  "source_sha256": {
+    "Tools/PenaltyValidation/prepare.py": "129c7b46d0990463e8417633674be6d076cbfcc11243a6b5942d044cbbd9a26e",
+    "Tools/PenaltyValidation/report.py": "6c49987970ff5233a8c19cdceac3d31d9c86232958e6b07724cc5e12062fcb8c",
+    "Tools/PenaltyValidation/evaluate.py": "5f1cf0703ca8038c40bd95d4b338b062ec7be6860b95c033fa921127cd6e525b",
+    "Tools/PenaltyValidation/package.py": "c5c0cc2afa1573e88c95bdadca6da183bad5a06aa4a753f6f0dceb11696c1ac6"
+  },
+  "raw_output_sha256": {
+    "no-fixing-hunger-crossfit.json.gz": "0b58c5cf84d83207c37e960853d46d91da0cc73cc8f0c2b927c35412794ce969",
+    "no-curve-heavy-crossfit.json.gz": "fae65e7d54c42f4dd306c0da07e37500ba3d251e810e20b310c224aaa41df2f9",
+    "no-removal-saturation.json.gz": "4ad3f7f3fe3b0303b257143ebe758b061660980804f279127a9421355567d7a3",
+    "no-fixing-hunger.json.gz": "e0d4d9f6673a4c681624296b3d4e90d741782bdb38363f7fbc6166351a49a723",
+    "no-removal-saturation-crossfit.json.gz": "86bcc8bcf4cea65dde35f6865adbfcda9307eb23c666ce0bfe1bc4831df64e13",
+    "no-curve-heavy.json.gz": "1f4f1714aafd810a6796954216cb9a99c96e0a140b0d649884c783812ba29ee5"
+  },
+  "input_audit_sha256": "a611dbd6a73b9b7362eb385aa17110bb2b9260e79b8e1aca383be73cd6c57c8a",
+  "interval_scope": "Familywise 95% control covers the three pooled primary contrasts. Per-set and subgroup intervals are exploratory and are not simultaneous across all subgroups.",
+  "packaging_source_sha256": "c5c0cc2afa1573e88c95bdadca6da183bad5a06aa4a753f6f0dceb11696c1ac6"
+}

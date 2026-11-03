@@ -7,6 +7,7 @@ import json
 import math
 from pathlib import Path
 import sys
+import time
 
 import numpy as np
 from scipy.stats import norm, t
@@ -138,6 +139,7 @@ def secondary(drafts):
 
 def analyze(path):
     data=read_gz(path)
+    assert data.get('analysis_version')==2,'Outcome analysis requires fully mapped-state validation outputs'
     valid=[r for r in data['choices'] if r['choice'] is not None and complete(r)]
     exclusions={'sampled_drafts':len(data['drafts']),'first_strict_disagreements':len(data['choices']),
         'chose_neither':sum(r['choice'] is None for r in data['choices']),
@@ -193,11 +195,14 @@ def markdown(results,coverage):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--data',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--reports',type=Path,required=True)
+    p.add_argument('--wait',action='store_true',help='Analyze each completed ablation while later scoring runs finish')
     a=p.parse_args();a.reports.mkdir(parents=True,exist_ok=True)
     coverage=json.loads((a.data/'coverage.json').read_text())
     results=[]
     from run import write_gz
     for v in VARIANTS:
+        if a.wait:
+            while not (a.out/f'{v}.json.gz').exists():time.sleep(5)
         print('ANALYZE',v,flush=True);result,preds=analyze(a.out/f'{v}.json.gz');results.append(result)
         write_json(a.reports/f'{v}.json',result)
         if preds:write_gz(a.out/f'{v}-crossfit.json.gz',preds)

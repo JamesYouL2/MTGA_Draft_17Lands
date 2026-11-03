@@ -1,0 +1,800 @@
+{
+  "no-fixing-hunger": {
+    "BLB": {
+      "all": {
+        "drafts": 3000,
+        "picks": 107247,
+        "difference_pp": 0.7599280166344979
+      },
+      "strong": {
+        "drafts": 466,
+        "picks": 16621,
+        "difference_pp": 1.028818963961254
+      }
+    },
+    "Cube - Powered": {
+      "all": {
+        "drafts": 3000,
+        "picks": 90154,
+        "difference_pp": -0.04104088559575837
+      },
+      "strong": {
+        "drafts": 502,
+        "picks": 15160,
+        "difference_pp": -0.158311345646438
+      }
+    },
+    "DFT": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116129,
+        "difference_pp": 1.4010281669522686
+      },
+      "strong": {
+        "drafts": 537,
+        "picks": 20693,
+        "difference_pp": 1.4932585898613058
+      }
+    },
+    "DMU": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116279,
+        "difference_pp": 0.39904023942414363
+      },
+      "strong": {
+        "drafts": 698,
+        "picks": 27148,
+        "difference_pp": 0.4051863857374392
+      }
+    },
+    "DSK": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116291,
+        "difference_pp": 0.06535329475195845
+      },
+      "strong": {
+        "drafts": 431,
+        "picks": 16761,
+        "difference_pp": 0.16705447169023327
+      }
+    },
+    "EOE": {
+      "all": {
+        "drafts": 3000,
+        "picks": 108000,
+        "difference_pp": 0.425
+      },
+      "strong": {
+        "drafts": 505,
+        "picks": 18180,
+        "difference_pp": 0.6435643564356436
+      }
+    },
+    "FDN": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116300,
+        "difference_pp": 1.1057609630266552
+      },
+      "strong": {
+        "drafts": 439,
+        "picks": 17035,
+        "difference_pp": 1.2034047549163487
+      }
+    },
+    "FIN": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 1.0735042735042735
+      },
+      "strong": {
+        "drafts": 536,
+        "picks": 20904,
+        "difference_pp": 1.2676999617298126
+      }
+    },
+    "FRA": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116998,
+        "difference_pp": 0.6111215576334639
+      },
+      "strong": {
+        "drafts": 473,
+        "picks": 18447,
+        "difference_pp": 0.8022984767170813
+      }
+    },
+    "HOB": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 1.0555555555555556
+      },
+      "strong": {
+        "drafts": 576,
+        "picks": 22464,
+        "difference_pp": 1.3933404558404558
+      }
+    },
+    "LTR": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116007,
+        "difference_pp": 0.4913496599343143
+      },
+      "strong": {
+        "drafts": 638,
+        "picks": 24659,
+        "difference_pp": 0.7056247211971288
+      }
+    },
+    "MH3": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116009,
+        "difference_pp": 0.6740856312872278
+      },
+      "strong": {
+        "drafts": 538,
+        "picks": 20772,
+        "difference_pp": 0.8376660889659157
+      }
+    },
+    "MID": {
+      "all": {
+        "drafts": 3000,
+        "picks": 107838,
+        "difference_pp": 0.32085164784213355
+      },
+      "strong": {
+        "drafts": 732,
+        "picks": 26238,
+        "difference_pp": 0.3773153441573291
+      }
+    },
+    "MSH": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 1.0598290598290598
+      },
+      "strong": {
+        "drafts": 621,
+        "picks": 24219,
+        "difference_pp": 1.255212849415748
+      }
+    },
+    "NEO": {
+      "all": {
+        "drafts": 3000,
+        "picks": 125112,
+        "difference_pp": 0.23099303024490056
+      },
+      "strong": {
+        "drafts": 617,
+        "picks": 25643,
+        "difference_pp": 0.3548726748040401
+      }
+    },
+    "OTJ": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116230,
+        "difference_pp": 1.2311795577733804
+      },
+      "strong": {
+        "drafts": 469,
+        "picks": 18157,
+        "difference_pp": 1.3934019937214297
+      }
+    },
+    "SOS": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.7461538461538462
+      },
+      "strong": {
+        "drafts": 558,
+        "picks": 21762,
+        "difference_pp": 0.8592960205863431
+      }
+    },
+    "STX": {
+      "all": {
+        "drafts": 3000,
+        "picks": 122082,
+        "difference_pp": 0.30798971183303026
+      },
+      "strong": {
+        "drafts": 448,
+        "picks": 18254,
+        "difference_pp": 0.30678207516160844
+      }
+    },
+    "TDM": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.05555555555555555
+      },
+      "strong": {
+        "drafts": 474,
+        "picks": 18486,
+        "difference_pp": 0.04868549172346641
+      }
+    },
+    "TLA": {
+      "all": {
+        "drafts": 3000,
+        "picks": 114000,
+        "difference_pp": 0.5692982456140351
+      },
+      "strong": {
+        "drafts": 591,
+        "picks": 22458,
+        "difference_pp": 0.7480630510285867
+      }
+    },
+    "TMT": {
+      "all": {
+        "drafts": 3000,
+        "picks": 113414,
+        "difference_pp": 0.6701112737404553
+      },
+      "strong": {
+        "drafts": 653,
+        "picks": 24699,
+        "difference_pp": 0.7044819628325033
+      }
+    },
+    "VOW": {
+      "all": {
+        "drafts": 3000,
+        "picks": 115758,
+        "difference_pp": 0.35073169888906164
+      },
+      "strong": {
+        "drafts": 560,
+        "picks": 21563,
+        "difference_pp": 0.3060798590177619
+      }
+    }
+  },
+  "no-removal-saturation": {
+    "BLB": {
+      "all": {
+        "drafts": 3000,
+        "picks": 107247,
+        "difference_pp": 0.32448460096785925
+      },
+      "strong": {
+        "drafts": 466,
+        "picks": 16621,
+        "difference_pp": 0.5475001504121292
+      }
+    },
+    "Cube - Powered": {
+      "all": {
+        "drafts": 3000,
+        "picks": 90154,
+        "difference_pp": 0.0
+      },
+      "strong": {
+        "drafts": 502,
+        "picks": 15160,
+        "difference_pp": 0.0
+      }
+    },
+    "DFT": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116129,
+        "difference_pp": 0.32463897906638306
+      },
+      "strong": {
+        "drafts": 537,
+        "picks": 20693,
+        "difference_pp": 0.30445078045715945
+      }
+    },
+    "DMU": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116279,
+        "difference_pp": 0.41796025077615045
+      },
+      "strong": {
+        "drafts": 698,
+        "picks": 27148,
+        "difference_pp": 0.4935906880801532
+      }
+    },
+    "DSK": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116291,
+        "difference_pp": 0.2949497381568651
+      },
+      "strong": {
+        "drafts": 431,
+        "picks": 16761,
+        "difference_pp": 0.33410894338046654
+      }
+    },
+    "EOE": {
+      "all": {
+        "drafts": 3000,
+        "picks": 108000,
+        "difference_pp": 0.24814814814814815
+      },
+      "strong": {
+        "drafts": 505,
+        "picks": 18180,
+        "difference_pp": 0.341034103410341
+      }
+    },
+    "FDN": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116300,
+        "difference_pp": 0.30438521066208085
+      },
+      "strong": {
+        "drafts": 439,
+        "picks": 17035,
+        "difference_pp": 0.6163780452010567
+      }
+    },
+    "FIN": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.38461538461538464
+      },
+      "strong": {
+        "drafts": 536,
+        "picks": 20904,
+        "difference_pp": 0.2870264064293915
+      }
+    },
+    "FRA": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116998,
+        "difference_pp": 0.7222345681122754
+      },
+      "strong": {
+        "drafts": 473,
+        "picks": 18447,
+        "difference_pp": 0.731826313221662
+      }
+    },
+    "HOB": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.3145299145299145
+      },
+      "strong": {
+        "drafts": 576,
+        "picks": 22464,
+        "difference_pp": 0.34277065527065526
+      }
+    },
+    "LTR": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116007,
+        "difference_pp": 0.8171920659960175
+      },
+      "strong": {
+        "drafts": 638,
+        "picks": 24659,
+        "difference_pp": 0.7786203820106249
+      }
+    },
+    "MH3": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116009,
+        "difference_pp": 0.17757242972527992
+      },
+      "strong": {
+        "drafts": 538,
+        "picks": 20772,
+        "difference_pp": 0.22145195455420758
+      }
+    },
+    "MID": {
+      "all": {
+        "drafts": 3000,
+        "picks": 107838,
+        "difference_pp": 0.3458892041766353
+      },
+      "strong": {
+        "drafts": 732,
+        "picks": 26238,
+        "difference_pp": 0.39256040856772617
+      }
+    },
+    "MSH": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.38632478632478634
+      },
+      "strong": {
+        "drafts": 621,
+        "picks": 24219,
+        "difference_pp": 0.45005987034972544
+      }
+    },
+    "NEO": {
+      "all": {
+        "drafts": 3000,
+        "picks": 125112,
+        "difference_pp": 0.29173860221241765
+      },
+      "strong": {
+        "drafts": 617,
+        "picks": 25643,
+        "difference_pp": 0.2573801817260071
+      }
+    },
+    "OTJ": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116230,
+        "difference_pp": 0.2486449281596834
+      },
+      "strong": {
+        "drafts": 469,
+        "picks": 18157,
+        "difference_pp": 0.37451120779864516
+      }
+    },
+    "SOS": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.258974358974359
+      },
+      "strong": {
+        "drafts": 558,
+        "picks": 21762,
+        "difference_pp": 0.2986857825567503
+      }
+    },
+    "STX": {
+      "all": {
+        "drafts": 3000,
+        "picks": 122082,
+        "difference_pp": 0.08928425156861781
+      },
+      "strong": {
+        "drafts": 448,
+        "picks": 18254,
+        "difference_pp": 0.14243453489646105
+      }
+    },
+    "TDM": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.21196581196581196
+      },
+      "strong": {
+        "drafts": 474,
+        "picks": 18486,
+        "difference_pp": 0.15687547333116952
+      }
+    },
+    "TLA": {
+      "all": {
+        "drafts": 3000,
+        "picks": 114000,
+        "difference_pp": 0.35789473684210527
+      },
+      "strong": {
+        "drafts": 591,
+        "picks": 22458,
+        "difference_pp": 0.24935435034286224
+      }
+    },
+    "TMT": {
+      "all": {
+        "drafts": 3000,
+        "picks": 113414,
+        "difference_pp": 0.3853139824007618
+      },
+      "strong": {
+        "drafts": 653,
+        "picks": 24699,
+        "difference_pp": 0.39272845054455646
+      }
+    },
+    "VOW": {
+      "all": {
+        "drafts": 3000,
+        "picks": 115758,
+        "difference_pp": 0.3749200919158935
+      },
+      "strong": {
+        "drafts": 560,
+        "picks": 21563,
+        "difference_pp": 0.4637573621481241
+      }
+    }
+  },
+  "no-curve-heavy": {
+    "BLB": {
+      "all": {
+        "drafts": 3000,
+        "picks": 107247,
+        "difference_pp": 0.1230803658843604
+      },
+      "strong": {
+        "drafts": 466,
+        "picks": 16621,
+        "difference_pp": 0.15041212923410144
+      }
+    },
+    "Cube - Powered": {
+      "all": {
+        "drafts": 3000,
+        "picks": 90154,
+        "difference_pp": 0.05546065621048428
+      },
+      "strong": {
+        "drafts": 502,
+        "picks": 15160,
+        "difference_pp": 0.0395778364116095
+      }
+    },
+    "DFT": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116129,
+        "difference_pp": 0.5631668231018953
+      },
+      "strong": {
+        "drafts": 537,
+        "picks": 20693,
+        "difference_pp": 0.5364132798530904
+      }
+    },
+    "DMU": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116279,
+        "difference_pp": 0.09374005624403374
+      },
+      "strong": {
+        "drafts": 698,
+        "picks": 27148,
+        "difference_pp": 0.033151613378517755
+      }
+    },
+    "DSK": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116291,
+        "difference_pp": 0.8556122141868244
+      },
+      "strong": {
+        "drafts": 431,
+        "picks": 16761,
+        "difference_pp": 0.9903943678778115
+      }
+    },
+    "EOE": {
+      "all": {
+        "drafts": 3000,
+        "picks": 108000,
+        "difference_pp": 0.49444444444444446
+      },
+      "strong": {
+        "drafts": 505,
+        "picks": 18180,
+        "difference_pp": 0.594059405940594
+      }
+    },
+    "FDN": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116300,
+        "difference_pp": 0.2244196044711952
+      },
+      "strong": {
+        "drafts": 439,
+        "picks": 17035,
+        "difference_pp": 0.2700322864690343
+      }
+    },
+    "FIN": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.5094017094017094
+      },
+      "strong": {
+        "drafts": 536,
+        "picks": 20904,
+        "difference_pp": 0.42097206276310756
+      }
+    },
+    "FRA": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116998,
+        "difference_pp": 0.09829227850048719
+      },
+      "strong": {
+        "drafts": 473,
+        "picks": 18447,
+        "difference_pp": 0.11926058437686345
+      }
+    },
+    "HOB": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.09145299145299145
+      },
+      "strong": {
+        "drafts": 576,
+        "picks": 22464,
+        "difference_pp": 0.182514245014245
+      }
+    },
+    "LTR": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116007,
+        "difference_pp": 0.24222676217814443
+      },
+      "strong": {
+        "drafts": 638,
+        "picks": 24659,
+        "difference_pp": 0.33253578815037105
+      }
+    },
+    "MH3": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116009,
+        "difference_pp": 0.2198105319414873
+      },
+      "strong": {
+        "drafts": 538,
+        "picks": 20772,
+        "difference_pp": 0.25996533795493937
+      }
+    },
+    "MID": {
+      "all": {
+        "drafts": 3000,
+        "picks": 107838,
+        "difference_pp": 0.14837070420445483
+      },
+      "strong": {
+        "drafts": 732,
+        "picks": 26238,
+        "difference_pp": 0.14482811189877276
+      }
+    },
+    "MSH": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.024786324786324785
+      },
+      "strong": {
+        "drafts": 621,
+        "picks": 24219,
+        "difference_pp": 0.01238696890870804
+      }
+    },
+    "NEO": {
+      "all": {
+        "drafts": 3000,
+        "picks": 125112,
+        "difference_pp": 0.02797493445872498
+      },
+      "strong": {
+        "drafts": 617,
+        "picks": 25643,
+        "difference_pp": -0.02729789806184924
+      }
+    },
+    "OTJ": {
+      "all": {
+        "drafts": 3000,
+        "picks": 116230,
+        "difference_pp": 0.22885657747569474
+      },
+      "strong": {
+        "drafts": 469,
+        "picks": 18157,
+        "difference_pp": 0.4185713498926034
+      }
+    },
+    "SOS": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.2675213675213675
+      },
+      "strong": {
+        "drafts": 558,
+        "picks": 21762,
+        "difference_pp": 0.38139876849554266
+      }
+    },
+    "STX": {
+      "all": {
+        "drafts": 3000,
+        "picks": 122082,
+        "difference_pp": 0.4234858537704166
+      },
+      "strong": {
+        "drafts": 448,
+        "picks": 18254,
+        "difference_pp": 0.41634710200504
+      }
+    },
+    "TDM": {
+      "all": {
+        "drafts": 3000,
+        "picks": 117000,
+        "difference_pp": 0.05555555555555555
+      },
+      "strong": {
+        "drafts": 474,
+        "picks": 18486,
+        "difference_pp": 0.30293194850156874
+      }
+    },
+    "TLA": {
+      "all": {
+        "drafts": 3000,
+        "picks": 114000,
+        "difference_pp": 0.10350877192982456
+      },
+      "strong": {
+        "drafts": 591,
+        "picks": 22458,
+        "difference_pp": 0.07569685635408317
+      }
+    },
+    "TMT": {
+      "all": {
+        "drafts": 3000,
+        "picks": 113414,
+        "difference_pp": 0.32182975646745554
+      },
+      "strong": {
+        "drafts": 653,
+        "picks": 24699,
+        "difference_pp": 0.4656058949755051
+      }
+    },
+    "VOW": {
+      "all": {
+        "drafts": 3000,
+        "picks": 115758,
+        "difference_pp": 0.18832391713747645
+      },
+      "strong": {
+        "drafts": 560,
+        "picks": 21563,
+        "difference_pp": 0.384918610582943
+      }
+    }
+  }
+}
