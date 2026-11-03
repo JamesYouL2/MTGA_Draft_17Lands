@@ -1,0 +1,427 @@
+{
+  "base_sha": "99dc21e1c894d03ce155cdc494063c3d5c93b358",
+  "requested_drafts": 10000,
+  "requested_deck_pools": 1000,
+  "input_receipts": [
+    {
+      "set": "DFT",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "7812d16e0de78ff7a69faf9981f7ff03be4dfc618a86f14369424ec2204580cd",
+        "dataset.json.gz": "2ec3c77ced705655d96fcefe3595c9d1d7a30c770173e42004320488e0c14f31"
+      },
+      "sample_sha256": "3365885d49bb2440021be9fb3680d2132d4359cea31921d0c823c61972bf9cac",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.DFT.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/DFT_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 246.21
+    },
+    {
+      "set": "FDN",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "4c454ec9b6ecb0d711daf79262ffb3de2e682bf4a7988470ecb733da13d63a53",
+        "dataset.json.gz": "1e8a17f12382a104cabb6af757f3c46045c9e0baa325c1e2f0e2045186559b1a"
+      },
+      "sample_sha256": "dee136af1d7d4dc72ed38b8b52c597de25c12da361a50301a1ec7d526212ea3a",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.FDN.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/FDN_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 238.35
+    },
+    {
+      "set": "FIN",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "9d5b2a3e908bb8daf0ea6e951097714b651546370a5c852893dc90a1f2f6ab8b",
+        "dataset.json.gz": "5057b4b9afba84a7dcdbfe8006097c4b56b45e2305faba1d986e5e43c3155390"
+      },
+      "sample_sha256": "9df4bf5462c4dfeb003df7b350b2471bf5df00122dfad9ad1010d2025c0ad72f",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.FIN.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/FIN_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 316.59
+    },
+    {
+      "set": "FRA",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "f9497000be929d3f8cef87be643dc0b010e406a966ece7d0fc05e5e8e0c4b43d",
+        "dataset.json.gz": "d21d6ffdbf9b8b24d99c3cd9748ba5691d7e703951cc99be7178440cdf1c3fc7"
+      },
+      "sample_sha256": "9fd4cc05b2053a273d7baa36c7971e5b806bd8372f4ed472918f6d43dae0f565",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.FRA.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/FRA_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 114.55
+    },
+    {
+      "set": "HOB",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "04b16ac6971ca9a3b77c666072fb066110632eaae7e09433501cdcefac5045c0",
+        "dataset.json.gz": "444ff53251aa877bf9427be2516462e8baa098cbded888d2bbd0f3e3f7b5488f"
+      },
+      "sample_sha256": "e6ad57299f2f9760e9b7f62ed490968d04c909b3347f00294b0efa17ce582480",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.HOB.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/HOB_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 78.48
+    },
+    {
+      "set": "MSH",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "64100d71db77e0f0ef8ba893b259a1024eb6d15816db337c7758e7d96bc29cf7",
+        "dataset.json.gz": "eca585eff24fc3e73c149ebd0c3dc98bee82c98e84c399bc637641dc06a67ae4"
+      },
+      "sample_sha256": "a400c51bb68c9de1f655785a6c56f28fd2912ef6f1b348943b677936f07c5114",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.MSH.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/MSH_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 151.51
+    },
+    {
+      "set": "SOS",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "df6220d8941e99b7264a54a7a7427096246ee6510057a83d4c9424b472761853",
+        "dataset.json.gz": "637154b56cf58d88d056e038b59fa7016921fb3fb864f68091c08aa414334a42"
+      },
+      "sample_sha256": "949f714a5061d48cfa62d174e0b2f52ec1a0283854a926ca65c03e403ffdb174",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.SOS.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/SOS_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 237.42
+    },
+    {
+      "set": "TDM",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "831ba8bc4be5eabe140fac00a8e6eaded3f3f931685be8f91403ad9cfde5cbf5",
+        "dataset.json.gz": "000f0830b15f7e925898586460b230663dc9fdd239084af0ceab8223ba9c0346"
+      },
+      "sample_sha256": "0c66f8a746e9b6261afeb755f3cea5e286b9e68bc9374fe6ce8e23c91e259d46",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.TDM.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/TDM_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 197.66
+    },
+    {
+      "set": "TLA",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "e4a801b12cbe3d711dce7d92bd2d256db64e0be18d22da14b477d512567627bb",
+        "dataset.json.gz": "105db78696911a8be25340799a7714a3c143aeed9b71ca91ff291a881f26adf8"
+      },
+      "sample_sha256": "d28b6983f16d13404bd895b926ac2c2c46ea7cfdadbb2fa23e37fec55633dac5",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.TLA.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/TLA_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 129.72
+    },
+    {
+      "set": "TMT",
+      "requested_drafts": 1000,
+      "drafts": 1000,
+      "salt": "isolated-ablations-2026-11-03",
+      "sha256": {
+        "dump.csv.gz": "7819ed6532a3b2329b1d2e0f24aed6e21306d6744b3dcc7a96329644a0bd090c",
+        "dataset.json.gz": "2460a50f2d9d8334c9bc966ca0850172f62dc845ae1bf3448ce4f2a5fdfeae09"
+      },
+      "sample_sha256": "6938093d7826d582b90c5546cd2431259cd9af5096aaf7a6d370b8fed662ad0c",
+      "sources": [
+        "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.TMT.PremierDraft.csv.gz",
+        "https://unrealities.github.io/MTGA_Draft_17Lands/TMT_PremierDraft_All_Data.json.gz"
+      ],
+      "seconds": 60.57
+    }
+  ],
+  "tag_coverage": {
+    "DFT": {
+      "evasion": 51,
+      "combat_trick": 12,
+      "removal": 52,
+      "mana_sink": 11,
+      "card_advantage": 39,
+      "lifegain": 30,
+      "fixing_ramp": 19,
+      "protection": 1,
+      "hate": 1
+    },
+    "FDN": {
+      "evasion": 54,
+      "lifegain": 36,
+      "combat_trick": 12,
+      "mana_sink": 13,
+      "card_advantage": 37,
+      "removal": 51,
+      "hate": 6,
+      "fixing_ramp": 18,
+      "protection": 1
+    },
+    "FIN": {
+      "removal": 54,
+      "evasion": 37,
+      "fixing_ramp": 33,
+      "lifegain": 29,
+      "combat_trick": 16,
+      "card_advantage": 49,
+      "mana_sink": 16,
+      "protection": 1,
+      "hate": 5
+    },
+    "FRA": {
+      "removal": 73,
+      "fixing_ramp": 21,
+      "evasion": 45,
+      "card_advantage": 74,
+      "combat_trick": 18,
+      "lifegain": 28,
+      "protection": 2,
+      "mana_sink": 24,
+      "hate": 2
+    },
+    "HOB": {
+      "fixing_ramp": 21,
+      "card_advantage": 22,
+      "evasion": 24,
+      "lifegain": 13,
+      "removal": 32,
+      "mana_sink": 10,
+      "combat_trick": 9,
+      "protection": 2,
+      "token_maker": 13,
+      "hate": 2
+    },
+    "MSH": {
+      "card_advantage": 36,
+      "combat_trick": 10,
+      "lifegain": 33,
+      "evasion": 58,
+      "removal": 54,
+      "fixing_ramp": 13,
+      "protection": 4,
+      "mana_sink": 9
+    },
+    "SOS": {
+      "card_advantage": 50,
+      "evasion": 41,
+      "removal": 54,
+      "mana_sink": 11,
+      "lifegain": 36,
+      "hate": 4,
+      "protection": 3,
+      "fixing_ramp": 21,
+      "combat_trick": 6
+    },
+    "TDM": {
+      "removal": 55,
+      "fixing_ramp": 15,
+      "card_advantage": 51,
+      "lifegain": 33,
+      "hate": 5,
+      "mana_sink": 7,
+      "evasion": 45,
+      "combat_trick": 15
+    },
+    "TLA": {
+      "card_advantage": 32,
+      "mana_sink": 25,
+      "lifegain": 26,
+      "removal": 53,
+      "evasion": 42,
+      "protection": 2,
+      "combat_trick": 9,
+      "fixing_ramp": 41,
+      "hate": 5
+    },
+    "TMT": {
+      "evasion": 42,
+      "removal": 42,
+      "lifegain": 27,
+      "combat_trick": 8,
+      "mana_sink": 8,
+      "card_advantage": 29,
+      "protection": 4,
+      "fixing_ramp": 10,
+      "hate": 1
+    }
+  },
+  "verification": {
+    "DFT": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 2952
+      },
+      "deck_candidate_sha256": "9e739caefb5cf393b717184e9b7245e23310e150a234491865fba8aad9c7ad2c",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 98,
+      "deck_pool_errors": [
+        {
+          "id": "5a7b027a966c44f4b4bdf1c80890f798",
+          "error": "builder produced no decks"
+        },
+        {
+          "id": "4854c23ced51415b9b685e2611cd4441",
+          "error": "builder produced no decks"
+        }
+      ]
+    },
+    "FDN": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 2986
+      },
+      "deck_candidate_sha256": "e8f2c27590297abc16177799a961efe2f348af6d5b91d793e85f8b2623327cc7",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 100,
+      "deck_pool_errors": []
+    },
+    "FIN": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 3000
+      },
+      "deck_candidate_sha256": "2d69515bfe0b3d926689e66ec6fd3d30f636cff9754ff778ecee0d1b2e85b952",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 100,
+      "deck_pool_errors": []
+    },
+    "FRA": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 3000
+      },
+      "deck_candidate_sha256": "939f055439932fde2ff0eea9401fb981c223214126ae90c3905d5ccc3fe912ca",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 100,
+      "deck_pool_errors": []
+    },
+    "HOB": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 3000
+      },
+      "deck_candidate_sha256": "34b88412a1b44d30fc0a5d8e3773ba14b2391a303caf4ce4f2aa224d5327ce19",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 100,
+      "deck_pool_errors": []
+    },
+    "MSH": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 3000
+      },
+      "deck_candidate_sha256": "87025a5712b78b77cbc8d0fb29243ca12d3dca69d5b847e97eb0a60e1ee027d6",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 100,
+      "deck_pool_errors": []
+    },
+    "SOS": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 2999
+      },
+      "deck_candidate_sha256": "83b5a63ab052673d08a1d72c20e84c0b05558c541ae6618b1c83a5ba0245bc77",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 100,
+      "deck_pool_errors": []
+    },
+    "TDM": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 3000
+      },
+      "deck_candidate_sha256": "bc3562591dc2d9ee85408d2386d2ff0da44613f094cf5f8cc622d8f106e83825",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 100,
+      "deck_pool_errors": []
+    },
+    "TLA": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 3000
+      },
+      "deck_candidate_sha256": "a8efa8cce9cb5f259668e542fa2f333dbff5aa2588ca79b0000d7a8913d2d317",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 100,
+      "deck_pool_errors": []
+    },
+    "TMT": {
+      "real_pack_parity_checks_per_variant": 40,
+      "skipped": {
+        "unmatched taken or trivial pack": 3194
+      },
+      "deck_candidate_sha256": "5f8ce3c9356269abdd6398a016d88604895acd8f3d8a52b0df0e19a38064cd21",
+      "deck_pools_requested": 100,
+      "deck_pools_evaluated": 100,
+      "deck_pool_errors": []
+    }
+  },
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "packages": {
+    "numpy": "2.3.5",
+    "scipy": "1.17.0",
+    "numba": "0.68.1",
+    "requests": "2.34.2",
+    "ttkbootstrap": "2.2.6"
+  },
+  "raw_output_sha256": {
+    "baseline.json.gz": "c3710a0df2704a386072c967490911a9e156128205f4d1434ea312d5c78aedb9",
+    "deck-baseline.json.gz": "c445da3eea51f6e50697273331d323d00a489917357e8c20c1424bdc561d29ac",
+    "no-archetype.json.gz": "1aca990af214a0bcbb07b02abb5c452cf4714e1c7b112dabd1454fdf8d8cca0b",
+    "no-artifact-synergy.json.gz": "8cf33d066bc7f6d777c79ac47a65480d52a7b540345810f83fe5c214844a66b1",
+    "no-bomb-fixing.json.gz": "f6b499b0bf8528cb394f0855119aca6ca35d414df7fa2a9a992c30f6995fa2f6",
+    "no-castability.json.gz": "a21531aefd514b85a5c6dea332a23fd6fe5d8092c9a7237680e44f25514e8ef4",
+    "no-composition.json.gz": "8abb0b7392964732d1fcb2c1a9b1bd1abc72be3521e174666acd127f47a3b27f",
+    "no-counters-synergy.json.gz": "cffe8c4a2f00df3c4413c4cb850280f9179a8208a2515c4c6bdf4fd1a971611d",
+    "no-creature-quota.json.gz": "26746cff6ce1bd995123a5f9a88471ce91d5055b7fbdf5396ecc62d291e0d894",
+    "no-curve-heavy.json.gz": "56240a544632133c0e15f0414d866816cdcb7bfd1000cc5af2f784a1cba02c68",
+    "no-domain-bonus.json.gz": "4354cc658392f4510e8a44898a73f987dc2fd789c82d5304176ab9faa297eebd",
+    "no-early-plays.json.gz": "b06783072bf28672fbc02839f1713fb82704e841bb423cf306f3a31540e16dc0",
+    "no-fixing-hunger.json.gz": "8b226749ef854ce7b872bab7c8728fc8c6d1f2dd891c9c96329c2ddd9d372cce",
+    "no-fixing-penalty.json.gz": "31786ccf7f8caaa5c14934290c63f6a99d1e3dd705f1ec1a4a3d85d3855e3bf1",
+    "no-graveyard-synergy.json.gz": "8cd94b805ebf1bb943ae78c2e7e8a04f613f444d32e63c8d81cf0e8d4c5b40dd",
+    "no-iwd.json.gz": "e6e77eea3c9962f594c5bfa5b0aa3eea98bd1a65644344e5294f2a7da28a5398",
+    "no-lane-boost.json.gz": "855120c4755c1783cb47d77b0451b1c069f769abe471bbf3006ae9fb8e68f6ad",
+    "no-mc-all.json.gz": "12e53ad7149dc8b6020e603dbd2bf6f3b8ece96cf65ad54593ca1e28ed96bfa7",
+    "no-mc-color.json.gz": "531d3c9b06bc265c2d3bd62ecd12de0322a17f393bfedc6c279f99358d73acf5",
+    "no-mc-flood.json.gz": "18b0d7e0c5fc6eec835a426b52575845f672700855d492acfc072216b82a63da",
+    "no-mc-screw.json.gz": "07d257fea06854a07894255628a51693a2ec20536880fd710d8694711bee846f",
+    "no-power-bonus.json.gz": "438ae4ef3b88ec634e58bec1de37a7fe2d8dfdcf2db6892c382a235deec8d252",
+    "no-premium-fixing.json.gz": "08b77c1fe7ebe4556889f448e1e8d168f0ebca6cb3d9bfe4c25426071cac702a",
+    "no-removal-need.json.gz": "08d58c03d0b5d3d683a88eecfb9e5b19098eb64f980e3a28c62a6a297740730c",
+    "no-removal-saturation.json.gz": "d966fd5b4b50f09a8c621b05c7fd419945fdc409bee17c6c5a58244b46ff54fb",
+    "no-shrinkage.json.gz": "0af5f9ecab6c0e53082b82464e594b5273efdf61eb79c1177111b7f7d020f498",
+    "no-two-color-bonus.json.gz": "671e42d84c057ffdfb97ba4720a88d56b996babdf0475b7413eab30e115f0534"
+  }
+}
