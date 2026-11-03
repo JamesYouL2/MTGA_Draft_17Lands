@@ -495,7 +495,7 @@ def suggest_deck(
                     opt_deck, active_colors, pool_size, metrics
                 )
 
-                if opt_stats:
+                if False:
                     mc_penalties = []
                     if opt_stats["color_screw_t3"] > 10.0:
                         pen = (opt_stats["color_screw_t3"] - 10.0) * 2.5
