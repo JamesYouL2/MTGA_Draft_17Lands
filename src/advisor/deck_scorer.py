@@ -126,7 +126,7 @@ WEIGHTS = {
     # so game results can't fit it; this is fit instead to which of the deck
     # builder's candidate builds drafters chose (see
     # docs/logs/deck-builder-before-after.md).
-    "missing_fixing": -2.5,
+    "missing_fixing": 0.0,
     # Spells short of a full deck for the pool size, less one. Not fitted:
     # finished decks are never short.
     "missing_spells": -10.0,
