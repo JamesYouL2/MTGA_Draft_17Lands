@@ -348,7 +348,7 @@ class DraftAdvisor:
         types = card.get("types", [])
 
         # 1. Curve and Heavy Drops Check
-        if cmc >= 5 and self.pool_metrics["heavy_drops"] >= 4 and "Land" not in types:
+        if False:
             return 0.7, "Curve Too Heavy"
 
         # 2. Creature Quota Check
