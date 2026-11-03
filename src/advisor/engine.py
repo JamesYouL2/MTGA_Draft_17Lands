@@ -356,7 +356,7 @@ class DraftAdvisor:
             projected_creatures = self.pool_metrics["creature_count"] * (
                 self.TOTAL_PICKS / max(1, len(self.pool))
             )
-            if projected_creatures < 13:
+            if False:
                 return 1.25, "Critical: Needs Creatures"
 
         # 3. Synergy (A+B) Checks
