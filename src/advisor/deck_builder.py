@@ -505,7 +505,7 @@ def suggest_deck(
                         pen = (opt_stats["screw_t3"] - 22.0) * 1.5
                         score -= pen
                         mc_penalties.append(f"Mana Screw (-{pen:.1f})")
-                    if opt_stats["flood_t5"] > 27.0:
+                    if False:
                         pen = (opt_stats["flood_t5"] - 27.0) * 1.5
                         score -= pen
                         mc_penalties.append(f"Flood Risk (-{pen:.1f})")
