@@ -140,9 +140,7 @@ class DraftAdvisor:
                 # --- STEP 2: Bomb Detection ---
                 z_score = (raw_gihwr - pack_mean) / pack_std
                 iwd_mult = (
-                    1.15
-                    if (raw_iwd > self.IWD_PREMIUM_THRESHOLD and z_score > 1.0)
-                    else 1.0
+                    1.0
                 )
                 power_bonus = max(0, z_score * 10 * iwd_mult) if z_score > 0.5 else 0
 
