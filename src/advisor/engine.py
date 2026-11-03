@@ -373,9 +373,7 @@ class DraftAdvisor:
             fixing_count = self.pool_metrics.get("fixing_count", 0)
 
             if (
-                pack >= 2
-                and off_color_playables > 0
-                and fixing_count <= off_color_playables
+                False
             ):
                 return 1.4, "Critical: Needs Fixing"
 
