@@ -118,7 +118,7 @@ WEIGHTS = {
     # Mean rating of the deck's spells, in standard deviations from the format mean.
     "card_quality": 12.0,
     # 1 if the deck has two colors or fewer.
-    "two_colors": 3.5,
+    "two_colors": 0.0,
     # 1 if a deck of 3+ colors has 2+ domain payoffs and 4+ fixing cards.
     "domain_supported": 3.2,
     # For a deck of 3+ colors that isn't a supported domain deck, fixing cards

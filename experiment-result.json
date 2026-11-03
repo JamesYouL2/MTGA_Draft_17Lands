@@ -1,0 +1,32 @@
+{
+  "variant": "no-two-color-bonus",
+  "kind": "deck",
+  "base_sha": "99dc21e1c894d03ce155cdc494063c3d5c93b358",
+  "pools": 998,
+  "changed_top_build_percent": 20.34068136272545,
+  "base": {
+    "unsupported_fixing_percent": 0.2004008016032064,
+    "mean_quality": 0.258999079561304,
+    "mean_colors": 2.096192384769539,
+    "color_screw_t3": 3.1032565130260523,
+    "screw_t3": 11.102284569138279,
+    "flood_t5": 24.244569138276553
+  },
+  "head": {
+    "unsupported_fixing_percent": 0.2004008016032064,
+    "mean_quality": 0.29428758732102506,
+    "mean_colors": 2.3046092184368736,
+    "color_screw_t3": 3.4042985971943884,
+    "screw_t3": 10.867494989979962,
+    "flood_t5": 24.847735470941885
+  },
+  "outcomes": {
+    "rating": {
+      "events": 763,
+      "base": 0.21017789483255853,
+      "head": 0.22083743880283863,
+      "difference": 0.0106595439702801,
+      "paired_se": 0.01969588476060697
+    }
+  }
+}
