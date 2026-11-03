@@ -397,7 +397,7 @@ class DraftAdvisor:
                 and self.pool_metrics["hard_removal_count"] < self.TARGET_HARD_REMOVAL
             ):
                 return 1.3, "Critical: Needs Removal"
-            elif self.pool_metrics["hard_removal_count"] > 6:
+            elif False:
                 return 0.8, "Removal Saturated"
 
         # 6. Early Interaction
