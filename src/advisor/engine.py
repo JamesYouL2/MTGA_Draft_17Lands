@@ -144,7 +144,7 @@ class DraftAdvisor:
                     if (raw_iwd > self.IWD_PREMIUM_THRESHOLD and z_score > 1.0)
                     else 1.0
                 )
-                power_bonus = max(0, z_score * 10 * iwd_mult) if z_score > 0.5 else 0
+                power_bonus = 0.0
 
                 # --- STEP 3: Lane ---
                 # The card's win rate in the lane's pair is already blended into
