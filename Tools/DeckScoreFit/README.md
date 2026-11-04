@@ -167,8 +167,7 @@ Not covered: the rest of the one-factor ablations in the fork's
 - Relative power, the IWD premium, the lane boost, archetype weighting,
   shrinkage and castability: these shape the order of picks, not something
   a finished deck has.
-- The deck builder's Monte Carlo penalties: they would need every registered
-  deck simulated.
+- The deck builder's Monte Carlo penalties: tested below on draw luck.
 
 Actions → Rule targets → Run workflow runs it on every set with Premier Draft
 game data and Premier Draft ratings: 20 sets. MID, STX and VOW are left out
@@ -182,3 +181,78 @@ poetry run python Tools/DeckScoreFit/rules.py results/*.json --json rules.json
 ```
 
 Tests: `poetry run pytest Tools/DeckScoreFit/tests`.
+
+## Mana luck and the deck builder's penalties
+
+`mana.py` tests the deck builder's three Monte Carlo penalties
+(`suggest_deck()` in `src/advisor/deck_builder.py`). The builder simulates
+each candidate deck 10,000 times with `simulate_deck()` and takes points off
+its score for each point of a rate above a threshold:
+
+| penalty | rate (`simulate_deck()`) | threshold | points per rate point | ablation |
+|---|---|---|---|---|
+| Color Screw | `color_screw_t3`: 3+ lands and a 3-drop by turn 3, but no 3-drop castable | 10% | 2.5 | `no-mc-color` |
+| Mana Screw | `screw_t3`: fewer than 3 lands by turn 3 | 22% | 1.5 | `no-mc-screw` |
+| Flood Risk | `flood_t5`: 6+ lands by turn 5 | 27% | 1.5 | `no-mc-flood` |
+
+(`no-mc-all` drops all three.) The simulator draws a random 7, mulligans 0-1
+or 6-7 land hands, and counts turns on the play: by turn 3 it has seen 9
+cards, by turn 5 11.
+
+17Lands records each game's opening hand. For a 7-card keep, the rest of
+the library is in random order, so given the hand, the chance of each event
+is known: exactly for screw and flood (from the lands left in the library),
+and from 1,000 shuffles of the library through the simulator's own castability
+code for color screw. Two hands of the same deck differ only by luck, so
+within a deck, win rate against these chances measures what each event
+costs. Draws during the game aren't used: how many cards a player draws
+depends on how long the game lasts, so on whether it was won.
+
+`games.py` reads each sampled deck's games back from the dump: on the play
+or the draw, mulligans, result and opening hand. `hands.py` computes, per
+sampled deck, `simulate_deck()`'s rates and, per
+game, the kept hand's lands and the three chances. Decks that aren't exactly
+40 cards are skipped (the simulator takes the first 40). A set whose dump records
+mulligans in under 2% of games is left out: DMU's records them in 0.15%,
+with 6-card hands, so its mulligans pass as 7-card keeps.
+
+Decided before the first run:
+
+- **Cost of each event:** a linear probability model of each 7-card keep's
+  result on its three chances and being on the play, with a deck fixed
+  effect, in win rate points. The SE is the larger of the deck-clustered
+  and the set-clustered sandwich.
+- **Calibration:** the slope, across decks, of the real chance of each event
+  in the deck's 7-card keeps on `simulate_deck()`'s rate for the deck (with
+  set effects, weighted by keeps). Arena smooths Bo1 opening hands and
+  players choose what to keep, so real keeps needn't match the simulator's.
+  Also reported: kept hands' land counts against random hands, the mulligan
+  rate against the simulator's, and each event's real rate in keeps against
+  the simulator's rate in its own 7-card keeps.
+- **Primary result:** what a point of `simulate_deck()`'s rate costs, in deck
+  score points: the event's cost times the calibration slope times the share
+  of games that are 7-card keeps, turned into log-odds at the average win
+  rate and divided by card quality's log-odds per score point (from fit.py's
+  deck-level model on the same decks). SEs by the delta method, taking the
+  three parts as independent.
+- **Keep or drop:** as for the pick rules, against the penalty's points per
+  rate point above its threshold, with 98.75% intervals (95% familywise
+  across the three penalties and all three together). For all three
+  together (`no-mc-all`), the size is the average penalty of the decks with
+  any penalty, and the value is what their rates above the thresholds cost
+  by the primary result.
+- **Also reported** but not used for the verdict: win rate by lands in a
+  7-card keep against 3 lands, within decks; and a deck-level fit, like the
+  rule tests', of games won on the three rates past their thresholds, in
+  score points.
+
+Limits:
+
+- Keeps are chosen. A 2-land hand that a player kept probably had cheap
+  spells; hands they mulliganed aren't seen. That likely makes screw look
+  cheaper than it is in a hand the simulator keeps.
+- The cost per point of rate is assumed the same at every rate; the penalty
+  only starts past its threshold. If the data say rates below the threshold
+  cost wins too, that is reported, not used for the verdict.
+
+Actions → Mana luck → Run workflow runs it on the 20 sets.
