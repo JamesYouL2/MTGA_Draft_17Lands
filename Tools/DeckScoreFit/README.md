@@ -166,7 +166,8 @@ Not covered: the rest of the one-factor ablations in the fork's
   its own rating, and lands' ratings aren't in card quality.
 - Relative power, the IWD premium, the lane boost, archetype weighting,
   shrinkage and castability: these shape the order of picks, not something
-  a finished deck has.
+  a finished deck has. Archetype weighting, shrinkage and the IWD premium
+  are tested as ratings below.
 - The deck builder's Monte Carlo penalties: tested below on draw luck.
 
 Actions → Rule targets → Run workflow runs it on every set with Premier Draft
@@ -256,3 +257,64 @@ Limits:
   cost wins too, that is reported, not used for the verdict.
 
 Actions → Mana luck → Run workflow runs it on the 20 sets.
+
+## Which rating predicts results
+
+`horse.py` tests three things the engine does to a card's rating before
+anything else in a pick (`_calculate_weighted_score()` and STEP 2 of
+`evaluate_pack()` in `src/advisor/engine.py`):
+
+- **Archetype weighting** (`no-archetype`): the card's win rate in the lane's
+  pair is blended in with weight 0.6 + 0.7 x pick / 15.
+- **Shrinkage** (`no-shrinkage`): the pair's win rate is first shrunk toward
+  the overall one by `min(1, samples / 1000)`.
+- **The IWD premium** (`no-iwd`): the bonus for a card well above the pack
+  (`power_bonus`, 10 points per SD above the pack's mean, from 0.5 SD) is
+  1.15x for a card more than 1 SD above with IWD over 4.5.
+
+Each version of the rating gives a deck a quality: the average, over its
+spells, of the card's value on the engine's scale (50 at the format mean,
+15 points per SD) plus its power bonus, taking the format's mean and SD for
+the pack's. The archetype is the deck's main colors, and the blend weight is
+0.95, its average over a pack's 14 picks. A version is better if its deck
+quality predicts held-out decks' results better.
+
+17Lands' ratings come from the same games, which would favor whatever
+fits them most closely: pair win rates from few games most of all. So
+`games.py` also computes the win rates again, cross-fitted: every deck in the
+dump falls in one of five folds by a hash of its ID, and a sampled deck is
+rated from the games of the other four: GIH WR (opening hand or drawn), IWD
+(GIH WR less the win rate when not drawn), overall and per main colors. So
+no deck's results are in its own ratings, and every set's ratings come from
+four fifths of its dump, however much of it the sample is. A card's overall
+rating needs 200 such games, a pair rating 10 (the engine's own minimum);
+shrinkage counts games in hand in every fold, which needs no results.
+`quality.py` computes each version's deck quality.
+
+Decided before the first run:
+
+- **Model:** fit.py's logistic regression with card quality replaced by each
+  version, fit on four fifths of the decks (by a hash of the ID) and
+  scored on the other fifth, five times.
+- **Primary result:** the engine's version against each ablation, in
+  held-out log loss per game, with 98.33% intervals (95% familywise across
+  the three) from the per-deck differences. Also given as a share of what
+  card quality is worth: the log loss without any card quality less the
+  engine's version.
+- **Verdict:** *keep* if the engine's version predicts better (the interval
+  excludes zero), *drop* if the ablation does. *No difference* if the whole
+  interval is within 2% of what card quality is worth. Otherwise *can't
+  tell*.
+- **Also reported:** blend weights 0.65 and 1.3, no power bonus, overall GIH
+  WR alone, the deck score's own blend (0.7 pair, 0.3 overall, no
+  shrinkage), and each comparison per set.
+
+Limits:
+
+- It tests what a rating says about a finished deck, not the pick it makes:
+  a better predictor of results is better information to pick by, but how
+  much that changes picks isn't measured.
+- The blend weight changes during the draft; one average weight stands for
+  it.
+
+Actions → Card ratings → Run workflow runs it on the 20 sets.
