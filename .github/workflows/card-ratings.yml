@@ -7,6 +7,8 @@ name: Card ratings
 # Run by hand: Actions > Card ratings > Run workflow.
 
 on:
+  push:
+    branches: [run/card-ratings]
   workflow_dispatch:
     inputs:
       sets:
