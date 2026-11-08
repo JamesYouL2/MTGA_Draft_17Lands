@@ -79,9 +79,9 @@ class App:
 
     def advise(self, pack, pool, pack_no, pick_no):
         """{card name: advisor score}, best first."""
-        recs = self.DraftAdvisor(self.metrics, pool).evaluate_pack(
-            pack, pick_no, current_pack=pack_no
-        )
+        advisor = self.DraftAdvisor(self.metrics, pool)
+        self.lane = set(advisor.main_colors)
+        recs = advisor.evaluate_pack(pack, pick_no, current_pack=pack_no)
         scores = {}
         for r in recs:
             scores.setdefault(r.card_name, r.contextual_score)
@@ -155,6 +155,9 @@ def replay_draft(app, draft, skipped):
             skipped["taken card missing from advice"] += 1
             continue
         by_gihwr = {c[app.constants.DATA_FIELD_NAME]: app.gihwr(c) for c in pack}
+        top = sorted(scores, key=lambda n: -scores[n])[0]
+        top_card = next(c for c in pack if c[app.constants.DATA_FIELD_NAME] == top)
+        on_lane = set(top_card.get(app.constants.DATA_FIELD_COLORS, [])) <= app.lane
         picks.append(
             [
                 pack_no,
@@ -162,6 +165,9 @@ def replay_draft(app, draft, skipped):
                 rank_of(scores, taken),
                 round(regret(scores, taken), 4),
                 rank_of(by_gihwr, taken),
+                top,
+                int(on_lane),
+                rank_of(by_gihwr, top),
             ]
         )
 
