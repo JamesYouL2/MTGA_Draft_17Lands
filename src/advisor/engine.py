@@ -517,25 +517,7 @@ class DraftAdvisor:
         try:
             stats = card.get("deck_colors", {})
             global_wr = float(stats.get("All Decks", {}).get("gihwr", 0.0))
-            ramp_pick = min(pick_number, self.ARCH_RAMP_PICKS)
-            arch_weight = (
-                self.ARCH_WEIGHT_START
-                + (ramp_pick / self.ARCH_RAMP_PICKS) * self.ARCH_WEIGHT_RAMP
-            )
-            arch_stats = stats.get(self.main_archetype, {})
-            arch_wr = float(arch_stats.get("gihwr", global_wr))
-
-            # BAYESIAN SMOOTHING: Confidently blend global & archetype win rates based on sample size
-            samples = int(arch_stats.get("samples", 0))
-            confidence = min(1.0, samples / 1000.0)
-            trusted_arch_wr = (arch_wr * confidence) + (global_wr * (1.0 - confidence))
-
-            blended_wr = (
-                (global_wr * (1.0 - arch_weight)) + (trusted_arch_wr * arch_weight)
-                if (arch_wr > 0 and samples >= 10)
-                else global_wr
-            )
-
+            blended_wr = global_wr
             return self._score_from_wr(blended_wr)
         except:
             return 0.0
