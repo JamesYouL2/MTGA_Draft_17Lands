@@ -8,6 +8,7 @@ name: Deck builds
 # Run by hand: Actions > Deck builds > Run workflow.
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       sets:
