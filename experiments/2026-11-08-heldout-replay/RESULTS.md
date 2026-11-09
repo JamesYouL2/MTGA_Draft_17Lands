@@ -3,7 +3,8 @@
 Protocol: [PROTOCOL.md](PROTOCOL.md), committed before these runs. Fork runs
 42530568156 and 42530571055 (no weight), 42530573875 and 42530577169 (flat 0.65):
 58,800 drafts from ten sets, 44,544 complete events. Sampled drafts held 2-9% of
-each set's dump.
+the dump's games in hand in the eight sets whose logs could be read (not FIN or
+SOS).
 
 ## Verdict
 
