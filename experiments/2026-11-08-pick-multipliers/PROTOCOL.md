@@ -46,11 +46,11 @@ one verdict from the replay:
 With several heads, the 2 SE bar makes a false "keep" likelier, which only leaves a
 rule in place. No correction is applied.
 
-`no-synergy` and `no-bomb-splash` also have a test on game results, on the
-`exp/rule-synergy-splash` branch, with its own protocol. A rule is removed only if
-the replay has no objection and that test doesn't support the rule. The pack-1 gate
-of Premium Fixing and the lane's position in a draft don't exist in a finished deck,
-so `no-premium-fixing` and `no-on-lane` rest on the replay alone.
+`no-bomb-splash` also has a test on game results, on the `exp/bomb-splash-rule`
+branch, with its own protocol. It is removed only if the replay has no objection and
+that test doesn't support the rule. The pack-1 gate of Premium Fixing and the lane's
+position in a draft don't exist in a finished deck, so `no-premium-fixing` and
+`no-on-lane` rest on the replay alone.
 
 ## Prediction
 
@@ -68,3 +68,13 @@ the change in each sample, and event wins per pick swapped to the head's top car
 As in the held-out replay: slopes are associations among drafters who chose freely,
 holding out a draft doesn't remove the drafter's other drafts, and regret says
 whether drafters who followed an advisor won, not what its users would win.
+
+## Amendments
+
+Made on 2026-11-08 after the run started and before any of its results were seen.
+
+- **`no-synergy` can't change anything.** The rule reads the tags `synergy_artifacts`,
+  `synergy_graveyard` and `synergy_counters`. `src/scryfall_tagger.py` makes none of
+  them, and no card in the 19 Premier Draft datasets checked has one. So the rule never
+  fires, and its head has no test on game results as first planned. It stays in the run
+  as a control: if its picks aren't identical to the base's, the harness is wrong.
