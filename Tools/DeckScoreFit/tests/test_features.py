@@ -143,8 +143,19 @@ def test_rule_counts(app):
         "heavy": 3,  # Giant, Dragon and the omen's front
         "fixing": 3,  # the rock and the two multicolor lands
         "off_color": 4,  # Giant, Hybrid, Omen, Offdual
+        "off_bomb": 0,
         "splash": 1,
     }
+
+
+def test_off_bombs_are_off_lane_cards_above_the_engines_bar(app):
+    high, low = app.bomb + 1, app.bomb - 1
+    deck = [
+        card("Giant", "{4}{G}", "G", wr=high),
+        card("Elf", "{G}", "G", wr=low),
+        card("Dragon", "{4}{R}{R}", "R", wr=high),
+    ]
+    assert app.rule_counts(deck, "BR", "G")["off_bomb"] == 1
 
 
 def test_rule_counts_follow_the_engines_castability(app):

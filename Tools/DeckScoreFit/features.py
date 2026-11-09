@@ -50,6 +50,8 @@ class App:
         # SD, with DraftAdvisor's fallbacks for a dataset without metrics.
         mean, std = self.metrics.get_metrics("All Decks", "gihwr")
         self.playable = (mean if mean > 0 else 54.0) - (std if std > 0 else 4.0)
+        # The engine's splash target: rated above the mean plus 1.5 SDs.
+        self.bomb = (mean if mean > 0 else 54.0) + 1.5 * (std if std > 0 else 4.0)
 
         # The dump names double-faced cards by their front face only.
         self.full_names = {}
@@ -104,7 +106,9 @@ class App:
         deck's registered main colors, or the three with the most pips in a
         deck of 4+. off_color is the engine's off_color_playables: cards with
         colors that is_castable() says the lane can't cast (by the front
-        face's cost), rated above the format's mean less one SD.
+        face's cost), rated above the format's mean less one SD. off_bomb counts
+        the same cards rated above the mean plus 1.5 SDs, the engine's splash
+        targets.
 
         Two parts of the fixing-hunger rule have no count. It waits for pack
         2, which every registered deck is past. And once hungry, the 1.4x
@@ -147,6 +151,13 @@ class App:
                 if c.get("colors")
                 and not self.is_castable(c, lane)
                 and self.gihwr(c) > self.playable
+            ),
+            "off_bomb": sum(
+                c["count"]
+                for c in deck
+                if c.get("colors")
+                and not self.is_castable(c, lane)
+                and self.gihwr(c) > self.bomb
             ),
             "splash": int(bool(splash_colors)),
         }
