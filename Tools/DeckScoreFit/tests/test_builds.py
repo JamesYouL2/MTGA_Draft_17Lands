@@ -1,6 +1,7 @@
 import gzip
 import json
 import os
+from collections import Counter
 
 import builds
 import pytest
@@ -172,11 +173,12 @@ def test_pool_row_has_the_decks_results_and_each_versions_suggestion(setup):
     app, engine, held, names = setup
     row = builds.pool_row(app, engine, [held] * 5, a_deck(names), engine.versions())
     assert (row["id"], row["main"], row["wins"], row["games"]) == ("a:0", "WU", 3, 5)
-    assert set(row["versions"]) == set(builds.SCORE_VERSIONS)
+    assert set(row["versions"]) == set(builds.SCORE_VERSIONS) | set(builds.VARIANT_VERSIONS)
     for shown in row["versions"].values():
         assert len(shown["pair"]) <= 2
         assert shown["shown"]
-        assert shown["score"] == max(shown["pairs"].values())
+        # The top can be a promoted deck, which isn't the highest score.
+        assert shown["score"] <= max(shown["pairs"].values())
 
 
 def test_each_pool_is_rated_from_the_other_folds(setup):
@@ -191,6 +193,98 @@ def test_each_pool_is_rated_from_the_other_folds(setup):
     # Fold f's 100 * (f + 1) wins of 1000 are left out of the 4000 other games.
     expected = 100.0 * (1500 - 100 * (fold_of(d["id"]) + 1)) / 4000
     assert held_out["deck_colors"][ALL]["gihwr"] == pytest.approx(expected)
+
+
+def test_no_tempo_stops_the_tempo_builds(setup):
+    app, engine, held, names = setup
+    pool = builds.pool_of(app, held, a_deck(names))
+    engine.new_pool()
+    full = engine.run(pool, held, {})
+    without = engine.run(pool, held, {"tempo": False})
+    assert not any("Tempo" in k for k in [without["kind"]])
+    assert len(without["shown"]) <= len(full["shown"])
+    # A later version gets them back.
+    assert engine.run(pool, held, {}) == full
+
+
+def test_no_promotion_keeps_the_scores_order(setup):
+    app, engine, held, names = setup
+    pool = builds.pool_of(app, held, a_deck(names))
+    engine.new_pool()
+    # A gap this wide promotes the safe deck over anything.
+    engine.promote_gaps = (1000.0, 1000.0)
+    promoted = engine.run(pool, held, {})
+    plain = engine.run(pool, held, {"promote": False})
+    engine.promote_gaps = (6.0, 20.0)
+    assert len(promoted["identity"]) <= 2
+    assert plain["score"] == max(plain["pairs"].values())
+    assert plain["score"] > promoted["score"]
+    assert plain["pairs"] == promoted["pairs"]
+
+
+def test_simulator_only_runs_in_sim_versions_and_once_per_deck(setup):
+    app, engine, held, names = setup
+    pool = builds.pool_of(app, held, a_deck(names))
+    calls = []
+
+    def fake(deck, iterations):
+        calls.append(builds.signature(deck))
+        return {"color_screw_t3": 30.0, "screw_t3": 0.0, "flood_t5": 0.0}
+
+    saved, engine.saved["simulate_deck"] = engine.saved["simulate_deck"], fake
+    try:
+        engine.new_pool()
+        off = engine.run(pool, held, {})
+        assert calls == []
+        on = engine.run(pool, held, {"sim": True})
+        assert calls and len(calls) == len(set(calls))
+        made = len(calls)
+        engine.run(pool, held, {"sim": True, "promote": False})
+        assert len(calls) == made
+        # 20 points over the penalty's threshold at 2.5 points each.
+        assert on["pairs"][on["pair"]] == pytest.approx(off["pairs"][on["pair"]] - 50.0)
+    finally:
+        engine.saved["simulate_deck"] = saved
+
+
+def test_nearer_tempo_runs_from_consistent_to_tempo():
+    c = Counter({"A": 1, "B": 1, "C": 1})
+    t = Counter({"A": 1, "D": 1, "E": 1})
+    assert builds.nearer_tempo(c, c, t) == -1.0
+    assert builds.nearer_tempo(t, c, t) == 1.0
+    assert builds.nearer_tempo(Counter({"A": 1, "B": 1, "D": 1}), c, t) == 0.0
+    assert builds.nearer_tempo(Counter({"Z": 1}), c, t) == 0.0
+    assert builds.nearer_tempo(c, c, c) is None
+
+
+def test_played_deck_is_for_two_color_decks_with_held_out_ratings(setup):
+    app, engine, held, names = setup
+    d = a_deck(names)
+    pool = builds.pool_of(app, held, d)
+    engine.new_pool()
+    played = builds.played_deck(app, engine, held, pool, d)
+    assert isinstance(played["quality"], float)
+    assert played["quality"] != 0.0
+    assert builds.played_deck(app, engine, held, pool, dict(d, main_colors="WUB")) is None
+
+
+def test_main_marks_the_first_pools_for_the_simulator(tmp_path, setup):
+    _, engine, _, names = setup
+    engine.close()
+    decks = tmp_path / "decks.json.gz"
+    games = tmp_path / "games.json.gz"
+    out = tmp_path / "out.json.gz"
+    with gzip.open(decks, "wt", encoding="utf-8") as f:
+        json.dump([a_deck(names), dict(a_deck(names), id="b:0")], f)
+    counts = {ALL: {n: [1000, 550, 0, 0] for n in names}}
+    with gzip.open(games, "wt", encoding="utf-8") as f:
+        json.dump({"folds": [counts] * 5}, f)
+    builds.main(["--src", ".", "--decks", str(decks), "--games", str(games), "--sim-pools", "1",
+                 "--dataset", DATASET, "--set", "MKM", "--out", str(out), "--workers", "1"])
+    with gzip.open(out, "rt", encoding="utf-8") as f:
+        rows = {r["id"]: r for r in json.load(f)["rows"]}
+    assert "sim" in rows["a:0"]["versions"] and "sim-no-tempo" in rows["a:0"]["versions"]
+    assert "sim" not in rows["b:0"]["versions"]
 
 
 def test_main_writes_rows_and_skips(tmp_path, setup):

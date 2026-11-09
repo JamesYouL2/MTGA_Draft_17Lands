@@ -2,7 +2,8 @@ name: Deck builds
 
 # Runs the real deck builder on real pools under versions of it, with win rates
 # that leave each pool's own games out, and reports how the suggestions change
-# and how they did. See experiments/2026-11-08-deck-score-rating/PROTOCOL.md.
+# and how they did. See experiments/2026-11-08-deck-score-rating/PROTOCOL.md and
+# experiments/2026-11-08-deck-variants/PROTOCOL.md.
 #
 # Run by hand: Actions > Deck builds > Run workflow.
 
@@ -18,6 +19,9 @@ on:
       salt:
         description: Any text; changes which decks are sampled
         default: ""
+      sim_pools:
+        description: Pools per set that also run with the simulator (about 3 seconds each)
+        default: "500"
 
 permissions:
   contents: read
@@ -35,6 +39,7 @@ jobs:
       SET: ${{ matrix.set }}
       DECKS: ${{ inputs.decks || '50000' }}
       SALT: ${{ inputs.salt }}
+      SIM_POOLS: ${{ inputs.sim_pools || '500' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,7 +58,7 @@ jobs:
       - name: Read out-of-sample win rates
         run: poetry run python Tools/DeckScoreFit/games.py --games games.csv.gz --decks decks.json.gz --out games.json.gz
       - name: Run the deck builder
-        run: poetry run python Tools/DeckScoreFit/builds.py --src . --decks decks.json.gz --games games.json.gz --dataset dataset.json.gz --set "$SET" --out "results/$SET.json.gz"
+        run: poetry run python Tools/DeckScoreFit/builds.py --src . --decks decks.json.gz --games games.json.gz --dataset dataset.json.gz --set "$SET" --sim-pools "$SIM_POOLS" --out "results/$SET.json.gz"
       - uses: actions/upload-artifact@v4
         with:
           name: builds-${{ matrix.set }}
@@ -85,9 +90,19 @@ jobs:
             echo
             poetry run python Tools/DeckScoreFit/score_rating.py results/*.json.gz --json score_rating.json
           } | tee score_rating.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Whether Tempo and safe-deck promotion earn their place
+        shell: bash
+        run: |
+          {
+            echo "# Deck variants at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python Tools/DeckScoreFit/deck_variants.py results/*.json.gz --json deck_variants.json
+          } | tee deck_variants.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: deck-score-rating
           path: |
             score_rating.md
             score_rating.json
+            deck_variants.md
+            deck_variants.json

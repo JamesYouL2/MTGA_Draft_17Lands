@@ -10,10 +10,12 @@ games.py's counts with the pool's own fold left out, gated at 500 games in hand
 as 17Lands does, so no pool's results are in its own ratings. The app's dataset
 only supplies the rest of each card.
 
-The simulator's mana penalties are off: the simulator is random, and those
+The simulator's mana penalties are off, except on the --sim-pools first pools,
+which also run the SIM_VERSIONS: the simulator is random and slow, and those
 penalties are already judged not worth keeping (exp/mana-penalties). Builds are
-the same in every version that doesn't change them, so each pool builds each
-deck once. See experiments/2026-11-08-deck-score-rating/PROTOCOL.md.
+the same in every version, so each pool builds and simulates each deck once.
+See experiments/2026-11-08-deck-score-rating/PROTOCOL.md and
+experiments/2026-11-08-deck-variants/PROTOCOL.md.
 """
 
 import argparse
@@ -26,7 +28,7 @@ import sys
 import time
 from collections import Counter
 
-from features import BASICS, App
+from features import BASICS, POOL_SIZE, App
 from games import fold_of
 from quality import ALL, Ratings, training
 
@@ -46,6 +48,18 @@ def _game_rate(cards):
     wins = sum(s[1] + s[4] for s in cards.values())
     games = sum(s[0] + s[3] for s in cards.values())
     return 100.0 * wins / games if games else None
+
+
+# No gap is this small: a promotion gap of NEVER promotes nothing.
+NEVER = -1.0
+
+
+def _no_build(*args, **kwargs):
+    return []
+
+
+def _no_simulation(*args, **kwargs):
+    return None
 
 
 class Held:
@@ -125,20 +139,35 @@ class Engine:
         self.normalize = normalize_color_string
         self.original_rating = deck_scorer.get_card_rating
         self.memo = {}
+        self.simulated = {}
         self.saved = {
             name: getattr(deck_builder, name)
             for name in (*BUILDERS, "simulate_deck", "get_sideboard")
         }
         for name in BUILDERS:
             setattr(deck_builder, name, self._remembered(self.saved[name]))
-        deck_builder.simulate_deck = lambda *args, **kwargs: None
+        self.tempo = deck_builder.build_variant_curve
+        self.promote_gaps = (
+            deck_builder.SAFE_DECK_PROMOTE_TO_TOP_GAP,
+            deck_builder.SAFE_DECK_PROMOTE_TO_SECOND_GAP,
+        )
+        deck_builder.simulate_deck = _no_simulation
         # Nothing here reads the sideboards, and they are deep copies.
         deck_builder.get_sideboard = lambda pool, deck: []
+
+    def _simulate(self, deck, iterations=10000):
+        """The simulator, once per deck, so its randomness can't separate versions."""
+        key = signature(deck)
+        if key not in self.simulated:
+            self.simulated[key] = self.saved["simulate_deck"](deck, iterations=iterations)
+        return self.simulated[key]
 
     def close(self):
         """Puts the deck builder back."""
         for name, value in self.saved.items():
             setattr(self.builder, name, value)
+        self.builder.SAFE_DECK_PROMOTE_TO_TOP_GAP = self.promote_gaps[0]
+        self.builder.SAFE_DECK_PROMOTE_TO_SECOND_GAP = self.promote_gaps[1]
 
     def _remembered(self, fn):
         def build(pool, *args):
@@ -179,17 +208,30 @@ class Engine:
         }[name]
 
     def versions(self):
-        """{version: the deck score's rating}. The builds keep the blend: the
+        """{version: what it changes}. The builds always keep the blend: the
         builders read their own reference to it, not deck_scorer's."""
-        return {name: {"rating": name} for name in SCORE_VERSIONS}
+        return {name: {"rating": name} for name in SCORE_VERSIONS} | VARIANT_VERSIONS
 
     def new_pool(self):
         self.memo.clear()
+        self.simulated.clear()
+
+    def _apply(self, version):
+        builder = self.builder
+        builder.build_variant_curve = self.tempo if version.get("tempo", True) else _no_build
+        builder.SAFE_DECK_PROMOTE_TO_TOP_GAP = (
+            self.promote_gaps[0] if version.get("promote", True) else NEVER
+        )
+        builder.SAFE_DECK_PROMOTE_TO_SECOND_GAP = (
+            self.promote_gaps[1] if version.get("promote", True) else NEVER
+        )
+        builder.simulate_deck = self._simulate if version.get("sim") else _no_simulation
 
     def run(self, pool, held, version):
         """What the app shows for a pool under a version, or None."""
         self.builder.clear_deck_cache()
         self.scorer.get_card_rating = self.rating_of(version.get("rating", "blend"))
+        self._apply(version)
         builds = {}
 
         def seen(update):
@@ -215,6 +257,15 @@ class Engine:
 
 
 SCORE_VERSIONS = ("blend", "overall", "overall+pair", "blend+pair")
+VARIANT_VERSIONS = {
+    "no-tempo": {"tempo": False},
+    "no-promotion": {"promote": False},
+    "neither": {"tempo": False, "promote": False},
+}
+# The same, with the simulator's penalties on. "sim" is today's app.
+SIM_VERSIONS = {
+    f"sim-{name}": dict(change, sim=True) for name, change in VARIANT_VERSIONS.items()
+} | {"sim": {"sim": True}}
 
 
 def pool_of(app, held, d):
@@ -234,6 +285,48 @@ def pool_of(app, held, d):
     return pool
 
 
+def _copies(deck):
+    return Counter({c["name"]: c.get("count", 1) for c in deck
+                    if "Land" not in c.get("types", [])})
+
+
+def nearer_tempo(played, consistent, tempo):
+    """Where a played deck's spells sit between a pair's Consistent build (-1) and
+    its Tempo build (+1): the share of the cards only Tempo has that it plays, less
+    the share of those only Consistent has. None if the builds have the same spells."""
+    only_tempo, only_consistent = tempo - consistent, consistent - tempo
+    if not only_tempo and not only_consistent:
+        return None
+    share = lambda only: (  # noqa: E731
+        sum((played & only).values()) / sum(only.values()) if only else 0.0
+    )
+    return round(share(only_tempo) - share(only_consistent), 4)
+
+
+def played_deck(app, engine, held, pool, d):
+    """For a two-color deck: its card quality and where it sits between the pair's
+    Consistent and Tempo builds. Those read the blend, like the app's."""
+    main = d["main_colors"]
+    deck = app.deck(d["cards"])
+    if len(main) != 2 or deck is None:
+        return None
+    deck = [dict(c, deck_colors=held.stats.get(n, {}))
+            for n, c in zip(d["cards"], deck)]
+    colors = list(main + d["splash_colors"])
+    features = engine.scorer.deck_features(deck, colors, POOL_SIZE, held)
+    if features is None:
+        return None
+    pair = list(main)
+    return {
+        "quality": round(features["card_quality"], 4),
+        "nearer": nearer_tempo(
+            _copies(deck),
+            _copies(engine.builder.build_variant_consistency(pool, pair, held)),
+            _copies(engine.tempo(pool, pair, held)),
+        ),
+    }
+
+
 def pool_row(app, engine, helds, d, versions):
     """A deck's result row, or the reason it has none."""
     held = helds[fold_of(d["id"])]
@@ -243,6 +336,8 @@ def pool_row(app, engine, helds, d, versions):
     if len(pool) < MIN_POOL:
         return "pool under 35 cards"
     engine.new_pool()
+    if d.get("sim"):
+        versions = versions | SIM_VERSIONS
     shown = {name: engine.run(pool, held, v) for name, v in versions.items()}
     if not all(shown.values()):
         return "no deck suggested"
@@ -255,6 +350,7 @@ def pool_row(app, engine, helds, d, versions):
         "wins": d["wins"],
         "games": d["games"],
         "pool": len(pool),
+        "played": played_deck(app, engine, held, pool, d),
         "versions": shown,
     }
 
@@ -294,12 +390,15 @@ def main(argv=None):
     parser.add_argument("--set", required=True, help="Set code")
     parser.add_argument("--out", required=True, help="Where to write them (.json.gz)")
     parser.add_argument("--pools", type=int, default=None, help="Use only this many")
+    parser.add_argument("--sim-pools", type=int, default=0, help="Pools to simulate too")
     parser.add_argument("--workers", type=int, default=os.cpu_count())
     args = parser.parse_args(argv)
 
     sys.path.insert(0, os.path.abspath(args.src))
     with gzip.open(args.decks, "rt", encoding="utf-8") as f:
         decks = json.load(f)[: args.pools]
+    for d in decks[: args.sim_pools]:
+        d["sim"] = True
     with gzip.open(args.games, "rt", encoding="utf-8") as f:
         folds = json.load(f)["folds"]
 
