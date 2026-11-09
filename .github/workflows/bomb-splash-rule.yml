@@ -6,6 +6,7 @@ name: Bomb splash rule
 # Run by hand: Actions > Bomb splash rule > Run workflow.
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       sets:
