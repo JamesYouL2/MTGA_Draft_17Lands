@@ -1,6 +1,10 @@
 # Which card rating the deck score should use
 
-Written before any result in this folder was seen.
+Written before any result in this folder was seen, with one exception. Timing the
+tool, on 35 HOB pools from part of a dump with the ratings gate lowered to 40 games,
+printed how often each version changed the suggested pair: `overall` 10,
+`overall+pair` 9 and `blend+pair` 4. That was seen before prediction 3 below was
+written. No outcome was seen.
 
 ## Why
 
