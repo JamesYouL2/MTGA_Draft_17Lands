@@ -26,6 +26,8 @@ SES = 2
 
 
 def verdict(change, se):
+    if change == 0 and se == 0:
+        return "no change"
     if change >= SES * se:
         return "keep"
     if change + SES * se > LOSS:
