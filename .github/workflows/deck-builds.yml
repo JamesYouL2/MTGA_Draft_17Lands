@@ -20,7 +20,7 @@ on:
         description: Any text; changes which decks are sampled
         default: ""
       sim_pools:
-        description: Pools per set that also run with the simulator (about 3 seconds each)
+        description: Pools per set that also run with the simulator (under a second each)
         default: "500"
 
 permissions:
