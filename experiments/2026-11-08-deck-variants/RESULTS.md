@@ -21,10 +21,13 @@ Neither is removed.
 
 | | simulator off | simulator on, today's app |
 |---|---|---|
-| Tempo build comes first | under 0.2% of pools | **60.6%** |
-| Consistent build comes first | 90.0% | 28.3% |
+| Tempo build comes first | none of the pools | **60.6%** |
+| Safe Core build comes first | 90.0% | 28.3% |
 | removing Tempo changes the top deck | 0.12% | **65.56%** |
 | removing promotion changes the top deck | 10.30% | 5.88% |
+
+Tempo never comes first with the simulator off, so the 0.12% must come through other
+builds. I didn't trace how.
 
 The penalties change the top deck in 71.5% of pools and its pair in 10.2%. On the
 amendment's reading, in a dry run's builds, it's the flood penalty that does this,
@@ -45,7 +48,7 @@ The amendment said that if the outcome favored Tempo, dropping the flood penalty
 need a second look, as it takes Tempo out of first place. This is that look, and it's
 my reading, not the rule's: **keep Tempo as an alternative on the list, and don't put
 it first.** Today's app puts first, in most pools, a build that does about 1.3 points
-worse on a full move. Without the penalties it's shown second instead: removing it
+worse on a full move. Without the penalties it's still on the list: removing it
 changes the first two decks in 34.55% of pools and the list in 71.43%.
 
 ## Promotion
@@ -74,7 +77,7 @@ this is a judgment call about what users want from a Safe label, not one the gam
 ## What this changes
 
 - **Dropping the mana penalties is the biggest change on the table.** It changes the
-  first deck for most users, mostly from a Tempo build to a Consistent one of the same
+  first deck for most users, mostly from a Tempo build to a Safe Core one of the same
   pair, so it deserves its own PR and notes for users.
 - **The order matters.** `experiments/2026-11-08-deck-score-rating` also ran with the
   simulator off, so it reads as the next step after that one.
