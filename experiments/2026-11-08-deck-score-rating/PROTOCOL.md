@@ -6,6 +6,17 @@ printed how often each version changed the suggested pair: `overall` 10,
 `overall+pair` 9 and `blend+pair` 4. That was seen before prediction 3 below was
 written. No outcome was seen.
 
+After this was committed and before the run on CI, one dry run through the whole
+pipeline on 2,999 HOB pools from part of a dump printed changes to the suggested pair
+of 16.8%, 17.3% and 12.3%, and raw win rates in the deciding comparison of 54.7% vs
+58.1%, 55.4% vs 58.5% and 56.5% vs 57.1%, the blend second, on too few decks to give
+an effect. Nothing below was changed after it.
+
+That dry run also found something this test doesn't cover: with the simulator on, as
+in today's app, the flood penalty often changes the deck on top. See
+`experiments/2026-11-08-deck-variants/PROTOCOL.md`. This test runs with the simulator
+off, so what it compares is the app after the mana penalties are dropped.
+
 ## Why
 
 `suggest_deck()` ranks builds of different pairs by the deck score, whose card
