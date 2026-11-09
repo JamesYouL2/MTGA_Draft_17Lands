@@ -47,9 +47,9 @@ need a baseline here.
 Most decks in the head to head are on the version's side: about 10 to 1 for `overall`.
 That's what the score would look like if the few who went against the majority were
 simply unusual drafters, which the buckets only partly remove. Against that, `blend+pair`
-is just as lopsided, 7 to 1, and leans the other way, so being in the majority isn't
-what wins here. The bias can't be ruled out, and the size of +1.66 shouldn't be read as
-what a user would gain.
+is lopsided too, 7 to 1, and leans the other way, so being in the majority doesn't
+always win. The bias can't be ruled out, and +1.66 shouldn't be read as what a user
+would gain.
 
 ## What this changes
 
