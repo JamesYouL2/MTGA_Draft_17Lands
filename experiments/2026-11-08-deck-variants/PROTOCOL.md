@@ -1,6 +1,7 @@
 # Whether Tempo builds and safe-deck promotion earn their place
 
-Written before any result in this folder was seen.
+Written before any result in this folder was seen. The original is commit `98834a9`,
+and the amendment at the end was added before the run on CI.
 
 ## Why
 
@@ -32,9 +33,8 @@ Every version scores with the blend.
 
 **The simulator** is off in these, as its penalties are already judged not worth
 keeping. The app has them today, though, so the first 500 pools of each set also run
-all four versions with it on. Each deck is simulated once per pool, so its randomness
-can't separate versions. The verdict reads the simulator-off rates, and the report
-shows both.
+all four versions with it on. The simulator uses a fixed seed, so its randomness can't
+separate versions. The verdict reads the simulator-off rates, and the report shows both.
 
 ## The measures
 
@@ -98,3 +98,37 @@ Removing a feature is a separate PR after this, each with its own tests.
 - **A user isn't measured.** A second deck on the list may be useful even if never
   first, and a Safe label may help a user decide. This counts only what's shown and
   what the games say.
+
+## Amendment, before the run on CI
+
+After the above was committed, one dry run through the whole pipeline, on 2,999 HOB
+pools from part of a dump, printed the following.
+
+- **Simulator off:** `no-tempo` changes the top deck in 0.07% of pools and
+  `no-promotion` in 3.03%. Tempo's outcome was +0.85 [-1.12, +2.82]. Promotion had too
+  few decks for an outcome.
+- **Simulator on, 60 pools:** a Tempo build comes first in 37. With it off, it comes
+  first in none of the same 60.
+
+So predictions 1 to 4 aren't blind to HOB, one set of 19. They stand as written.
+
+**This corrects the "Why" above.** I wrote that Tempo should rarely come first. That
+holds only with the simulator off. In 162 two-color builds from 40 of those pools, only
+the flood penalty separates the two kinds. Tempo's 16 lands stay under its 27%
+threshold, at 22.5% flood and no penalty. The others average 18.4 lands, as weak pairs
+fill out with lands, and 37.1% flood. In the six pools I read, the top deck lost about
+2 points to the penalties, and in four of them that let a Tempo build come first.
+`exp/mana-penalties` already judged that penalty not worth keeping.
+
+**What it changes:**
+
+1. The report adds which kind of build comes first, with the simulator on and off, and
+   how often the penalties change the top deck and its pair. These are reported, not
+   deciding.
+2. **The rule's rate is what the app would do without the penalties.** A remove that
+   rests on the under-5% row holds only once the penalties are gone, so those PRs must
+   be in that order. Today the app would change for most users.
+3. **Tempo's outcome now matters more.** The app puts Tempo first in most pools today,
+   so this is the one test of whether that helps. If it favors Tempo by 2+ SEs, the
+   rule says keep, and dropping the flood penalty would then need a second look, since
+   it would take Tempo out of first place.

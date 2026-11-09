@@ -52,6 +52,35 @@ def test_simulator_rates_are_over_the_pools_that_ran_it(tmp_path):
     assert r["no-tempo"]["pools"] == 2
 
 
+def simulated(**top):
+    """The versions a simulated pool adds, with this as today's app."""
+    return {"sim": shown(**top), "sim-no-tempo": shown(), "sim-no-promotion": shown(),
+            "sim-neither": shown()}
+
+
+def test_first_builds_groups_splashes_and_counts_only_pools_run(tmp_path):
+    rows = [
+        row(0, versions={"blend": shown(kind="Splash W"), **simulated(kind="Safe Tempo")}),
+        row(1, versions={"blend": shown(kind="Splash R")}),
+        row(2, versions={"blend": shown(kind="Safe Core")}),
+        row(3, versions={"blend": shown(kind="Safe Core")}),
+    ]
+    first = dv.first_builds(table(tmp_path, {"A": rows}))
+    assert first["blend"] == {"Splash": 50.0, "Safe Core": 50.0}
+    assert first["sim"] == {"Safe Tempo": 100.0}
+
+
+def test_penalties_count_only_pools_run_both_ways(tmp_path):
+    rows = [
+        row(0, versions=simulated(pair="UB", decks=("x", "b", "c"))),
+        row(1, versions=simulated(decks=("x", "b", "c"))),
+        row(2, versions=simulated()),
+        row(3),
+    ]
+    t = table(tmp_path, {"A": rows})
+    assert t.penalties == {"pools": 3, "top": 2, "pair": 1}
+
+
 def decks_by_nearer(won_near, won_far, n=300):
     rows = []
     for i in range(n):

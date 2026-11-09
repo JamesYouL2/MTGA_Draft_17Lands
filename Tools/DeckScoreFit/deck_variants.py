@@ -29,6 +29,11 @@ def _top_two(shown):
     return shown["shown"][:2]
 
 
+def _family(kind):
+    """A build's label without the splash color: "Splash W" is a "Splash"."""
+    return "Splash" if kind.startswith("Splash") else kind
+
+
 class Table:
     """What the report needs from builds.py's rows, as arrays, one set at a time."""
 
@@ -41,6 +46,8 @@ class Table:
             for prefix in BASES for name in COMPARED
         }
         self.compare_mask = {prefix: [] for prefix in BASES}
+        self.first = {base: Counter() for base in BASES.values()}
+        self.penalties = Counter()
         self.skipped = Counter()
         for path in paths:
             with gzip.open(path, "rt", encoding="utf-8") as f:
@@ -71,6 +78,15 @@ class Table:
         self.quality.append(played.get("quality", math.nan))
         nearer = played.get("nearer")
         self.nearer.append(math.nan if nearer is None else nearer)
+
+        for base in BASES.values():
+            if base in versions:
+                self.first[base][_family(versions[base]["kind"])] += 1
+        if "sim" in versions:
+            on, off = versions["sim"], versions["blend"]
+            self.penalties["pools"] += 1
+            self.penalties["top"] += on["shown"][0] != off["shown"][0]
+            self.penalties["pair"] += on["pair"] != off["pair"]
 
         for prefix, base in BASES.items():
             present = base in versions
@@ -110,6 +126,14 @@ def rates(t):
                 **{k: 100.0 * float(change[k][mask].mean()) for k in ("top", "second", "shown")},
             }
     return out
+
+
+def first_builds(t):
+    """The share of pools, in percent, each kind of build comes first in."""
+    return {
+        base: {kind: 100.0 * n / sum(kinds.values()) for kind, n in kinds.most_common()}
+        for base, kinds in t.first.items() if kinds
+    }
 
 
 def tempo_outcome(t, control_quality=True):
@@ -183,6 +207,20 @@ def report(t):
     for name, r in results["rates"].items():
         print(f"| {name} | {r['pools']} | {r['top']:.2f}% | {r['second']:.2f}% | {r['shown']:.2f}% |")
 
+    results["first"] = first_builds(t)
+    results["penalties"] = dict(t.penalties)
+    print("\n## Which build comes first\n")
+    print("Share of pools, on the pools each ran on. `sim` is today's app.\n")
+    print("| version | build | pools |\n|---|---|---|")
+    for base, kinds in results["first"].items():
+        for kind, share in kinds.items():
+            print(f"| {base} | {kind} | {share:.1f}% |")
+    if t.penalties["pools"]:
+        n = t.penalties["pools"]
+        print(f"\nOn the {n} pools run both ways, the simulator's penalties change the top "
+              f"deck in {100.0 * t.penalties['top'] / n:.1f}% and its pair in "
+              f"{100.0 * t.penalties['pair'] / n:.1f}%.")
+
     print("\n### By set, top deck, simulator off\n")
     print("| set | no-tempo | no-promotion |\n|---|---|---|")
     results["by_set"] = {}
@@ -212,6 +250,8 @@ def report(t):
     print(f"\nEffect in win rate points, safe over the top's, set and player controlled: {_pm(p)}.")
 
     print("\n## Verdicts\n")
+    print("Top deck change is with the simulator off. A remove that rests on it holds "
+          "once the mana penalties are gone: see the protocol's amendment.\n")
     print("| feature | top deck changes | outcome | verdict |\n|---|---|---|---|")
     tempo_rate = results["rates"]["no-tempo"]["top"]
     promotion_rate = results["rates"]["no-promotion"]["top"]
