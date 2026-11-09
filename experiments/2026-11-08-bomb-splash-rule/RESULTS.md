@@ -2,7 +2,7 @@
 
 Run [42558929702](https://github.com/JamesYouL2/MTGA_Draft_17Lands/actions/runs/42558929702)
 at `dae849d` (`6437b4e` plus a push trigger): 914,784 decks and 4.14M games from 20
-sets, 87,211 of them in the rule's region. The protocol is in
+sets, with 87,211 decks in the rule's region. The protocol is in
 [PROTOCOL.md](PROTOCOL.md), written before the run. The full report is
 [splash_rule.md](splash_rule.md) and the numbers are in
 [splash_rule.json](splash_rule.json).
