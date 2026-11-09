@@ -6,6 +6,8 @@ name: Pair parts
 # Run by hand: Actions > Pair parts > Run workflow.
 
 on:
+  push:
+    branches: [run/pair-parts]
   workflow_dispatch:
     inputs:
       sets:
