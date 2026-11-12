@@ -1,0 +1,118 @@
+name: Advisor heads
+
+# Replays 17Lands Premier Draft picks through the advisor and through a patched
+# copy of it for each head, on ratings without the replayed drafts' games. All
+# heads share one job per set and sample, so they're compared on the same drafts
+# and the same ratings. See experiments/2026-11-08-pick-multipliers/PROTOCOL.md.
+#
+# Run by hand: Actions > Advisor heads > Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      patches:
+        description: Patches to src/, one head each
+        default: "experiments/*/heads/*.patch"
+      sets:
+        description: 'JSON list of set codes, e.g. ["FRA", "TDM"] (empty: all ten)'
+        default: ""
+      salts:
+        description: JSON list of texts that sample different drafts
+        default: '["", "arch2"]'
+      drafts:
+        description: Drafts per set and salt
+        default: "3000"
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    name: Replay ${{ matrix.set }} ${{ matrix.salt }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ${{ fromJSON(inputs.sets || '["DFT", "FDN", "FIN", "FRA", "HOB", "MSH", "SOS", "TDM", "TLA", "TMT"]') }}
+        salt: ${{ fromJSON(inputs.salts || '["", "arch2"]') }}
+    env:
+      SET: ${{ matrix.set }}
+      SALT: ${{ matrix.salt }}
+      DRAFTS: ${{ inputs.drafts || '3000' }}
+      PATCHES: ${{ inputs.patches || 'experiments/*/heads/*.patch' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - name: Download the dumps and the app's dataset
+        run: |
+          curl -fsSL --retry 3 -o dump.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o games.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o dataset.json.gz \
+            "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+      - name: Sample drafts and hold them out of the ratings
+        run: |
+          poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts "$DRAFTS" --salt "$SALT" --out drafts.json.gz
+          poetry run python Tools/AdvisorReplay/holdout.py --games games.csv.gz --drafts drafts.json.gz --dataset dataset.json.gz --rebuilt rebuilt.json.gz --heldout heldout.json.gz
+          rm dump.csv.gz games.csv.gz rebuilt.json.gz
+      - name: Copy the app for each head
+        shell: bash
+        run: |
+          for patch in $PATCHES; do
+            head=$(basename "$patch" .patch)
+            mkdir -p "copies/$head"
+            cp -r src "copies/$head/src"
+            git apply --directory="copies/$head" "$patch"
+            echo "$head" >> heads.txt
+          done
+      - name: Replay the base and the heads
+        shell: bash
+        run: |
+          replay() {
+            if [ "$1" = base ]; then src=.; else src="copies/$1"; fi
+            poetry run python Tools/AdvisorReplay/replay.py --src "$src" --drafts drafts.json.gz \
+              --dataset heldout.json.gz --set "$SET" --label "$1" --out "results/$1.json"
+          }
+          export -f replay
+          { echo base; cat heads.txt; } | xargs -P 4 -I{} bash -c 'replay {}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heads-${{ matrix.set }}-${{ matrix.salt || 'none' }}
+          path: results/
+
+  report:
+    needs: replay
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: heads-*
+          path: results
+      - name: Report
+        shell: bash  # with pipefail, so a failed report fails the step
+        run: |
+          {
+            echo "# Advisor heads at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python experiments/2026-11-08-pick-multipliers/heads.py results --json heads.json
+          } | tee heads.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heads-report
+          path: |
+            heads.md
+            heads.json
