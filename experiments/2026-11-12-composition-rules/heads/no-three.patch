@@ -1,0 +1,41 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index e3bab16..df0bc47 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -320,10 +320,6 @@ class DraftAdvisor:
+         tags, cmc = card.get("tags", []), get_functional_cmc(card)
+         types = card.get("types", [])
+ 
+-        # 1. Curve and Heavy Drops Check
+-        if cmc >= 5 and self.pool_metrics["heavy_drops"] >= 4 and "Land" not in types:
+-            return 0.7, "Curve Too Heavy"
+-
+         # 2. Creature Quota Check
+         if pack >= 2 and "Creature" in types:
+             projected_creatures = self.pool_metrics["creature_count"] * (
+@@ -334,16 +330,6 @@ class DraftAdvisor:
+ 
+         # 3. Fixing Hunger
+         if "Land" in types or "fixing_ramp" in tags:
+-            off_color_playables = self.pool_metrics.get("off_color_playables", 0)
+-            fixing_count = self.pool_metrics.get("fixing_count", 0)
+-
+-            if (
+-                pack >= 2
+-                and off_color_playables > 0
+-                and fixing_count <= off_color_playables
+-            ):
+-                return 1.4, "Critical: Needs Fixing"
+-
+             return 1.0, ""
+ 
+         # 4. Removal Check
+@@ -353,8 +339,6 @@ class DraftAdvisor:
+                 and self.pool_metrics["hard_removal_count"] < self.TARGET_HARD_REMOVAL
+             ):
+                 return 1.3, "Critical: Needs Removal"
+-            elif self.pool_metrics["hard_removal_count"] > 6:
+-                return 0.8, "Removal Saturated"
+ 
+         # 5. Early Interaction
+         if cmc <= 2 and ("Creature" in types or "removal" in tags):
