@@ -1,0 +1,13 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..5a98887 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -333,7 +333,7 @@ class DraftAdvisor:
+                 and off_color_playables > 0
+                 and fixing_count <= off_color_playables
+             ):
+-                return 1.4, "Critical: Needs Fixing"
++                return 1.6, "Critical: Needs Fixing"
+ 
+             return 1.0, ""
+ 
