@@ -8,6 +8,8 @@ name: Deck builds
 # Run by hand: Actions > Deck builds > Run workflow.
 
 on:
+  push:
+    branches: [run/deck-score-weights]
   workflow_dispatch:
     inputs:
       sets:
