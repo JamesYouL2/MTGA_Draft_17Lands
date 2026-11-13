@@ -1,0 +1,13 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..ef72e82 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -321,7 +321,7 @@ class DraftAdvisor:
+                 self.TOTAL_PICKS / max(1, len(self.pool))
+             )
+             if projected_creatures < 13:
+-                return 1.25, "Critical: Needs Creatures"
++                return 1.18, "Critical: Needs Creatures"
+ 
+         # 2. Fixing Hunger
+         if "Land" in types or "fixing_ramp" in tags:

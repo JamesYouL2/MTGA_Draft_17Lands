@@ -1,0 +1,19 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..4e32d89 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -315,14 +315,6 @@ class DraftAdvisor:
+         tags, cmc = card.get("tags", []), get_functional_cmc(card)
+         types = card.get("types", [])
+ 
+-        # 1. Creature Quota Check
+-        if pack >= 2 and "Creature" in types:
+-            projected_creatures = self.pool_metrics["creature_count"] * (
+-                self.TOTAL_PICKS / max(1, len(self.pool))
+-            )
+-            if projected_creatures < 13:
+-                return 1.25, "Critical: Needs Creatures"
+-
+         # 2. Fixing Hunger
+         if "Land" in types or "fixing_ramp" in tags:
+             off_color_playables = self.pool_metrics.get("off_color_playables", 0)

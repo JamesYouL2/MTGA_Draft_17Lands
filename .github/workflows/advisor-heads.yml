@@ -12,7 +12,7 @@ on:
     inputs:
       patches:
         description: Patches to src/, one head each
-        default: "experiments/2026-11-12-composition-rules/heads/*.patch"
+        default: "experiments/2026-11-12-needs-sweep/heads/*.patch"
       sets:
         description: 'JSON list of set codes, e.g. ["FRA", "TDM"] (empty: all ten)'
         default: ""
@@ -40,7 +40,7 @@ jobs:
       SET: ${{ matrix.set }}
       SALT: ${{ matrix.salt }}
       DRAFTS: ${{ inputs.drafts || '3000' }}
-      PATCHES: ${{ inputs.patches || 'experiments/2026-11-12-composition-rules/heads/*.patch' }}
+      PATCHES: ${{ inputs.patches || 'experiments/2026-11-12-needs-sweep/heads/*.patch' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
