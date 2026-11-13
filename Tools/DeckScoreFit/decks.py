@@ -22,6 +22,15 @@ def deck_hash(key, salt):
     return int(hashlib.sha1(f"{salt}{key}".encode()).hexdigest()[:15], 16)
 
 
+def _counts(fields, cols):
+    # Some dumps (DMU, EOE, LTR, PIO) write counts as "1.0".
+    return {
+        name: copies
+        for i, name in cols
+        if fields[i] and (copies := int(float(fields[i])))
+    }
+
+
 def read_decks(lines, n, salt=""):
     """The n sampled decks from the dump's lines (header first), by ID."""
     lines = iter(lines)
@@ -31,6 +40,11 @@ def read_decks(lines, n, salt=""):
         (i, name[len("deck_") :])
         for i, name in enumerate(header)
         if name.startswith("deck_")
+    ]
+    sideboard_cols = [
+        (i, name[len("sideboard_") :])
+        for i, name in enumerate(header)
+        if name.startswith("sideboard_")
     ]
     kept, heap = {}, []  # heap holds (-hash, id) of the kept decks
     for line in lines:
@@ -56,12 +70,8 @@ def read_decks(lines, n, salt=""):
                 "splash_colors": fields[col["splash_colors"]],
                 "skill": fields[col["user_game_win_rate_bucket"]],
                 "experience": fields[col["user_n_games_bucket"]],
-                # Some dumps (DMU, EOE, LTR, PIO) write counts as "1.0".
-                "cards": {
-                    name: copies
-                    for i, name in deck_cols
-                    if fields[i] and (copies := int(float(fields[i])))
-                },
+                "cards": _counts(fields, deck_cols),
+                "sideboard": _counts(fields, sideboard_cols),
                 "games": 0,
                 "wins": 0,
             }

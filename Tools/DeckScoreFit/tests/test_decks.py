@@ -31,6 +31,14 @@ def game(draft, build="0", won=True, plains="9", bonder="2"):
     return [draft, build, "WU", "", "0.56", "50", str(won), plains, bonder, "0"]
 
 
+def test_keeps_the_sideboard():
+    out = io.StringIO()
+    csv.writer(out, lineterminator="\n").writerow(HEADER)
+    out.write('a,0,WU,,0.56,50,True,9,2,1.0\n')
+    d = decks.read_decks(out.getvalue().splitlines(keepends=True), 10)[0]
+    assert d["sideboard"] == {"Bonder, the Brave": 1}
+
+
 def test_groups_games_by_deck():
     lines = dump(
         [
@@ -49,6 +57,7 @@ def test_groups_games_by_deck():
         "skill": "0.56",
         "experience": "50",
         "cards": {"Plains": 9, "Bonder, the Brave": 2},
+        "sideboard": {},
         "games": 2,
         "wins": 1,
     }
