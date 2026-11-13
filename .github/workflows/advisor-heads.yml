@@ -8,6 +8,8 @@ name: Advisor heads
 # Run by hand: Actions > Advisor heads > Run workflow.
 
 on:
+  push:
+    branches: [run/fixing-above]
   workflow_dispatch:
     inputs:
       patches:
