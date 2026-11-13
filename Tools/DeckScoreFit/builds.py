@@ -210,7 +210,11 @@ class Engine:
     def versions(self):
         """{version: what it changes}. The builds always keep the blend: the
         builders read their own reference to it, not deck_scorer's."""
-        return {name: {"rating": name} for name in SCORE_VERSIONS} | VARIANT_VERSIONS
+        return (
+            {name: {"rating": name} for name in SCORE_VERSIONS}
+            | VARIANT_VERSIONS
+            | WEIGHT_VERSIONS
+        )
 
     def new_pool(self):
         self.memo.clear()
@@ -233,6 +237,8 @@ class Engine:
         self.scorer.get_card_rating = self.rating_of(version.get("rating", "blend"))
         self._apply(version)
         builds = {}
+        weights = dict(self.scorer.WEIGHTS)
+        self.scorer.WEIGHTS.update(version.get("weights", {}))
 
         def seen(update):
             data = update.get("variant_data")
@@ -242,6 +248,7 @@ class Engine:
 
         decks = self.builder.suggest_deck(pool, held, None, progress_callback=seen)
         self.scorer.get_card_rating = self.original_rating
+        self.scorer.WEIGHTS.update(weights)
         if not decks:
             return None
         shown = list(decks.values())
@@ -261,6 +268,15 @@ VARIANT_VERSIONS = {
     "no-tempo": {"tempo": False},
     "no-promotion": {"promote": False},
     "neither": {"tempo": False, "promote": False},
+}
+# The deck score's weights, changed. "app" is the app at --src as it is. See
+# experiments/2026-11-12-deck-score-weights/PROTOCOL.md.
+WEIGHT_VERSIONS = {
+    "app": {},
+    "no-domain": {"weights": {"domain_supported": 0.0}},
+    "no-missing-fixing": {"weights": {"missing_fixing": 0.0}},
+    "no-domain-or-fixing": {"weights": {"domain_supported": 0.0, "missing_fixing": 0.0}},
+    "two-colors-3.5": {"weights": {"two_colors": 3.5}},
 }
 # The same, with the simulator's penalties on. "sim" is today's app.
 SIM_VERSIONS = {

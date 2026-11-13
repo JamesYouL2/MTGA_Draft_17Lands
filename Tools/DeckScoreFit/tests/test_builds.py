@@ -110,13 +110,16 @@ def test_a_version_changes_only_the_score_not_the_builds(setup):
     app, engine, held, names = setup
     pool = builds.pool_of(app, held, a_deck(names))
     engine.new_pool()
-    blend = engine.run(pool, held, {"rating": "blend"})
+    weights = dict(engine.scorer.WEIGHTS)
+    app = engine.run(pool, held, {})
     built = len(engine.memo)
-    other = engine.run(pool, held, {"rating": "overall"})
+    other = engine.run(pool, held, {"weights": {"two_colors": 30.0}})
     # The second version builds nothing new, and scores the same builds otherwise.
     assert len(engine.memo) == built
-    assert set(blend["pairs"]) == set(other["pairs"])
-    assert blend["pairs"] != other["pairs"]
+    assert set(app["pairs"]) == set(other["pairs"])
+    assert app["pairs"] != other["pairs"]
+    # The app's weights are back afterwards.
+    assert engine.scorer.WEIGHTS == weights
     assert engine.scorer.get_card_rating is engine.original_rating
     assert engine.builder.get_card_rating is engine.original_rating
 
@@ -173,7 +176,7 @@ def test_pool_row_has_the_decks_results_and_each_versions_suggestion(setup):
     app, engine, held, names = setup
     row = builds.pool_row(app, engine, [held] * 5, a_deck(names), engine.versions())
     assert (row["id"], row["main"], row["wins"], row["games"]) == ("a:0", "WU", 3, 5)
-    assert set(row["versions"]) == set(builds.SCORE_VERSIONS) | set(builds.VARIANT_VERSIONS)
+    assert set(row["versions"]) == set(builds.SCORE_VERSIONS) | set(builds.VARIANT_VERSIONS) | set(builds.WEIGHT_VERSIONS)
     for shown in row["versions"].values():
         assert len(shown["pair"]) <= 2
         assert shown["shown"]
@@ -241,8 +244,8 @@ def test_simulator_only_runs_in_sim_versions_and_once_per_deck(setup):
         made = len(calls)
         engine.run(pool, held, {"sim": True, "promote": False})
         assert len(calls) == made
-        # 20 points over the penalty's threshold at 2.5 points each.
-        assert on["pairs"][on["pair"]] == pytest.approx(off["pairs"][on["pair"]] - 50.0)
+        # The app at this base no longer charges for the simulator's rates.
+        assert on["pairs"] == off["pairs"]
     finally:
         engine.saved["simulate_deck"] = saved
 
