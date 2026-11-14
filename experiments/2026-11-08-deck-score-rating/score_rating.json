@@ -1,0 +1,161 @@
+{
+ "pools": 928062,
+ "two_color": 724659,
+ "skipped": {
+  "pool under 35 cards": 19,
+  "card not in dataset": 11407
+ },
+ "sets": [
+  "BLB",
+  "DFT",
+  "DMU",
+  "DSK",
+  "EOE",
+  "FDN",
+  "FIN",
+  "FRA",
+  "HOB",
+  "LTR",
+  "MH3",
+  "MSH",
+  "NEO",
+  "OTJ",
+  "PIO",
+  "SOS",
+  "TDM",
+  "TLA",
+  "TMT"
+ ],
+ "changes": {
+  "overall": {
+   "pair": 15.606177173507804,
+   "deck": 18.221627434373996
+  },
+  "overall+pair": {
+   "pair": 16.62884591762188,
+   "deck": 19.239447364507974
+  },
+  "blend+pair": {
+   "pair": 12.971008402455869,
+   "deck": 13.27141936637854
+  }
+ },
+ "head_to_head": {
+  "overall": {
+   "differ": 105909,
+   "decks": 100598,
+   "decks_a": 91322,
+   "decks_b": 9276,
+   "sets": 19,
+   "rate_a": 54.79414957914095,
+   "rate_b": 53.20674479552984,
+   "effect": 1.6555671559274423,
+   "se": 0.3424489206083945,
+   "verdict": "better"
+  },
+  "overall+pair": {
+   "differ": 112513,
+   "decks": 105009,
+   "decks_a": 88048,
+   "decks_b": 16961,
+   "sets": 19,
+   "rate_a": 54.74292313640896,
+   "rate_b": 53.8191665332693,
+   "effect": 1.362486070654888,
+   "se": 0.2698566816156538,
+   "verdict": "better"
+  },
+  "blend+pair": {
+   "differ": 88770,
+   "decks": 84350,
+   "decks_a": 74036,
+   "decks_b": 10314,
+   "sets": 19,
+   "rate_a": 53.99544808834985,
+   "rate_b": 55.22588760925673,
+   "effect": -0.7100017471524716,
+   "se": 0.5147337220998037,
+   "verdict": "inconclusive"
+  }
+ },
+ "pairwise": {
+  "overall vs overall+pair": {
+   "differ": 52738,
+   "decks": 49917,
+   "decks_a": 30438,
+   "decks_b": 19479,
+   "sets": 19,
+   "rate_a": 54.19173986170809,
+   "rate_b": 53.72841626438916,
+   "effect": 0.012078717555201325,
+   "se": 0.30244792312032587,
+   "verdict": "inconclusive"
+  },
+  "overall vs blend+pair": {
+   "differ": 62409,
+   "decks": 59018,
+   "decks_a": 38671,
+   "decks_b": 20347,
+   "sets": 19,
+   "rate_a": 55.95857603689286,
+   "rate_b": 53.193869560353505,
+   "effect": 2.3435062732656715,
+   "se": 0.3814419974522837,
+   "verdict": "better"
+  },
+  "overall+pair vs blend+pair": {
+   "differ": 51880,
+   "decks": 47635,
+   "decks_a": 27500,
+   "decks_b": 20135,
+   "sets": 19,
+   "rate_a": 56.54546471401293,
+   "rate_b": 53.48979522455039,
+   "effect": 2.9140448007589272,
+   "se": 0.30419560652291866,
+   "verdict": "better"
+  }
+ },
+ "followed": {
+  "blend": {
+   "played": 82.24944422135101,
+   "effect": 1.5082159519247085,
+   "se": 0.16399828108476822
+  },
+  "overall": {
+   "played": 93.57145912767247,
+   "effect": 2.677127473014915,
+   "se": 0.14039383900971678
+  },
+  "overall+pair": {
+   "played": 92.05916161946516,
+   "effect": 2.585657401865261,
+   "se": 0.14771150607778502
+  },
+  "blend+pair": {
+   "played": 91.04282152019087,
+   "effect": 1.0689980121576013,
+   "se": 0.22164937603387388
+  }
+ },
+ "gap_slopes": {
+  "blend": {
+   "slope": -0.5109906025565107
+  },
+  "overall": {
+   "slope": -0.6649391402776349,
+   "change": -0.15394853772112424,
+   "se": 0.05927820016034245
+  },
+  "overall+pair": {
+   "slope": -0.6605091485607438,
+   "change": -0.14951854600423314,
+   "se": 0.06248166760042296
+  },
+  "blend+pair": {
+   "slope": -0.17334201753848194,
+   "change": 0.3376485850180288,
+   "se": 0.08503802264109821
+  }
+ }
+}

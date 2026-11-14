@@ -1,0 +1,166 @@
+{
+ "pools": 928062,
+ "skipped": {
+  "pool under 35 cards": 19,
+  "card not in dataset": 11407
+ },
+ "rates": {
+  "no-tempo": {
+   "pools": 928062,
+   "top": 0.1171257954748713,
+   "second": 34.54930812812075,
+   "shown": 71.4283097465471
+  },
+  "no-promotion": {
+   "pools": 928062,
+   "top": 10.299096396576953,
+   "second": 11.633705506744162,
+   "shown": 0.0
+  },
+  "neither": {
+   "pools": 928062,
+   "top": 10.403830778547123,
+   "second": 46.16997571282953,
+   "shown": 71.4283097465471
+  },
+  "sim-no-tempo": {
+   "pools": 9397,
+   "top": 65.56347770565074,
+   "second": 87.3363839523252,
+   "shown": 92.0506544641907
+  },
+  "sim-no-promotion": {
+   "pools": 9397,
+   "top": 5.884856869213579,
+   "second": 6.8851761200383095,
+   "shown": 0.0
+  },
+  "sim-neither": {
+   "pools": 9397,
+   "top": 68.62828562307119,
+   "second": 91.28445248483558,
+   "shown": 92.0506544641907
+  }
+ },
+ "first": {
+  "blend": {
+   "Safe Core": 90.04096709056076,
+   "Splash": 7.251347431529359,
+   "Good Stuff (Soup)": 2.707685477909881
+  },
+  "sim": {
+   "Safe Tempo": 60.561881451527086,
+   "Safe Core": 28.317548153666063,
+   "Splash": 8.226029583909758,
+   "Good Stuff (Soup)": 2.894540810897095
+  }
+ },
+ "penalties": {
+  "pools": 9397,
+  "top": 6722,
+  "pair": 958
+ },
+ "by_set": {
+  "BLB": {
+   "no-tempo": 0.15,
+   "no-promotion": 3.5340000000000003
+  },
+  "DFT": {
+   "no-tempo": 0.055999999999999994,
+   "no-promotion": 8.012
+  },
+  "DMU": {
+   "no-tempo": 0.02,
+   "no-promotion": 28.958000000000002
+  },
+  "DSK": {
+   "no-tempo": 0.03200064001280026,
+   "no-promotion": 6.24612492249845
+  },
+  "EOE": {
+   "no-tempo": 0.116,
+   "no-promotion": 4.594
+  },
+  "FDN": {
+   "no-tempo": 0.2700054001080021,
+   "no-promotion": 4.460089201784036
+  },
+  "FIN": {
+   "no-tempo": 0.212,
+   "no-promotion": 7.682
+  },
+  "FRA": {
+   "no-tempo": 0.026000520010400204,
+   "no-promotion": 12.014240284805696
+  },
+  "HOB": {
+   "no-tempo": 0.26001560093605613,
+   "no-promotion": 2.4821489289357364
+  },
+  "LTR": {
+   "no-tempo": 0.096,
+   "no-promotion": 5.596
+  },
+  "MH3": {
+   "no-tempo": 0.017777777777777778,
+   "no-promotion": 14.622222222222222
+  },
+  "MSH": {
+   "no-tempo": 0.09600192003840077,
+   "no-promotion": 8.922178443568871
+  },
+  "NEO": {
+   "no-tempo": 0.19400388007760155,
+   "no-promotion": 3.602072041440829
+  },
+  "OTJ": {
+   "no-tempo": 0.03600072001440029,
+   "no-promotion": 11.30822616452329
+  },
+  "PIO": {
+   "no-tempo": 0.22200000000000003,
+   "no-promotion": 14.64
+  },
+  "SOS": {
+   "no-tempo": 0.0,
+   "no-promotion": 17.044045285434255
+  },
+  "TDM": {
+   "no-tempo": 0.0,
+   "no-promotion": 25.088
+  },
+  "TLA": {
+   "no-tempo": 0.3380135205408216,
+   "no-promotion": 6.70626825073003
+  },
+  "TMT": {
+   "no-tempo": 0.05139212189002086,
+   "no-promotion": 10.759091870975542
+  }
+ },
+ "tempo_outcome": {
+  "decks": 707816,
+  "mean_nearer": -0.2718492944494049,
+  "effect": 0.3388598020949174,
+  "se": 0.11731553934500463
+ },
+ "tempo_outcome_no_quality": {
+  "decks": 707816,
+  "mean_nearer": -0.2718492944494049,
+  "effect": -1.2736463842423735,
+  "se": 0.11220812373982265
+ },
+ "promotion_outcome": {
+  "pools": 93993,
+  "decks_safe": 7767,
+  "decks_top": 51796,
+  "rate_safe": 52.182316457522,
+  "rate_top": 54.421670624174894,
+  "effect": -0.27965597273643933,
+  "se": 0.3683286717640917
+ },
+ "verdicts": {
+  "tempo": "keep",
+  "promotion": "no verdict"
+ }
+}

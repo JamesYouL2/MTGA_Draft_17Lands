@@ -1,0 +1,128 @@
+{
+ "pools": 928062,
+ "two_color": 724659,
+ "sets": [
+  "BLB",
+  "DFT",
+  "DMU",
+  "DSK",
+  "EOE",
+  "FDN",
+  "FIN",
+  "FRA",
+  "HOB",
+  "LTR",
+  "MH3",
+  "MSH",
+  "NEO",
+  "OTJ",
+  "PIO",
+  "SOS",
+  "TDM",
+  "TLA",
+  "TMT"
+ ],
+ "skipped": {
+  "pool under 35 cards": 19,
+  "card not in dataset": 11407
+ },
+ "changes": {
+  "no-domain": {
+   "pair": 0.08242983766170794,
+   "deck": 0.9348513353633702,
+   "decks_changed": 8676
+  },
+  "no-missing-fixing": {
+   "pair": 0.009051119429520872,
+   "deck": 0.01896425023328183,
+   "decks_changed": 176
+  },
+  "no-domain-or-fixing": {
+   "pair": 0.09148095709122882,
+   "deck": 0.9538155855966519,
+   "decks_changed": 8852
+  },
+  "two-colors-3.5": {
+   "pair": 0.24675075587622378,
+   "deck": 0.539726871696072,
+   "decks_changed": 5009
+  }
+ },
+ "head_to_head": {
+  "no-domain": {
+   "differ": 142,
+   "decks": 135,
+   "decks_a": 74,
+   "decks_b": 61,
+   "sets": 3,
+   "rate_a": 53.95189003436426,
+   "rate_b": 55.925925925925924,
+   "effect": null,
+   "se": null,
+   "verdict": "insufficient data"
+  },
+  "no-missing-fixing": {
+   "differ": 30,
+   "decks": 19,
+   "decks_a": 13,
+   "decks_b": 6,
+   "sets": 8,
+   "rate_a": 40.67796610169491,
+   "rate_b": 44.0,
+   "effect": null,
+   "se": null,
+   "verdict": "insufficient data"
+  },
+  "no-domain-or-fixing": {
+   "differ": 172,
+   "decks": 154,
+   "decks_a": 87,
+   "decks_b": 67,
+   "sets": 10,
+   "rate_a": 51.714285714285715,
+   "rate_b": 54.91525423728814,
+   "effect": null,
+   "se": null,
+   "verdict": "insufficient data"
+  },
+  "two-colors-3.5": {
+   "differ": 1071,
+   "decks": 772,
+   "decks_a": 407,
+   "decks_b": 365,
+   "sets": 19,
+   "rate_a": 56.763925729442974,
+   "rate_b": 55.04761904761905,
+   "effect": 0.8576364492241685,
+   "se": 1.8114756058241464,
+   "verdict": "inconclusive"
+  }
+ },
+ "followed": {
+  "app": {
+   "played": 93.56566329818577,
+   "effect": 2.665202282179073,
+   "se": 0.13638883208472535
+  },
+  "no-domain": {
+   "played": 93.56745724540784,
+   "effect": 2.661748436371403,
+   "se": 0.1362958904713577
+  },
+  "no-missing-fixing": {
+   "played": 93.56662926976689,
+   "effect": 2.664219054979136,
+   "se": 0.136177121537425
+  },
+  "no-domain-or-fixing": {
+   "played": 93.56842321698896,
+   "effect": 2.6607647348330006,
+   "se": 0.1360764669037283
+  },
+  "two-colors-3.5": {
+   "played": 93.57145912767247,
+   "effect": 2.6771274730149144,
+   "se": 0.14039383900971403
+  }
+ }
+}
