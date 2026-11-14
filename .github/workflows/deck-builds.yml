@@ -2,8 +2,9 @@ name: Deck builds
 
 # Runs the real deck builder on real pools under versions of it, with win rates
 # that leave each pool's own games out, and reports how the suggestions change
-# and how they did. See experiments/2026-11-08-deck-score-rating/PROTOCOL.md and
-# experiments/2026-11-08-deck-variants/PROTOCOL.md.
+# and how they did. Also runs the Custom Deck window's Auto lands and Auto
+# optimize on the played decks. See
+# experiments/2026-11-13-builder-leftovers/PROTOCOL.md.
 #
 # Run by hand: Actions > Deck builds > Run workflow.
 
@@ -19,9 +20,9 @@ on:
       salt:
         description: Any text; changes which decks are sampled
         default: ""
-      sim_pools:
-        description: Pools per set that also run with the simulator (under a second each)
-        default: "0"
+      button_decks:
+        description: Sampled decks per set that go through the two buttons
+        default: "5000"
 
 permissions:
   contents: read
@@ -39,7 +40,7 @@ jobs:
       SET: ${{ matrix.set }}
       DECKS: ${{ inputs.decks || '50000' }}
       SALT: ${{ inputs.salt }}
-      SIM_POOLS: ${{ inputs.sim_pools || '0' }}
+      BUTTON_DECKS: ${{ inputs.button_decks || '5000' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -58,11 +59,15 @@ jobs:
       - name: Read out-of-sample win rates
         run: poetry run python Tools/DeckScoreFit/games.py --games games.csv.gz --decks decks.json.gz --out games.json.gz
       - name: Run the deck builder
-        run: poetry run python Tools/DeckScoreFit/builds.py --src . --decks decks.json.gz --games games.json.gz --dataset dataset.json.gz --set "$SET" --sim-pools "$SIM_POOLS" --out "results/$SET.json.gz"
+        run: poetry run python Tools/DeckScoreFit/builds.py --src . --decks decks.json.gz --games games.json.gz --dataset dataset.json.gz --set "$SET" --out "results/$SET.json.gz"
+      - name: Run the two buttons
+        run: poetry run python Tools/DeckScoreFit/buttons.py --src . --decks decks.json.gz --games games.json.gz --dataset dataset.json.gz --set "$SET" --first "$BUTTON_DECKS" --out "buttons/$SET.json.gz"
       - uses: actions/upload-artifact@v4
         with:
           name: builds-${{ matrix.set }}
-          path: results/
+          path: |
+            results/
+            buttons/
           compression-level: 0
 
   report:
@@ -80,19 +85,29 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: builds-*
-          path: results
+          path: .
           merge-multiple: true
-      - name: Whether the deck score's weights change the suggestion
+      - name: Whether Tempo and safe-deck promotion earn their place
         shell: bash  # with pipefail, so a failed report fails the step
         run: |
           {
-            echo "# Deck score weights at \`${GITHUB_SHA::7}\`"
+            echo "# Deck variants at \`${GITHUB_SHA::7}\`"
             echo
-            poetry run python Tools/DeckScoreFit/score_weights.py results/*.json.gz --json score_weights.json
-          } | tee score_weights.md >> "$GITHUB_STEP_SUMMARY"
+            poetry run python Tools/DeckScoreFit/deck_variants.py results/*.json.gz --json deck_variants.json
+          } | tee deck_variants.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Whether the two buttons earn their place
+        shell: bash
+        run: |
+          {
+            echo "# Auto lands and Auto optimize at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python Tools/DeckScoreFit/buttons_report.py buttons/*.json.gz --json buttons.json
+          } | tee buttons.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
-          name: deck-score-weights
+          name: builder-leftovers
           path: |
-            score_weights.md
-            score_weights.json
+            deck_variants.md
+            deck_variants.json
+            buttons.md
+            buttons.json

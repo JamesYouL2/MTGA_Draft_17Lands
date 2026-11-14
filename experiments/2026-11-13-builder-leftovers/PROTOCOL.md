@@ -141,3 +141,23 @@ and this can't see whether users like them.
   `exp/mana-penalties` found didn't earn a place in the score.
 - **Played decks aren't what users optimize.** A user may press the button on a rough
   draft of a deck, where it could do more good than on a finished one.
+
+## Amendment, before the run on CI
+
+After the above was committed (`fc429e6`), one dry run through both parts, on 188 decks
+and 300 pools from the first 30,000 rows of FRA's dump, printed numbers. That part of a
+dump has too few games for most cards to be rated, so I don't read its numbers as
+evidence, but predictions 1 to 7 aren't blind to it. They stand as written. What it
+printed: the simulation differed from the rule in 86.2% of decks, by one land in only
+35.8% of those; Auto optimize changed 98.4% of decks; a Tempo build came first in none
+of 300 pools; promotion changed the top deck in 25.00%.
+
+**It corrects one measure.** I wrote that the score can't see a swap that moves the land
+count. It can: "Play 18 Lands" cuts the deck's worst spell, and the score is the mean
+over the spells left, so it rises (+0.39 win rate points in the dry run) for a reason
+that has nothing to do with the eighteenth land. So the deciding score change counts
+"Play 18 Lands" and "Play 16 Lands" as zero. The table by swap still shows them as
+scored.
+
+**One wording fix.** Part 2 takes the first 5,000 sampled decks a set and uses those of
+40 cards with basics, so it's somewhat fewer than 5,000 a set.
