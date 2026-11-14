@@ -165,7 +165,7 @@ scored.
 ## Second amendment, after the first run and before the second
 
 The first run (43537685645) is in. On Auto lands' simulation the rule says remove, but
-its outcome is +0.22 at 1.97 SEs, a hair under the 2 that would have said keep. I won't
+its outcome is +0.22 at 1.99 SEs, a hair under the 2 that would have said keep. I won't
 recommend a removal on that margin. So a second run, decided after seeing the first:
 the same workflow with salt `two` and 50,000 decks a set through the buttons, ten times
 as many, on a different sample of decks. **Auto lands' verdict is read from the second
