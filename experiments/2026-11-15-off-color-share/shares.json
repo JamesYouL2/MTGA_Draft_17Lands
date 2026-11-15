@@ -1,0 +1,73 @@
+{
+ "source": "Tools/PickFit/flags.json on fork branch exp-three-color: share of 17Lands Premier Draft games played by decks of 3+ colors, on the set's first day and over the whole format",
+ "sets": {
+  "TDM": {
+   "day1": 0.8133,
+   "full": 0.7785
+  },
+  "DMU": {
+   "day1": 0.4263,
+   "full": 0.4516
+  },
+  "OTJ": {
+   "day1": 0.1707,
+   "full": 0.2278
+  },
+  "FRA": {
+   "day1": 0.1508,
+   "full": 0.2255
+  },
+  "SOS": {
+   "day1": 0.1465,
+   "full": 0.2101
+  },
+  "TLA": {
+   "day1": 0.1485,
+   "full": 0.1812
+  },
+  "FIN": {
+   "day1": 0.1188,
+   "full": 0.1438
+  },
+  "DFT": {
+   "day1": 0.0903,
+   "full": 0.1332
+  },
+  "MSH": {
+   "day1": 0.097,
+   "full": 0.1289
+  },
+  "DSK": {
+   "day1": 0.0961,
+   "full": 0.1131
+  },
+  "LTR": {
+   "day1": 0.0764,
+   "full": 0.1041
+  },
+  "TMT": {
+   "day1": 0.0673,
+   "full": 0.0937
+  },
+  "NEO": {
+   "day1": 0.052,
+   "full": 0.0908
+  },
+  "EOE": {
+   "day1": 0.0527,
+   "full": 0.0705
+  },
+  "BLB": {
+   "day1": 0.0456,
+   "full": 0.0531
+  },
+  "FDN": {
+   "day1": 0.0306,
+   "full": 0.0378
+  },
+  "HOB": {
+   "day1": 0.0297,
+   "full": 0.0347
+  }
+ }
+}

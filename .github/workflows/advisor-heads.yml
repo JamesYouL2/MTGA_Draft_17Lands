@@ -3,7 +3,7 @@ name: Advisor heads
 # Replays 17Lands Premier Draft picks through the advisor and through a patched
 # copy of it for each head, on ratings without the replayed drafts' games. All
 # heads share one job per set and sample, so they're compared on the same drafts
-# and the same ratings. See experiments/2026-11-15-lane-by-count/PROTOCOL.md.
+# and the same ratings. See experiments/2026-11-15-off-color-share/PROTOCOL.md.
 #
 # Run by hand: Actions > Advisor heads > Run workflow.
 
@@ -12,7 +12,7 @@ on:
     inputs:
       patches:
         description: Patches to src/, one head each
-        default: "experiments/2026-11-15-lane-by-count/heads/*.patch"
+        default: "experiments/2026-11-15-off-color-share/heads/*.patch"
       sets:
         description: 'JSON list of set codes, e.g. ["FRA", "TDM"] (empty: all ten)'
         default: ""
@@ -40,7 +40,7 @@ jobs:
       SET: ${{ matrix.set }}
       SALT: ${{ matrix.salt }}
       DRAFTS: ${{ inputs.drafts || '3000' }}
-      PATCHES: ${{ inputs.patches || 'experiments/2026-11-15-lane-by-count/heads/*.patch' }}
+      PATCHES: ${{ inputs.patches || 'experiments/2026-11-15-off-color-share/heads/*.patch' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -90,7 +90,7 @@ jobs:
     needs: replay
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -110,9 +110,17 @@ jobs:
             echo
             poetry run python experiments/2026-11-08-pick-multipliers/heads.py results --json heads.json
           } | tee heads.md >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo
+            echo "# By set"
+            echo
+            poetry run python experiments/2026-11-15-off-color-share/by_set.py results --json by_set.json
+          } | tee by_set.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: heads-report
           path: |
             heads.md
             heads.json
+            by_set.md
+            by_set.json
