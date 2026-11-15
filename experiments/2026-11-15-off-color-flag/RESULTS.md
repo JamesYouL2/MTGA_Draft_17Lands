@@ -67,10 +67,8 @@ three-color sets with 17Lands dumps and no app dataset; building those two with
 there, the flag has three sets behind it. If it doesn't, DMU is an exception and the
 penalty stays as it is.
 
-Separately, what DMU and TMT share that TDM lacks isn't known. DMU had many off-color
-kicker costs, which the pip count may read as off-color when the card is castable
-without them. If that is the cause, the fix is in how pips are counted, not a set flag.
-I haven't checked this.
+Separately, what DMU and TMT share that TDM lacks isn't known, and I haven't looked.
+If it is something about their cards, the fix may not be a set flag at all.
 
 ## Notes on the runs
 
