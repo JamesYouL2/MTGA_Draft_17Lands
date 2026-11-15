@@ -25,6 +25,26 @@ class SetMetrics:
         self._color_metrics: dict = {}
         self._digits: int = digits
         self.generate_metrics(dataset)
+        self.three_color_share: float = self._three_color_share(dataset)
+
+    @staticmethod
+    def _three_color_share(dataset: Dataset) -> float:
+        """The share of the set's games played by decks of three or more colors.
+
+        Each card's games are counted in every deck color group, so a group's
+        total is in proportion to its games. 0.0 without game counts.
+        """
+        games = three = 0
+        for card in (dataset.get_card_ratings() or {}).values() if dataset else ():
+            for colors, stats in card.get(DATA_FIELD_DECK_COLORS, {}).items():
+                if colors == "All Decks":
+                    continue
+                # Server datasets count games as game_count, app-built ones as ngp.
+                count = stats.get("game_count") or stats.get("ngp") or 0
+                games += count
+                if len(colors) >= 3:
+                    three += count
+        return three / games if games else 0.0
 
     def get_metrics(self, color: str, field: str) -> Tuple[float, float]:
         """

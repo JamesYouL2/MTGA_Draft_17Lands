@@ -185,3 +185,25 @@ def test_sample_count_tracks_cards_with_data(otj_premier, missing_set):
     assert 0 < pair <= all_decks
     assert missing_set.get_sample_count("WU", DATA_FIELD_GIHWR) == 0
     assert otj_premier.get_sample_count("WU", "not-a-field") == 0
+
+
+def test_three_color_share_counts_games_by_deck_colors(mkm_premier, missing_set):
+    from unittest.mock import MagicMock
+
+    def card(two, three):
+        return {
+            "name": "A",
+            "deck_colors": {
+                "All Decks": {"game_count": two + three},
+                "WU": {"game_count": two},
+                "WUB": {"game_count": three},
+            },
+        }
+
+    dataset = MagicMock()
+    dataset.get_card_ratings.return_value = {"1": card(60, 20), "2": card(15, 5)}
+    assert SetMetrics(dataset).three_color_share == pytest.approx(0.25)
+
+    # App-built datasets name the count ngp. Karlov Manor is a two-color set.
+    assert 0 < mkm_premier.three_color_share < 0.3
+    assert missing_set.three_color_share == 0.0

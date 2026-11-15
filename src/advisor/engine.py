@@ -38,6 +38,16 @@ class DraftAdvisor:
     ARCH_RAMP_PICKS = 15
     ARCH_WEIGHT_START = 0.6
     ARCH_WEIGHT_RAMP = 0.7
+    # In a set where decks of three or more colors play this share of the
+    # games, an off-color card costs less: every off-color multiplier is raised
+    # to THREE_COLOR_OFF_COLOR_POWER, so 0.05 becomes 0.22 and 0.3 becomes 0.55.
+    # Replaying 17Lands drafts on held-out ratings, following the softer
+    # penalty went with more wins in Khans of Tarkir, Streets of New Capenna
+    # and Dominaria United (shares of 86%, 69% and 47%), made no difference in
+    # Tarkir: Dragonstorm (79%), and went with slightly fewer in the 15 sets
+    # tested under 25%. No set tested is between 25% and 47%.
+    THREE_COLOR_SET_SHARE = 0.3
+    THREE_COLOR_OFF_COLOR_POWER = 0.5
     # Name the archetype in a card's reasons once it moves the card's score by
     # this many points (15 points is one standard deviation of win rate).
     ARCH_REASON_POINTS = 5.0
@@ -63,6 +73,11 @@ class DraftAdvisor:
             else "All Decks"
         )
         self.active_colors = self.main_colors
+
+        share = getattr(self.metrics, "three_color_share", 0.0)
+        self.three_color_set = (
+            isinstance(share, (int, float)) and share >= self.THREE_COLOR_SET_SHARE
+        )
 
         # 3. Analyze Pool Needs
         self.fixing_map = count_fixing(self.pool)
@@ -160,6 +175,8 @@ class DraftAdvisor:
                 cast_mult, cast_reason = self._calculate_castability_v5(
                     card, pack_number, effective_pick, z_score
                 )
+                if self.three_color_set:
+                    cast_mult **= self.THREE_COLOR_OFF_COLOR_POWER
                 if cast_reason:
                     reasons.append(cast_reason)
 
