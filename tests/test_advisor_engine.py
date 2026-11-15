@@ -407,3 +407,32 @@ def test_pack_one_has_no_off_color_penalty(mock_metrics):
     # From pack 2 it applies as before.
     card = {"colors": ["B"], "mana_cost": "{1}{B}"}
     assert advisor._calculate_castability_v5(card, 2, 1, 0.0) == (0.05, "Off-Color")
+
+
+@pytest.mark.parametrize("share,expected", [(0.1, 0.05), (0.3, 0.05**0.5), (0.8, 0.05**0.5)])
+def test_off_color_cards_cost_less_in_three_color_sets(mock_metrics, share, expected):
+    """From a 30% share of three-color decks, off-color multipliers are at
+    their square root; on-color cards are untouched."""
+
+    def card(name, color):
+        return {
+            "name": name,
+            "colors": [color],
+            "mana_cost": "{1}{%s}" % color,
+            "types": ["Creature"],
+            "cmc": 2,
+            "deck_colors": {"All Decks": {"gihwr": 58.0}},
+        }
+
+    pool = [card(f"W{i}", "W") for i in range(8)] + [card(f"U{i}", "U") for i in range(8)]
+    pack = [card("On", "W"), card("Off", "R")]
+
+    def scores(three_color_share):
+        mock_metrics.three_color_share = three_color_share
+        recs = DraftAdvisor(mock_metrics, pool).evaluate_pack(pack, 3, current_pack=2)
+        return {r.card_name: r.contextual_score for r in recs}
+
+    plain, flagged = scores(0.0), scores(share)
+    assert flagged["On"] == plain["On"]
+    # Scores are rounded to a tenth, so compare the ratio loosely.
+    assert flagged["Off"] / plain["Off"] == pytest.approx(expected / 0.05, rel=0.05)
