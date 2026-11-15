@@ -3,7 +3,7 @@ name: Advisor heads
 # Replays 17Lands Premier Draft picks through the advisor and through a patched
 # copy of it for each head, on ratings without the replayed drafts' games. All
 # heads share one job per set and sample, so they're compared on the same drafts
-# and the same ratings. See experiments/2026-11-15-off-color-flag/PROTOCOL.md.
+# and the same ratings. See experiments/2026-11-15-flag-snc-ktk/PROTOCOL.md.
 #
 # Run by hand: Actions > Advisor heads > Run workflow.
 
@@ -54,8 +54,13 @@ jobs:
             "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
           curl -fsSL --retry 3 -o games.csv.gz \
             "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
-          curl -fsSL --retry 3 -o dataset.json.gz \
-            "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+          # Sets the daily ETL never covered have a dataset in the experiment's folder.
+          if [ -f "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" ]; then
+            cp "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" dataset.json.gz
+          else
+            curl -fsSL --retry 3 -o dataset.json.gz \
+              "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+          fi
       - name: Sample drafts and hold them out of the ratings
         run: |
           poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts "$DRAFTS" --salt "$SALT" --out drafts.json.gz

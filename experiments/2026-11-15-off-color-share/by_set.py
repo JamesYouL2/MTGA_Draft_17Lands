@@ -21,6 +21,11 @@ C, R = H.C, H.R
 HIGH = 0.2  # a first-day share at or above this is a high-share set
 
 
+def share_of(entry):
+    """A set's first-day share, or the app's share where that wasn't worked out."""
+    return entry.get("day1", entry.get("app"))
+
+
 def line(x, y, se):
     """Weighted least squares of y on x: (slope, its SE), weights 1 / se^2."""
     x, y, w = np.asarray(x), np.asarray(y), 1.0 / np.asarray(se) ** 2
@@ -37,9 +42,9 @@ def measure(data, shares):
         return C.change(frame, idx), R.bootstrap(lambda i: C.change(frame, idx[i]), len(idx))
 
     sets = {}
-    for code in sorted(set(codes), key=lambda s: -shares[s]["day1"]):
+    for code in sorted(set(codes), key=lambda s: -share_of(shares[s])):
         idx = np.flatnonzero(codes == code)
-        sets[code] = {"share": shares[code]["day1"], "events": len(idx)}
+        sets[code] = {"share": share_of(shares[code]), "events": len(idx)}
         sets[code]["change"], sets[code]["se"] = change(idx)
 
     def fit(leave_out=()):
@@ -48,7 +53,7 @@ def measure(data, shares):
             return None
         return line(*([sets[s][k] for s in keep] for k in ("share", "change", "se")))
 
-    high = np.array([shares[c]["day1"] >= HIGH for c in codes])
+    high = np.array([share_of(shares[c]) >= HIGH for c in codes])
     return {
         "sets": sets,
         "slope": fit(),
