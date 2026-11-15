@@ -1,0 +1,71 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..dd1b95b 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -220,53 +220,20 @@ class DraftAdvisor:
+         return sorted(recommendations, key=lambda x: x.contextual_score, reverse=True)
+ 
+     def _identify_main_colors(self) -> Tuple[List[str], Dict[str, float]]:
+-        color_weights, color_counts = (
+-            {c: 0.0 for c in constants.CARD_COLORS},
+-            {c: 0 for c in constants.CARD_COLORS},
+-        )
+-        playable_threshold, total_pool_size = (
+-            self.global_mean - self.global_std,
+-            len(self.pool),
+-        )
+-        for idx, c in enumerate(self.pool):
+-            try:
+-                colors = c.get("colors", [])
+-                wr = float(
+-                    c.get("deck_colors", {}).get("All Decks", {}).get("gihwr", 0.0)
+-                )
+-                if "Land" not in c.get("types", []):
+-                    for col in colors:
+-                        color_counts[col] += 1
+-                if wr < playable_threshold:
+-                    continue
+-                base_points = max(
+-                    0.2, 1.0 + 2.0 * ((wr - self.global_mean) / self.global_std)
+-                )
+-                recency_mult = 1.0 + (2.0 * (idx / max(1, total_pool_size)))
+-                for color in colors:
+-                    if color in color_weights:
+-                        color_weights[color] += base_points * recency_mult
+-            except:
++        # The lane is the two colors with the most nonland cards in the pool.
++        # Ties go to the color picked first.
++        color_counts = {c: 0 for c in constants.CARD_COLORS}
++        seen = []
++        for c in self.pool:
++            if "Land" in c.get("types", []):
+                 continue
+-        sorted_w = sorted(color_weights.items(), key=lambda x: x[1], reverse=True)
+-        main_colors = []
+-        if total_pool_size >= 15 and sum(color_counts.values()) > 5:
+-            threshold = sum(color_counts.values()) * 0.15
+-            leader_set = [
+-                v[0]
+-                for v in sorted(color_counts.items(), key=lambda x: x[1], reverse=True)[
+-                    :2
+-                ]
+-                if v[1] > 0
+-            ]
+-            for col, weight in sorted_w:
+-                if col in leader_set or color_counts[col] >= threshold:
+-                    main_colors.append(col)
+-        else:
+-            for col, weight in sorted_w:
+-                if weight >= 2.5:
+-                    main_colors.append(col)
+-        return main_colors[:3], color_counts
++            for col in c.get("colors", []):
++                if col in color_counts:
++                    color_counts[col] += 1
++                    if col not in seen:
++                        seen.append(col)
++        main_colors = sorted(seen, key=lambda col: -color_counts[col])
++        return main_colors[:2], color_counts
+ 
+     def _analyze_pool(self) -> Dict[str, Any]:
+         early_plays, hard_removal_count, fixing_count = 0, 0, 0

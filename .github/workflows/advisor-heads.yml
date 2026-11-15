@@ -3,7 +3,7 @@ name: Advisor heads
 # Replays 17Lands Premier Draft picks through the advisor and through a patched
 # copy of it for each head, on ratings without the replayed drafts' games. All
 # heads share one job per set and sample, so they're compared on the same drafts
-# and the same ratings. See experiments/2026-11-08-pick-multipliers/PROTOCOL.md.
+# and the same ratings. See experiments/2026-11-15-lane-by-count/PROTOCOL.md.
 #
 # Run by hand: Actions > Advisor heads > Run workflow.
 
@@ -12,7 +12,7 @@ on:
     inputs:
       patches:
         description: Patches to src/, one head each
-        default: "experiments/2026-11-12-composition-rules/heads/*.patch"
+        default: "experiments/2026-11-15-lane-by-count/heads/*.patch"
       sets:
         description: 'JSON list of set codes, e.g. ["FRA", "TDM"] (empty: all ten)'
         default: ""
@@ -40,7 +40,7 @@ jobs:
       SET: ${{ matrix.set }}
       SALT: ${{ matrix.salt }}
       DRAFTS: ${{ inputs.drafts || '3000' }}
-      PATCHES: ${{ inputs.patches || 'experiments/2026-11-12-composition-rules/heads/*.patch' }}
+      PATCHES: ${{ inputs.patches || 'experiments/2026-11-15-lane-by-count/heads/*.patch' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
