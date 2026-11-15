@@ -29,6 +29,7 @@ to the app that breaks the harness fails there.
 
 Card ratings come from the whole format, including the replayed drafts, so the
 numbers compare advisors with each other; they aren't out-of-sample accuracy.
+The `holdout` option also replays on ratings without the replayed drafts' games.
 
 ## On GitHub
 
@@ -44,7 +45,10 @@ test, and set:
   all ten;
 - `drafts`: drafts per set (default 3000);
 - `salt`: any text, to sample different drafts. Use a new salt to confirm a
-  result on drafts it wasn't tuned on.
+  result on drafts it wasn't tuned on;
+- `holdout`: also replay on ratings rebuilt from the set's game data, once with
+  the replayed drafts' games in them and once without. Rebuilding changes the
+  ratings in its own right, so the leak is the difference between those two.
 
 ## Locally
 
@@ -69,6 +73,7 @@ one copy of the advisor takes about 20 seconds.
 |---|---|
 | `sample.py` | Picks drafts from a dump by a hash of their ID, so a sample is repeatable. Standard library only. |
 | `replay.py` | Runs one copy of the app (`--src`) over the sampled drafts: the advisor at every pick, the deck score on the final pool. |
+| `holdout.py` | Rebuilds the dataset's win rates from a game dump, with and without the sampled drafts. Standard library only. |
 | `report.py` | Pairs the base and head results by draft and writes the Markdown report. Needs only NumPy. |
 | `tests/` | Tests for the three scripts: `poetry run pytest Tools/AdvisorReplay/tests`. |
 

@@ -1,0 +1,19 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 3184224..c66137a 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -525,13 +525,10 @@ class DraftAdvisor:
+             arch_stats = stats.get(self.main_archetype, {})
+             arch_wr = float(arch_stats.get("gihwr", global_wr))
+ 
+-            # BAYESIAN SMOOTHING: Confidently blend global & archetype win rates based on sample size
+             samples = int(arch_stats.get("samples", 0))
+-            confidence = min(1.0, samples / 1000.0)
+-            trusted_arch_wr = (arch_wr * confidence) + (global_wr * (1.0 - confidence))
+ 
+             blended_wr = (
+-                (global_wr * (1.0 - arch_weight)) + (trusted_arch_wr * arch_weight)
++                (global_wr * (1.0 - arch_weight)) + (arch_wr * arch_weight)
+                 if (arch_wr > 0 and samples >= 10)
+                 else global_wr
+             )
