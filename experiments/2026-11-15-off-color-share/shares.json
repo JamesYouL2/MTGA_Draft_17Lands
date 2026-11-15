@@ -1,73 +1,90 @@
 {
- "source": "Tools/PickFit/flags.json on fork branch exp-three-color: share of 17Lands Premier Draft games played by decks of 3+ colors, on the set's first day and over the whole format",
+ "source": "Tools/PickFit/flags.json on fork branch exp-three-color: share of 17Lands Premier Draft games played by decks of 3+ colors, on the set's first day and over the whole format. TMT corrected on 2026-11-15 from the game dump (it was 0.0673 and 0.0937 in that file). app: the same share from the app's dataset, by each card's game_count in each deck color group",
  "sets": {
   "TDM": {
    "day1": 0.8133,
-   "full": 0.7785
+   "full": 0.7785,
+   "app": 0.7895
   },
   "DMU": {
    "day1": 0.4263,
-   "full": 0.4516
+   "full": 0.4516,
+   "app": 0.4702
   },
   "OTJ": {
    "day1": 0.1707,
-   "full": 0.2278
+   "full": 0.2278,
+   "app": 0.2381
   },
   "FRA": {
    "day1": 0.1508,
-   "full": 0.2255
+   "full": 0.2255,
+   "app": 0.2417
   },
   "SOS": {
    "day1": 0.1465,
-   "full": 0.2101
+   "full": 0.2101,
+   "app": 0.2227
   },
   "TLA": {
    "day1": 0.1485,
-   "full": 0.1812
+   "full": 0.1812,
+   "app": 0.1904
   },
   "FIN": {
    "day1": 0.1188,
-   "full": 0.1438
+   "full": 0.1438,
+   "app": 0.1535
   },
   "DFT": {
    "day1": 0.0903,
-   "full": 0.1332
+   "full": 0.1332,
+   "app": 0.1391
   },
   "MSH": {
    "day1": 0.097,
-   "full": 0.1289
+   "full": 0.1289,
+   "app": 0.1342
   },
   "DSK": {
    "day1": 0.0961,
-   "full": 0.1131
+   "full": 0.1131,
+   "app": 0.1193
   },
   "LTR": {
    "day1": 0.0764,
-   "full": 0.1041
+   "full": 0.1041,
+   "app": 0.1068
   },
   "TMT": {
-   "day1": 0.0673,
-   "full": 0.0937
+   "day1": 0.1347,
+   "full": 0.2112,
+   "app": 0.2274
   },
   "NEO": {
    "day1": 0.052,
-   "full": 0.0908
+   "full": 0.0908,
+   "app": 0.0932
   },
   "EOE": {
    "day1": 0.0527,
-   "full": 0.0705
+   "full": 0.0705,
+   "app": 0.072
   },
   "BLB": {
    "day1": 0.0456,
-   "full": 0.0531
+   "full": 0.0531,
+   "app": 0.0542
   },
   "FDN": {
    "day1": 0.0306,
-   "full": 0.0378
+   "full": 0.0378,
+   "app": 0.0397
   },
   "HOB": {
    "day1": 0.0297,
-   "full": 0.0347
+   "full": 0.0347,
+   "app": 0.0346
   }
  }
 }

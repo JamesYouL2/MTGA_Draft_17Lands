@@ -1,0 +1,50 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..4ab49c8 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -64,6 +64,11 @@ class DraftAdvisor:
+         )
+         self.active_colors = self.main_colors
+ 
++        # Off-color cards cost less where three-color decks are common: every
++        # off-color multiplier is at its square root from a 30% share.
++        share = float(getattr(self.metrics, "three_color_share", 0.0) or 0.0)
++        self.off_color_power = 0.5 if share >= 0.3 else 1.0
++
+         # 3. Analyze Pool Needs
+         self.fixing_map = count_fixing(self.pool)
+         self.pool_metrics = self._analyze_pool()
+@@ -160,6 +165,7 @@ class DraftAdvisor:
+                 cast_mult, cast_reason = self._calculate_castability_v5(
+                     card, pack_number, effective_pick, z_score
+                 )
++                cast_mult = cast_mult ** self.off_color_power
+                 if cast_reason:
+                     reasons.append(cast_reason)
+ 
+diff --git a/src/set_metrics.py b/src/set_metrics.py
+index d862a2e..63a62a8 100644
+--- a/src/set_metrics.py
++++ b/src/set_metrics.py
+@@ -25,6 +25,21 @@ class SetMetrics:
+         self._color_metrics: dict = {}
+         self._digits: int = digits
+         self.generate_metrics(dataset)
++        self.three_color_share: float = self._three_color_share(dataset)
++
++    @staticmethod
++    def _three_color_share(dataset: Dataset) -> float:
++        """The share of the set's games played by decks of three or more colors."""
++        games = three = 0
++        for card in (dataset.get_card_ratings() or {}).values() if dataset else ():
++            for colors, stats in card.get(DATA_FIELD_DECK_COLORS, {}).items():
++                if colors == "All Decks":
++                    continue
++                count = stats.get("game_count") or 0
++                games += count
++                if len(colors) >= 3:
++                    three += count
++        return three / games if games else 0.0
+ 
+     def get_metrics(self, color: str, field: str) -> Tuple[float, float]:
+         """

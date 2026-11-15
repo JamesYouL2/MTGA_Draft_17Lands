@@ -44,6 +44,8 @@ def measure(data, shares):
 
     def fit(leave_out=()):
         keep = [s for s in sets if s not in leave_out]
+        if len(keep) < 3:
+            return None
         return line(*([sets[s][k] for s in keep] for k in ("share", "change", "se")))
 
     high = np.array([shares[c]["day1"] >= HIGH for c in codes])
@@ -52,11 +54,13 @@ def measure(data, shares):
         "slope": fit(),
         "without": {s: fit((s,)) for s in ("TDM", "DMU") if s in sets},
         "high": change(np.flatnonzero(high)) if high.any() else None,
-        "low": change(np.flatnonzero(~high)),
+        "low": change(np.flatnonzero(~high)) if not high.all() else None,
     }
 
 
 def cell(pair, scale=1.0):
+    if not pair:
+        return ""
     return f"{scale * pair[0]:+.4f} ({scale * pair[1]:.4f}), {pair[0] / pair[1]:+.1f} SEs"
 
 
@@ -70,7 +74,7 @@ def report(results):
     for head, m in results.items():
         without = [cell(m["without"][s], 0.1) if s in m["without"] else "" for s in ("TDM", "DMU")]
         print(f"| {head} | {cell(m['slope'], 0.1)} | {without[0]} | {without[1]} "
-              f"| {cell(m['high']) if m['high'] else ''} | {cell(m['low'])} |")
+              f"| {cell(m['high'])} | {cell(m['low'])} |")
     heads = list(results)
     print("\n## By set\n")
     print("| set | first-day share | events | " + " | ".join(heads) + " |")

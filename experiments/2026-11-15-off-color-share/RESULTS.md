@@ -68,3 +68,23 @@ gets the share on a set's first day, and why TMT's differs.
 
 As the protocol says. The line leans on TDM and DMU. Leaving either out keeps the sign,
 but without TDM the slope is at 2.1 SEs.
+
+## Correction, after the write-up above
+
+TMT's share in `shares.json` was wrong. The file it came from had 6.7% for the first
+day and 9.4% for the format; the game dump gives 13.5% and 21.1%, and the app's dataset
+22.7%. The other 16 sets' format shares are within a few percent of the app's. With TMT
+corrected, the verdicts don't change and the line is a little stronger:
+
+| head | line per 10 points of share | without TDM | without DMU |
+|---|---|---|---|
+| `softer` | -0.0026 (0.0008), 3.4 SEs | -0.0038 (0.0015), 2.5 SEs | -0.0026 (0.0008), 3.1 SEs |
+| `harsher` | +0.0012 (0.0007), 1.9 SEs | +0.0012 (0.0011) | +0.0016 (0.0007) |
+| `third-color` | -0.0013 (0.0015), 0.8 SEs | +0.0039 (0.0027) | -0.0032 (0.0017) |
+
+TMT is still off the line: `softer` is better there by 0.0250 at a 13.5% first-day
+share, where the line expects about no change. `by_set.md` and `by_set.json` are as
+run, with the old share. `shares.json` now has the corrected one, and each set's share
+from the app's dataset.
+
+The flag test is `experiments/2026-11-15-off-color-flag`.
