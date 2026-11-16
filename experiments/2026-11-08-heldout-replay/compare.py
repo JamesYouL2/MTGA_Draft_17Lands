@@ -50,9 +50,41 @@ def regret_frame(data):
     return wins, R.controls(base, [k[0] for k in keys]), regret("base"), regret("head"), keys
 
 
-def change(frame, idx):
+_CODES = {}
+
+
+def set_codes(keys):
+    """Each key's set as an integer, worked out once per list of keys."""
+    if id(keys) not in _CODES:
+        names = sorted({k[0] for k in keys})
+        _CODES[id(keys)] = (keys, np.array([names.index(k[0]) for k in keys]), len(names))
+    return _CODES[id(keys)][1:]
+
+
+def within_set_z(x, codes, n_sets):
+    """x as z-scores within each set: less the set's mean, over the set's own SD."""
+    count = np.maximum(np.bincount(codes, minlength=n_sets), 1)
+    mean = np.bincount(codes, x, n_sets) / count
+    sd = np.sqrt(np.bincount(codes, (x - mean[codes]) ** 2, n_sets) / count)
+    sd[sd == 0] = 1.0
+    return (x - mean[codes]) / sd[codes]
+
+
+def pooled_change(frame, idx):
+    """The change with regret divided by its spread over every draft, as it was read
+    until 2026-11-16. That spread includes the gaps between sets' regret levels, so a
+    head that moves regret in a few sets rescales all of them. Kept for comparison."""
     wins, ctrl, base, head, _ = frame
     return R.wins_slope(head[idx], wins[idx], ctrl[idx]) - R.wins_slope(base[idx], wins[idx], ctrl[idx])
+
+
+def change(frame, idx):
+    """Head's regret slope minus base's, in event wins per SD of regret within a set."""
+    wins, ctrl, base, head, keys = frame
+    codes, n_sets = set_codes(keys)
+    c = codes[idx]
+    slope = lambda x: R.wins_slope(within_set_z(x[idx], c, n_sets), wins[idx], ctrl[idx])
+    return slope(head) - slope(base)
 
 
 def top1(data):
