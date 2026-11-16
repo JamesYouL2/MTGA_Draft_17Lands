@@ -39,7 +39,7 @@ corrected ones, with the first reading beside them.
 
 **2. The regret slope does not see random noise as a loss.** I expected a nudge
 unrelated to card quality could only hurt. It didn't: the eight 3% heads average
--0.0001, four on each side of zero, and of the two 10% heads one is 3.1 SEs *better*
+-0.0001, three above zero and five below, and of the two 10% heads one is 3.1 SEs *better*
 and the other flat. Scrambling 9% of top cards by up to 10% cost nothing this measure
 can see. Agreement with what drafters took did fall, by half a point for the 10%
 heads.

@@ -28,7 +28,7 @@ Positive is worse for the head.
   (0.0006), 1.8 SEs. That is one set and under 2 SEs, but TDM is the only three-color
   set in this run, so it is worth a look with the flag.
 - **The power bonus stays.** Without it the change plus 2 SEs is +0.0086, over the
-  +0.0063 line, so the run can't rule out a real loss. It leans worse in eight of the
+  +0.0063 line, so the run can't rule out a real loss. It leans worse in seven of the
   ten sets. It also drops agreement with drafters by 0.64 points, the most of any
   head, though drafters take bombs whatever an advisor says.
 - **10 points a SD is about right.** Half is flat and double leans worse. Neither is
