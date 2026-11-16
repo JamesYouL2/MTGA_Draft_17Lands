@@ -23,7 +23,6 @@ class DraftAdvisor:
     TARGET_EARLY_PLAYS = 7
     TARGET_HARD_REMOVAL = 3
     BOMB_Z_SCORE = 1.5
-    IWD_PREMIUM_THRESHOLD = 4.5
     # Score a card at its overall win rate plus a weight times how much better
     # it does in the current archetype. The weight starts at ARCH_WEIGHT_START
     # and grows by ARCH_WEIGHT_RAMP / ARCH_RAMP_PICKS a pick within the pack:
@@ -124,10 +123,7 @@ class DraftAdvisor:
             try:
                 name = str(card.get("name", "Unknown")).strip()
                 stats = card.get("deck_colors", {}).get("All Decks", {})
-                raw_gihwr, raw_iwd = (
-                    float(stats.get("gihwr", 0.0)),
-                    float(stats.get("iwd", 0.0)),
-                )
+                raw_gihwr = float(stats.get("gihwr", 0.0))
                 reasons = []
 
                 # --- STEP 1: Blended Base Score ---
@@ -135,12 +131,7 @@ class DraftAdvisor:
 
                 # --- STEP 2: Bomb Detection ---
                 z_score = (raw_gihwr - pack_mean) / pack_std
-                iwd_mult = (
-                    1.15
-                    if (raw_iwd > self.IWD_PREMIUM_THRESHOLD and z_score > 1.0)
-                    else 1.0
-                )
-                power_bonus = max(0, z_score * 10 * iwd_mult) if z_score > 0.5 else 0
+                power_bonus = max(0, z_score * 10) if z_score > 0.5 else 0
 
                 # --- STEP 3: Lane ---
                 # The card's win rate in the lane's pair is already blended into
@@ -194,9 +185,6 @@ class DraftAdvisor:
                         reasons = ["This is the only available option."]
                     else:
                         reasons = ["Basic Land (Skip)"]
-
-                if iwd_mult > 1.0 and final_score > 0:
-                    reasons.insert(0, "TRUE BOMB (High IWD)")
 
                 recommendations.append(
                     Recommendation(
