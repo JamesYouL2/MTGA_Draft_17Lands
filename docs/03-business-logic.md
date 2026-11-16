@@ -75,10 +75,9 @@ The app parses Scryfall community tags to understand a card's functional role. T
 
 ---
 
-## 8. True Bomb Detection (IWD Injection)
+## 8. True Bomb Detection (removed)
 
-- **Logic:** A card is tagged as a **TRUE BOMB** only if its Z-Score is `> 1.0` AND its **Improvement When Drawn (IWD)** is `> 4.5%`.
-- **Effect:** Distinguishes between "Great Filler" and "Game-Warping Power." These cards receive a power bonus that overrides the Sliding Commitment Curve, allowing for late-draft splashes.
+- **Removed:** A card more than 1 SD above its pack with an **Improvement When Drawn (IWD)** over `4.5%` used to get `1.15x` the power bonus and a "TRUE BOMB (High IWD)" reason. In a held-out replay the premium changed the top card in 0.56% of picks and the advisor did no worse without it, so both are gone. The power bonus itself is unchanged.
 
 ---
 
