@@ -31,7 +31,7 @@ jobs:
   builds:
     name: Builds ${{ matrix.set }}
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 345
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +74,7 @@ jobs:
     needs: builds
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -103,6 +103,14 @@ jobs:
             echo
             poetry run python Tools/DeckScoreFit/buttons_report.py buttons/*.json.gz --json buttons.json
           } | tee buttons.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Auto optimize with only the Power Up swap
+        shell: bash
+        run: |
+          {
+            echo "# Auto optimize, Power Up only, at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python experiments/2026-11-16-optimize-power-only/report.py buttons/*.json.gz
+          } | tee optimize_variants.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: builder-leftovers
@@ -111,3 +119,4 @@ jobs:
             deck_variants.json
             buttons.md
             buttons.json
+            optimize_variants.md

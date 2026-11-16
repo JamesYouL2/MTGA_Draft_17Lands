@@ -120,12 +120,26 @@ class Buttons:
         lands = lambda cards: sum(  # noqa: E731
             c.get("count", 1) for c in cards if "Land" in c.get("types", [])
         )
+        # The same button allowed only the Power Up swap: chosen by the
+        # simulation against the unchanged deck, or always taken when there is one.
+        variants = {}
+        for name, keep_base in (("power-sim", True), ("power-always", False)):
+            self.builder.ONLY_KINDS, self.builder.KEEP_BASE = {"Power Up"}, keep_base
+            try:
+                v_after, _, _, v_note = self.builder.optimize_deck(deck, sideboard, key, colors)
+            finally:
+                self.builder.ONLY_KINDS, self.builder.KEEP_BASE = None, True
+            variants[name] = {
+                "kind": swap_kind(v_note),
+                "score_after": round(self.score(v_after, metrics), 3),
+            }
         return {
             "kind": swap_kind(note),
             "score_before": round(self.score(deck, metrics), 3),
             "score_after": round(self.score(after, metrics), 3),
             "lands_before": lands(deck),
             "lands_after": lands(after),
+            "variants": variants,
         }
 
 

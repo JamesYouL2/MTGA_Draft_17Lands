@@ -177,6 +177,10 @@ def brute_force_mana_base(spells, non_basic_lands, colors, forced_count=17):
     return final_lands
 
 
+ONLY_KINDS = None
+KEEP_BASE = True
+
+
 def optimize_deck(base_deck, base_sb, archetype_key, colors):
     total_cards = sum(c.get("count", 1) for c in base_deck)
     if total_cards != 40:
@@ -363,6 +367,12 @@ def optimize_deck(base_deck, base_sb, archetype_key, colors):
                     permutations.append(
                         (f"Optimize Mana (+{type_add}, -{type_sub})", d, s)
                     )
+
+    # Experiment hook (experiments/2026-11-16-optimize-power-only): try only some
+    # kinds of swap, with or without the unchanged deck. None is the app.
+    if ONLY_KINDS is not None:
+        kept = [p for p in permutations[1:] if p[0].split(" (")[0] in ONLY_KINDS]
+        permutations = (permutations[:1] if KEEP_BASE or not kept else []) + kept
 
     best_score = -9999
     best_perm = permutations[0]
