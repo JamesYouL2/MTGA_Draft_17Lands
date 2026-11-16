@@ -73,7 +73,7 @@ they can show together is that it is not large harm.
 | `alsa-only`: the crowd's pick order | +0.0872 (0.0123) | +7.1 | -6.32 | 76.0% to 45.4% |
 
 The rules together are worth a lot: without them the advisor is worse by 10 SEs, about
-40% of the way from the app to a random advisor. Nearly all of that is staying in
+40% of the way from the app to a random advisor. Much of that looks like staying in
 lane. Both heads take an off-color card on over half of picks.
 
 ## Predictions
