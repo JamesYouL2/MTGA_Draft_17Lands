@@ -20,7 +20,7 @@ same square root, in every set) changed the regret slope by:
 | SOS | 22% | +0.0046 (0.0076) |
 
 Weighted by their SEs, that is about -0.0056 (SE 0.0033), 1.7 SEs, and most of it is
-TMT. In the eleven sets under 20% it was on the worse side. If the four hold up, the
+TMT. In ten of the eleven sets under 20% it was on the worse side. If the four hold up, the
 threshold belongs at 20%, and the flag turns on for four more sets, one of them the
 current one.
 
