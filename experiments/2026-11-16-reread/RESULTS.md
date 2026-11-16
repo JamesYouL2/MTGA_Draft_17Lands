@@ -64,7 +64,7 @@ cut in. On those it is "inconclusive" for all four heads, as it was on the full 
 
 | prediction | result |
 |---|---|
-| most verdicts stand | right: 51 of 60 heads keep their label |
+| most verdicts stand | right: 52 of 61 rows keep their label |
 | one to three verdicts change | wrong: nine do |
 | heads that change many picks move the most | partly: the largest moves are the off-color heads, which act unevenly across sets |
 | the joint removals run stays within 2 SEs of zero | right: -0.6 SEs |
