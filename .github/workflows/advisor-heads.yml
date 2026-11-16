@@ -12,7 +12,7 @@ on:
     inputs:
       patches:
         description: Patches to src/, one head each
-        default: "experiments/2026-11-15-gap-flag/heads/*.patch"
+        default: "experiments/2026-11-16-proposed-together/heads/*.patch"
       sets:
         description: 'JSON list of set codes, e.g. ["FRA", "TDM"] (empty: all ten)'
         default: ""
@@ -22,6 +22,9 @@ on:
       drafts:
         description: Drafts per set and salt
         default: "3000"
+      extra:
+        description: A script to run on the results after the reports (optional)
+        default: ""
 
 permissions:
   contents: read
@@ -40,7 +43,7 @@ jobs:
       SET: ${{ matrix.set }}
       SALT: ${{ matrix.salt }}
       DRAFTS: ${{ inputs.drafts || '3000' }}
-      PATCHES: ${{ inputs.patches || 'experiments/2026-11-15-gap-flag/heads/*.patch' }}
+      PATCHES: ${{ inputs.patches || 'experiments/2026-11-16-proposed-together/heads/*.patch' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -121,6 +124,16 @@ jobs:
             echo
             poetry run python experiments/2026-11-15-off-color-share/by_set.py results --json by_set.json
           } | tee by_set.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Extra report
+        if: ${{ inputs.extra != '' }}
+        shell: bash
+        env:
+          EXTRA: ${{ inputs.extra }}
+        run: |
+          {
+            echo
+            poetry run python "$EXTRA" results
+          } | tee extra.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: heads-report
@@ -129,3 +142,4 @@ jobs:
             heads.json
             by_set.md
             by_set.json
+            extra.md

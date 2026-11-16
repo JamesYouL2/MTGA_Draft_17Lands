@@ -1,0 +1,17 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..f75c6a8 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -184,6 +184,12 @@ class DraftAdvisor:
+                     (base_score + power_bonus) * cast_mult * role_mult
+                 )
+ 
++                # Placebo: a fixed nudge of up to 3% a card, unrelated to its quality.
++                import hashlib
++
++                nudge = int(hashlib.md5(("e" + name).encode()).hexdigest()[:8], 16)
++                final_score *= 1 + 0.03 * (nudge / 0xFFFFFFFF * 2 - 1)
++
+                 is_basic_land = name in constants.BASIC_LANDS or (
+                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])
+                 )
