@@ -23,6 +23,13 @@ on:
       button_decks:
         description: Sampled decks per set that go through the two buttons
         default: "5000"
+      exclude:
+        description: 'Earlier samples to leave out, as SALT:N or SALT:N:FIRST, separated by spaces (":50000 two:50000")'
+        default: ""
+      only_buttons:
+        description: Skip the deck builder and run only the two buttons
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -41,6 +48,7 @@ jobs:
       DECKS: ${{ inputs.decks || '50000' }}
       SALT: ${{ inputs.salt }}
       BUTTON_DECKS: ${{ inputs.button_decks || '5000' }}
+      EXCLUDE: ${{ inputs.exclude }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -55,10 +63,15 @@ jobs:
           curl -fsSL --retry 3 -o dataset.json.gz \
             "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
       - name: Sample decks
-        run: poetry run python Tools/DeckScoreFit/decks.py --games games.csv.gz --decks "$DECKS" --salt "$SALT" --out decks.json.gz
+        shell: bash
+        run: |
+          args=()
+          for e in $EXCLUDE; do args+=(--exclude "$e"); done
+          poetry run python Tools/DeckScoreFit/decks.py --games games.csv.gz --decks "$DECKS" --salt "$SALT" "${args[@]}" --out decks.json.gz
       - name: Read out-of-sample win rates
         run: poetry run python Tools/DeckScoreFit/games.py --games games.csv.gz --decks decks.json.gz --out games.json.gz
       - name: Run the deck builder
+        if: ${{ !inputs.only_buttons }}
         run: poetry run python Tools/DeckScoreFit/builds.py --src . --decks decks.json.gz --games games.json.gz --dataset dataset.json.gz --set "$SET" --out "results/$SET.json.gz"
       - name: Run the two buttons
         run: poetry run python Tools/DeckScoreFit/buttons.py --src . --decks decks.json.gz --games games.json.gz --dataset dataset.json.gz --set "$SET" --first "$BUTTON_DECKS" --out "buttons/$SET.json.gz"
@@ -88,6 +101,7 @@ jobs:
           path: .
           merge-multiple: true
       - name: Whether Tempo and safe-deck promotion earn their place
+        if: ${{ !inputs.only_buttons }}
         shell: bash  # with pipefail, so a failed report fails the step
         run: |
           {
@@ -111,10 +125,20 @@ jobs:
             echo
             poetry run python experiments/2026-11-16-optimize-power-only/report.py buttons/*.json.gz
           } | tee optimize_variants.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Whether the button's land and mana swaps flag a real problem
+        shell: bash
+        run: |
+          {
+            echo "# What Auto optimize's choice says about a deck, at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python experiments/2026-11-16-land-swaps/report.py buttons/*.json.gz --json land_swaps.json
+          } | tee land_swaps.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: builder-leftovers
           path: |
+            land_swaps.md
+            land_swaps.json
             deck_variants.md
             deck_variants.json
             buttons.md

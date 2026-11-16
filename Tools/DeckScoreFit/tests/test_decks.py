@@ -96,3 +96,38 @@ def test_command_line(tmp_path):
     decks.main(["--games", str(games), "--decks", "1", "--out", str(out)])
     with gzip.open(out, "rt") as f:
         assert len(json.load(f)) == 1
+
+
+def _many(n=60):
+    rows = []
+    for i in range(n):
+        rows += [game(f"d{i}"), game(f"d{i}", won=False)]
+    return dump(rows)
+
+
+def test_earlier_samples_are_the_samples_read_decks_takes():
+    lines = _many()
+    for salt, n in (("", 10), ("two", 25)):
+        sample = {d["id"] for d in decks.read_decks(lines, n, salt)}
+        assert decks.earlier_samples(lines, [(salt, n, None)]) == sample
+
+
+def test_earlier_samples_can_take_only_the_first_by_id():
+    lines = _many()
+    sample = sorted(d["id"] for d in decks.read_decks(lines, 30, "three"))
+    assert decks.earlier_samples(lines, [("three", 30, 7)]) == set(sample[:7])
+
+
+def test_excluded_decks_are_left_out_and_the_sample_is_refilled():
+    lines = _many()
+    gone = decks.earlier_samples(lines, [("", 10, None), ("two", 25, None)])
+    fresh = decks.read_decks(lines, 20, "four", gone)
+    assert len(fresh) == 20
+    assert not {d["id"] for d in fresh} & gone
+    assert all(d["games"] == 2 for d in fresh)
+
+
+def test_parse_exclusion():
+    assert decks.parse_exclusion(":50000") == ("", 50000, None)
+    assert decks.parse_exclusion("two:50000") == ("two", 50000, None)
+    assert decks.parse_exclusion("three:100000:20000") == ("three", 100000, 20000)
