@@ -68,7 +68,6 @@ def select_safe_deck_index(final_list):
         )
 
     return max(candidates, key=rank)
-    return -1
 
 
 def clear_deck_cache():
@@ -307,7 +306,6 @@ def optimize_deck(base_deck, base_sb, archetype_key, colors):
 def suggest_deck(
     taken_cards,
     metrics,
-    configuration,
     event_type="PremierDraft",
     progress_callback=None,
     dataset_name=None,
@@ -334,7 +332,6 @@ def suggest_deck(
         color_options = identify_top_pairs(taken_cards, metrics)
         all_variants, incomplete_variants = [], []
         seen_signatures = set()
-        simulated_cache = {}  # Cache to prevent random variance on identical decks
 
         def process_variant(variant_name, deck, sb, colors, arch_key):
             if not deck:
@@ -392,41 +389,27 @@ def suggest_deck(
                         else f"Splash {''.join(active_colors[2:])}"
                     )
 
-            opt_deck, opt_sb, opt_note = deck, sb, ""
-
-            # Generate a strict string signature of the 40-card deck
-            deck_sig = "|".join(
-                sorted([f"{c['name']}:{c.get('count', 1)}" for c in opt_deck])
-            )
-
-            if deck_sig in simulated_cache:
-                opt_stats, score, breakdown = simulated_cache[deck_sig]
-            else:
-                opt_stats = simulate_deck(opt_deck, iterations=10000)
-                score, breakdown = calculate_holistic_score(
-                    opt_deck, active_colors, pool_size, metrics
-                )
-                simulated_cache[deck_sig] = (opt_stats, score, breakdown)
-
             sig = tuple(
-                sorted([f"{c.get('name')}:{c.get('count', 1)}" for c in opt_deck])
+                sorted([f"{c.get('name')}:{c.get('count', 1)}" for c in deck])
             )
             if sig in seen_signatures:
                 return
             seen_signatures.add(sig)
 
+            stats = simulate_deck(deck, iterations=10000)
+            score, breakdown = calculate_holistic_score(
+                deck, active_colors, pool_size, metrics
+            )
+
             variant_data = {
-                "label_prefix": true_variant_name,
-                "type": "Deck",
                 "rating": score,
                 "record": estimate_record(score, is_bo3),
-                "deck_cards": opt_deck,
-                "sideboard_cards": opt_sb,
+                "deck_cards": deck,
+                "sideboard_cards": sb,
                 "colors": active_colors,
                 "identity_colors": identity_colors,
                 "breakdown": breakdown,
-                "stats": opt_stats,
-                "optimization_note": opt_note,
+                "stats": stats,
             }
 
             full_label = f"{true_arch_key} {true_variant_name} [Est: {variant_data['record']}] (Power: {score:.0f})"
@@ -466,7 +449,7 @@ def suggest_deck(
                 )
 
         if progress_callback:
-            progress_callback({"status": "Analyzing Domain / Soup..."})
+            progress_callback({"status": "Analyzing Soup..."})
         soup_deck, soup_colors = build_variant_soup(taken_cards, metrics)
         if soup_deck:
             soup_arch_key = (
@@ -531,15 +514,15 @@ def suggest_deck(
                     max_overlap = overlap
 
             cards_diff = 40 - max_overlap
-            keep = True if (is_top_deck or is_best_safe) else False
+            keep = is_top_deck or is_best_safe
 
             if not keep:
                 if cards_diff < 3:
                     keep = False
                 elif cards_diff >= 10:
-                    keep = True if score >= best_score - 25.0 else False
+                    keep = score >= best_score - 25.0
                 else:
-                    keep = True if score >= best_score - 50.0 else False
+                    keep = score >= best_score - 50.0
 
             if keep:
                 filtered_list.append((label, data))
@@ -563,9 +546,6 @@ def suggest_deck(
                     else f"🛡️ Safe Core {new_label}"
                 )
 
-            actual_best_safe[1]["label_prefix"] = actual_best_safe[1][
-                "label_prefix"
-            ].replace("Consistent", "Safe Core")
             updated_safe = (new_label, actual_best_safe[1])
             final_list[best_safe_idx] = updated_safe
 

@@ -30,13 +30,10 @@ TIER_TO_GIHWR = {
 
 
 def get_card_rating(card, colors, metrics=None, tier_data=None):
-    global_mean = 54.0
     set_has_data = False
     if metrics:
         mean_val, _ = metrics.get_metrics("All Decks", "gihwr")
-        if mean_val > 0:
-            global_mean = mean_val
-            set_has_data = True
+        set_has_data = mean_val > 0
 
     stats = card.get("deck_colors", {})
     global_wr = float(stats.get("All Decks", {}).get("gihwr") or 0.0)

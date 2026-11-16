@@ -6,7 +6,6 @@ High-impact test targeting the V4 Deck Suggester and Holistic Scoring engine.
 import pytest
 from unittest.mock import MagicMock
 from src.card_logic import suggest_deck, calculate_dynamic_mana_base, count_fixing
-from src.configuration import Configuration
 
 
 @pytest.fixture
@@ -74,10 +73,8 @@ def test_full_deck_suggestion_pipeline(sample_pool, mock_metrics):
     Passes a simulated draft pool into the engine to trigger the creation of
     Consistency and Greedy deck variants.
     """
-    config = Configuration()
-
     # Run the massive function
-    results = suggest_deck(sample_pool, mock_metrics, config, event_type="PremierDraft")
+    results = suggest_deck(sample_pool, mock_metrics, event_type="PremierDraft")
 
     # Assertions
     assert len(results) > 0, "Deck builder failed to generate any archetypes."
@@ -108,7 +105,7 @@ def test_deck_score_ignores_simulated_mana_rates(sample_pool, mock_metrics, monk
         )
         monkeypatch.setattr(deck_builder, "simulate_deck", lambda *a, **kw: stats)
         deck_builder.clear_deck_cache()
-        decks = suggest_deck(sample_pool, mock_metrics, Configuration())
+        decks = suggest_deck(sample_pool, mock_metrics)
         assert all(d["stats"] == stats for d in decks.values())
         return [(d["rating"], d["breakdown"]) for d in decks.values()]
 

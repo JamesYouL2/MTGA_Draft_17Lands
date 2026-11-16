@@ -967,7 +967,6 @@ class SuggestDeckPanel(ttk.Frame):
                 raw_results = suggest_deck(
                     raw_pool,
                     metrics,
-                    self.configuration,
                     event_type,
                     _progress_cb,
                     dataset_name,

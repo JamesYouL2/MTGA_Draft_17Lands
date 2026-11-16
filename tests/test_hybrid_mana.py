@@ -9,7 +9,6 @@ from src.advisor.engine import DraftAdvisor
 from src.advisor.mana_base import calculate_dynamic_mana_base, is_castable, get_strict_colors
 from src.mana_cost import assign_mana_colors, mana_color_demand
 from src.advisor import deck_builder as db
-from src.configuration import Configuration
 
 
 def spell(name, cost, colors, cmc=3, wr=55.0):
@@ -81,7 +80,7 @@ def test_builder_does_not_label_or_penalize_a_hybrid_as_a_third_color(metrics, m
     monkeypatch.setattr(db, "simulate_deck", lambda *a, **kw: None)
     db.clear_deck_cache()
     try:
-        builds = db.suggest_deck(pool, metrics, Configuration())
+        builds = db.suggest_deck(pool, metrics)
     finally:
         db.clear_deck_cache()
     assert len(builds) == 1
