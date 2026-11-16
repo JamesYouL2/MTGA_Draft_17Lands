@@ -15,7 +15,7 @@ than 17Lands' own data, so the filter bites harder here than it does live.
 | TDM | 100.0% | 83.5% | 83.2% | 79.0% |
 | SNC | 86.6% (6,826 games) | 75.8% | 72.8% | 66.4% |
 | DMU | 35.8% (its third day) | 35.8% | 43.4% | 45.6% |
-| FRA | 0.0% | 15.4% | 16.5% | 22.5% |
+| FRA | 0.0% | 15.4% | 16.5% (day 6) | 22.5% |
 
 - **The flag is on from the first real day in all four high-share sets,** and stays on.
 - **The filter overstates, it doesn't understate, where three-color decks lead:** their
