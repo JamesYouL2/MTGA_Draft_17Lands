@@ -1,0 +1,61 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..1bc5e47 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -64,6 +64,12 @@ class DraftAdvisor:
+         )
+         self.active_colors = self.main_colors
+ 
++        # Experiment: the square root where three-color decks win within 2.2 points of two-color decks.
++        value = getattr(self.metrics, "three_color_gap", None)
++        self.off_color_power = (
++            0.5 if isinstance(value, (int, float)) and value >= -2.2 else 1.0
++        )
++
+         # 3. Analyze Pool Needs
+         self.fixing_map = count_fixing(self.pool)
+         self.pool_metrics = self._analyze_pool()
+@@ -160,6 +166,7 @@ class DraftAdvisor:
+                 cast_mult, cast_reason = self._calculate_castability_v5(
+                     card, pack_number, effective_pick, z_score
+                 )
++                cast_mult = cast_mult ** self.off_color_power
+                 if cast_reason:
+                     reasons.append(cast_reason)
+ 
+diff --git a/src/set_metrics.py b/src/set_metrics.py
+index d862a2e..c5b5dda 100644
+--- a/src/set_metrics.py
++++ b/src/set_metrics.py
+@@ -25,6 +25,31 @@ class SetMetrics:
+         self._color_metrics: dict = {}
+         self._digits: int = digits
+         self.generate_metrics(dataset)
++        self.three_color_share, self.three_color_gap = self._three_color(dataset)
++
++    @staticmethod
++    def _three_color(dataset: Dataset) -> Tuple[float, float]:
++        """(share, gap) for decks of three or more colors: their share of the
++        set's games, and their win rate minus two-color decks', in points."""
++        games = {}
++        for card in (dataset.get_card_ratings() or {}).values() if dataset else ():
++            for colors, stats in card.get(DATA_FIELD_DECK_COLORS, {}).items():
++                if colors != "All Decks":
++                    games[colors] = games.get(colors, 0) + (stats.get("game_count") or 0)
++        total = sum(games.values())
++        if not total:
++            return 0.0, -99.0
++        rates = dataset.get_color_ratings() or {}
++
++        def win_rate(groups):
++            rated = [g for g in groups if rates.get(g)]
++            weight = sum(games[g] for g in rated)
++            return sum(rates[g] * games[g] for g in rated) / weight if weight else None
++
++        three = [g for g in games if len(g) >= 3]
++        many, two = win_rate(three), win_rate([g for g in games if len(g) == 2])
++        gap = many - two if many is not None and two is not None else -99.0
++        return sum(games[g] for g in three) / total, gap
+ 
+     def get_metrics(self, color: str, field: str) -> Tuple[float, float]:
+         """
