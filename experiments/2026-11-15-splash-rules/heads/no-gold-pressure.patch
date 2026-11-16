@@ -1,0 +1,17 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..feec420 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -375,11 +375,7 @@ class DraftAdvisor:
+             if is_on_lane:
+                 return 1.0, ""
+             pressure = 1.0 - (max(0, ((pack - 1) * 15 + (pick - 1)) - 7) * 0.05)
+-            return (
+-                (max(0.2, pressure - 0.2), "Off-Color Gold")
+-                if len(set(assign_mana_colors([card])[0])) > 1 and off_color_pips > 0
+-                else (max(0.4, pressure), "Off-Color")
+-            )
++            return max(0.4, pressure), "Off-Color"
+ 
+         if not is_on_lane:
+             if (
