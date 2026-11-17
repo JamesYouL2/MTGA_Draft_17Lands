@@ -86,3 +86,60 @@ splash budget is closed unless a deck-level reason comes up.
 
 As in the protocol. The wheel gain is measured per pick, so it undercounts the pair. The
 splash budget is judged on picks only, not on how the deck builder uses what was taken.
+
+# The wheel tiebreak confirmation
+
+Run [44035287900](https://github.com/JamesYouL2/MTGA_Draft_17Lands/actions/runs/44035287900)
+at `6fa7d3c` on `run/wheel-confirm`: the same ten sets, 60,000 drafts, 45,494 complete
+events, salts `wheelconfirm1` and `wheelconfirm2`. The rules are in the
+[protocol's addendum](PROTOCOL.md#addendum-the-wheel-tiebreak-confirmation), written
+before the run. Reports: [confirm-heads.md](confirm-heads.md),
+[confirm-by_set.md](confirm-by_set.md), [confirm-h2h.md](confirm-h2h.md).
+
+## Verdicts
+
+| comparison | top card changes | agreement with drafters | regret slope change (SE) | event wins per swapped pick (SE) | verdict |
+|---|---|---|---|---|---|
+| `wheel-015` against today's | 1.08% | +0.29 points | -0.0007 (0.0002), 3.3 SEs better | +0.111 (0.046), 2.4 SEs better | **confirmed** |
+| `wheel-030` against today's | 1.97% | +0.52 points | -0.0014 (0.0004), 3.2 SEs better | +0.086 (0.032), 2.7 SEs better | |
+| `wheel-030` against `wheel-015` | 0.91% | +0.23 points | -0.0006 (0.0002), 3.0 SEs better | +0.059 (0.047), 1.3 SEs better | **0.30 replaces 0.15** |
+
+- **s = 0.15 is confirmed.** This time it is better on both measures, each by over 2
+  SEs. In the first run it was 1.7 and 2.1 SEs.
+- **s = 0.30 beats 0.15 head to head.** It is better by 3.0 SEs on the regret slope and
+  leans better on event wins (1.3 SEs). By the rule, 0.30 is the candidate.
+- **Every comparison raises agreement with drafters.** Where a wheel head changes the
+  top card, drafters took the head's choice about four times as often as today's (41%
+  against 10% where both are on-lane), the same as in the first run.
+
+By set (regret slope), `wheel-030` leans better in seven of ten sets. It is 2+ SEs
+better in FRA, TLA and HOB and flat in TDM, SOS and DFT. TDM, the three-color set, is
+flat for both heads: +0.0002 (0.0007) and +0.0002 (0.0013).
+
+## Predictions
+
+| prediction | result |
+|---|---|
+| `wheel-015` confirmed on event wins at about 1.5 to 2.5 SEs, so it may miss | right: 2.4 SEs, and the regret slope agrees at 3.3 |
+| `wheel-030` changes about 2% of top cards | right: 1.97% |
+| `wheel-030` doesn't beat 0.15 head to head | wrong: 3.0 SEs better on the regret slope |
+
+## Caveats
+
+- **The regret slope is read in each head's own scores.** The rule lowers some cards'
+  scores, which changes the scale that regret is measured in. The measure-power run
+  warned about this for heads that flatten scores. Event wins per swapped pick doesn't
+  depend on the scale, and it agrees in direction every time (3 of 3 comparisons
+  better, 2 of them over 2 SEs). So the gain is unlikely to come from the scale alone.
+- **The gain grew from 0.15 to 0.30 with no sign of leveling off.** The best weight
+  may be higher than 0.30, but this run doesn't test it. A stronger head would need
+  its own run before anyone goes past 0.30.
+- **Ruled out:** a single-run fluke. This rule passed on two independent sets of salts.
+
+## What's next
+
+Propose s = 0.30 as its own small change: one line in `evaluate_pack` after the master
+score. `test_wheel_chance_does_not_change_score` is replaced by a test that a likely
+wheeler ranks below an equal card that won't come back, and the reason list could say
+"Likely to wheel". A sweep above 0.30 (0.45, 0.60) could come first if the upper end
+is wanted settled before the change is proposed.
