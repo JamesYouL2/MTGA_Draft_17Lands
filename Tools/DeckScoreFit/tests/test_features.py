@@ -179,3 +179,19 @@ def test_playable_bar_is_the_engines(app):
     mean, std = app.metrics.get_metrics("All Decks", "gihwr")
     assert mean > 0 and std > 0
     assert app.playable == mean - std
+
+
+def test_counts_the_cards_that_need_the_splash(app, white_blue):
+    cards = app.dataset.get_card_ratings().values()
+    red = sorted(
+        {
+            c["name"]
+            for c in cards
+            if c.get("colors") == ["R"] and "Land" not in c.get("types", [])
+        }
+    )[:2]
+    splashed = dict(white_blue, **{name: 1 for name in red})
+    rows, _ = features.deck_rows(app, [dict(deck(splashed), splash_colors="R")])
+    assert rows[0]["colors"] == {"main": "WU", "splash": "R", "splash_cards": 2}
+    rows, _ = features.deck_rows(app, [deck(white_blue)])
+    assert rows[0]["colors"] == {"main": "WU", "splash": "", "splash_cards": 0}

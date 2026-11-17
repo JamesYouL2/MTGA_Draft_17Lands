@@ -152,6 +152,21 @@ class App:
         }
 
     @staticmethod
+    def color_counts(deck, main_colors, splash_colors):
+        """The deck's colors as 17Lands registered them, and how many of its
+        spells (copies counted) need a splash color."""
+        return {
+            "main": main_colors,
+            "splash": splash_colors,
+            "splash_cards": sum(
+                c["count"]
+                for c in deck
+                if "Land" not in c.get("types", [])
+                and set(c.get("colors", [])) & set(splash_colors)
+            ),
+        }
+
+    @staticmethod
     def gihwr(card):
         """A card's All Decks GIH WR, as the engine reads it."""
         return float(card.get("deck_colors", {}).get("All Decks", {}).get("gihwr", 0.0))
@@ -188,6 +203,7 @@ def deck_rows(app, decks):
                 "features": features,
                 "extra": app.extra(deck, colors),
                 "rules": app.rule_counts(deck, d["main_colors"], d["splash_colors"]),
+                "colors": app.color_counts(deck, d["main_colors"], d["splash_colors"]),
             }
         )
     return rows, skipped
