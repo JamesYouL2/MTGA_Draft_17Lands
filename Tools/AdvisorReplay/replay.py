@@ -172,7 +172,8 @@ def replay_draft(app, draft, skipped):
             skipped["taken card missing from advice"] += 1
             continue
         by_gihwr = {c[app.constants.DATA_FIELD_NAME]: app.gihwr(c) for c in pack}
-        top = sorted(scores, key=lambda n: -scores[n])[0]
+        order = sorted(scores, key=lambda n: -scores[n])
+        top = order[0]
         top_card = next(c for c in pack if c[app.constants.DATA_FIELD_NAME] == top)
         on_lane = set(top_card.get(app.constants.DATA_FIELD_COLORS, [])) <= app.lane
         picks.append(
@@ -184,6 +185,7 @@ def replay_draft(app, draft, skipped):
                 rank_of(by_gihwr, taken),
                 top,
                 int(on_lane),
+                order[:3],
             ]
         )
 

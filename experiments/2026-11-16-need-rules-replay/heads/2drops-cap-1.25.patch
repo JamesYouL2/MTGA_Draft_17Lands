@@ -1,0 +1,12 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -353,7 +353,7 @@
+             if projected < self.TARGET_EARLY_PLAYS:
+                 return (
+                     (
+-                        1.0 + min(0.5, (self.TARGET_EARLY_PLAYS - projected) * 0.15),
++                        1.0 + min(0.25, (self.TARGET_EARLY_PLAYS - projected) * 0.15),
+                         "Critical: Needs 2-Drops",
+                     )
+                     if pack >= 2

@@ -41,9 +41,10 @@ def draft(names, n_picks, pack_size=5):
 def test_ranks_and_regret_of_each_pick(app, names):
     result = replay.replay_draft(app, draft(names, 3), replay.Counter())
     assert len(result["picks"]) == 3
-    for pack, pick, rank, regret, gihwr_rank, top, on_lane in result["picks"]:
+    for pack, pick, rank, regret, gihwr_rank, top, on_lane, top3 in result["picks"]:
         assert 0 <= rank < 5 and 0 <= gihwr_rank < 5
         assert regret >= 0 and (rank > 0 or regret == 0)
+        assert len(top3) == 3 and top3[0] == top and len(set(top3)) == 3
     # Too few cards for a deck.
     assert result["deck_score"] is None
 
