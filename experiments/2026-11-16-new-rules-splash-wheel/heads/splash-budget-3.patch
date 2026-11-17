@@ -1,0 +1,54 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -382,6 +382,9 @@
+             )
+ 
+         if not is_on_lane:
++            # Once the pool holds 3+ playables needing one of this card's
++            # off-lane colors, further splash cards in that color cost more.
++            budget = 0.5 if self._splash_count(off_color, top_2_lane) >= 3 else 1.0
+             if (
+                 pack >= 2
+                 and off_color_pips >= 2
+@@ -409,21 +412,37 @@
+                             if z_score >= self.BOMB_Z_SCORE
+                             else "Premium Removal Splash"
+                         )
+-                        return (0.35 if pack == 3 else 0.45), reason
++                        return (0.35 if pack == 3 else 0.45) * budget, reason
+                 elif (
+                     off_color_pips == 2
+                     and get_functional_cmc(card) >= 5
+                     and z_score >= self.BOMB_Z_SCORE
+                 ):
+                     if self.pool_metrics["fixing_count"] >= 4:
+-                        return 0.30, "Greedy Bomb Splash"
++                        return 0.30 * budget, "Greedy Bomb Splash"
+ 
+             if off_color_pips == 1 and has_specific_fixing:
+-                return 0.3, "Splashable"
++                return 0.3 * budget, "Splashable"
+ 
+             return 0.01 if pack == 3 else 0.05, "Off-Color"
+         return 1.0, ""
+ 
++    def _splash_count(self, off_color, lane) -> int:
++        """Most pool playables (rated above mean - 1 SD, not lands) needing any
++        one off-lane color that this card's off-lane cost names."""
++        needed = {c for options in off_color for c in options}
++        counts = {c: 0 for c in needed}
++        for c in self.pool:
++            if "Land" in c.get("types", []):
++                continue
++            wr = float(c.get("deck_colors", {}).get("All Decks", {}).get("gihwr", 0.0))
++            if wr <= self.global_mean - self.global_std:
++                continue
++            theirs = {x for options in off_color_requirements(c, lane) for x in options}
++            for color in needed & theirs:
++                counts[color] += 1
++        return max(counts.values(), default=0)
++
+     def _wheel_chance(
+         self,
+         card: Dict,
