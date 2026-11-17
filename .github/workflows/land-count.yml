@@ -1,0 +1,62 @@
+name: Land count
+
+# Compares decks played at the app's 17 lands with decks at 16, 18 and beyond,
+# curve held equal. See experiments/2026-11-16-land-count/PROTOCOL.md.
+#
+# Run by hand: Actions > Land count > Run workflow, or push to run/land-count.
+
+on:
+  push:
+    branches: [run/land-count]
+  workflow_dispatch:
+    inputs:
+      sets:
+        description: 'JSON list of set codes (empty: every set with game data and ratings)'
+        default: ""
+      decks:
+        description: Decks per set
+        default: "50000"
+      salt:
+        description: Any text; changes which decks are sampled
+        default: "land-count-2026-11-16"
+
+permissions:
+  contents: read
+
+jobs:
+  features:
+    uses: ./.github/workflows/deck-score-features.yml
+    with:
+      sets: ${{ inputs.sets }}
+      decks: ${{ inputs.decks || '50000' }}
+      salt: ${{ inputs.salt || 'land-count-2026-11-16' }}
+
+  lands:
+    needs: features
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: features-*
+          path: results
+          merge-multiple: true
+      - name: Fit
+        shell: bash  # with pipefail, so a failed fit fails the step
+        run: |
+          {
+            echo "# Land count at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python experiments/2026-11-16-land-count/lands.py results/*.json
+          } | tee lands.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: land-count-report
+          path: lands.md

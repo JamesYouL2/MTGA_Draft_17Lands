@@ -195,3 +195,16 @@ def test_counts_the_cards_that_need_the_splash(app, white_blue):
     assert rows[0]["colors"] == {"main": "WU", "splash": "R", "splash_cards": 2}
     rows, _ = features.deck_rows(app, [deck(white_blue)])
     assert rows[0]["colors"] == {"main": "WU", "splash": "", "splash_cards": 0}
+
+
+def test_counts_lands_as_the_app_does(app, white_blue):
+    rows, _ = features.deck_rows(app, [deck(white_blue)])
+    assert rows[0]["mana"] == {"cards": 40, "lands": 17, "mdfc": 0, "rule_lands": 17}
+    mdfc = {"name": "Sink into Stupor", "types": ["Instant", "Land"], "count": 2}
+    vault = {"name": "Vault", "types": ["Artifact", "Land"], "count": 1}
+    assert features.App.mana_counts([mdfc, vault]) == {
+        "cards": 3,
+        "lands": 3,
+        "mdfc": 2,
+        "rule_lands": 17,
+    }

@@ -18,6 +18,12 @@ from collections import Counter
 
 # A full draft pool, so a finished deck is never short of spells for its pool.
 POOL_SIZE = 45
+# The app's suggested decks take 23 spells (build_variant_consistency and the
+# other builds in src/advisor/deck_builder.py), so 17 land slots in 40 cards,
+# whatever the curve. Only the Tempo build differs, with 24 spells.
+RULE_LANDS = 17
+# Types that make a land card also a spell: a modal double-faced spell // land.
+SPELL_TYPES = {"Creature", "Instant", "Sorcery", "Planeswalker", "Battle", "Kindred"}
 BASICS = {"Plains": "W", "Island": "U", "Swamp": "B", "Mountain": "R", "Forest": "G"}
 
 
@@ -167,6 +173,21 @@ class App:
         }
 
     @staticmethod
+    def mana_counts(deck):
+        """Land counts as the app makes them: a card is a land if "Land" is in
+        its types, so a spell // land modal double-faced card is a land, as in
+        the deck builder. mdfc counts those cards, so they can be moved back."""
+        lands = [c for c in deck if "Land" in c.get("types", [])]
+        return {
+            "cards": sum(c["count"] for c in deck),
+            "lands": sum(c["count"] for c in lands),
+            "mdfc": sum(
+                c["count"] for c in lands if SPELL_TYPES & set(c.get("types", []))
+            ),
+            "rule_lands": RULE_LANDS,
+        }
+
+    @staticmethod
     def gihwr(card):
         """A card's All Decks GIH WR, as the engine reads it."""
         return float(card.get("deck_colors", {}).get("All Decks", {}).get("gihwr", 0.0))
@@ -204,6 +225,7 @@ def deck_rows(app, decks):
                 "extra": app.extra(deck, colors),
                 "rules": app.rule_counts(deck, d["main_colors"], d["splash_colors"]),
                 "colors": app.color_counts(deck, d["main_colors"], d["splash_colors"]),
+                "mana": app.mana_counts(deck),
             }
         )
     return rows, skipped
