@@ -8,17 +8,19 @@ name: Advisor heads
 # Run by hand: Actions > Advisor heads > Run workflow.
 
 on:
+  push:
+    branches: [run/cutoff-sweeps]
   workflow_dispatch:
     inputs:
       patches:
         description: Patches to src/, one head each
-        default: "experiments/2026-11-16-proposed-together/heads/*.patch"
+        default: "experiments/2026-11-16-cutoff-sweeps/heads/*.patch"
       sets:
         description: 'JSON list of set codes, e.g. ["FRA", "TDM"] (empty: all ten)'
         default: ""
       salts:
         description: JSON list of texts that sample different drafts
-        default: '["", "arch2"]'
+        default: '["sweep1", "sweep2"]'
       drafts:
         description: Drafts per set and salt
         default: "3000"
@@ -38,12 +40,12 @@ jobs:
       fail-fast: false
       matrix:
         set: ${{ fromJSON(inputs.sets || '["DFT", "FDN", "FIN", "FRA", "HOB", "MSH", "SOS", "TDM", "TLA", "TMT"]') }}
-        salt: ${{ fromJSON(inputs.salts || '["", "arch2"]') }}
+        salt: ${{ fromJSON(inputs.salts || '["sweep1", "sweep2"]') }}
     env:
       SET: ${{ matrix.set }}
       SALT: ${{ matrix.salt }}
       DRAFTS: ${{ inputs.drafts || '3000' }}
-      PATCHES: ${{ inputs.patches || 'experiments/2026-11-16-proposed-together/heads/*.patch' }}
+      PATCHES: ${{ inputs.patches || 'experiments/2026-11-16-cutoff-sweeps/heads/*.patch' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

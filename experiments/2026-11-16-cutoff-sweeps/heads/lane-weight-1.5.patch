@@ -1,0 +1,11 @@
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -264,7 +264,7 @@
+                     main_colors.append(col)
+         else:
+             for col, weight in sorted_w:
+-                if weight >= 2.5:
++                if weight >= 1.5:
+                     main_colors.append(col)
+         return main_colors[:3], color_counts
+ 

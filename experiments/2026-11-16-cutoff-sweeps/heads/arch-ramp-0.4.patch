@@ -1,0 +1,11 @@
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -37,7 +37,7 @@
+     # bonus did, and following them was more closely tied to drafters' wins.
+     ARCH_RAMP_PICKS = 15
+     ARCH_WEIGHT_START = 0.6
+-    ARCH_WEIGHT_RAMP = 0.7
++    ARCH_WEIGHT_RAMP = 0.4
+     # Name the archetype in a card's reasons once it moves the card's score by
+     # this many points (15 points is one standard deviation of win rate).
+     ARCH_REASON_POINTS = 5.0
