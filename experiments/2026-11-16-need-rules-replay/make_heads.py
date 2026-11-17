@@ -52,21 +52,68 @@ HEADS = {
 }
 
 
-def main():
-    with open(os.path.join(ROOT, PATH), encoding="utf-8") as f:
-        text = f.read()
-    os.makedirs(os.path.join(HERE, "heads"), exist_ok=True)
-    for head, (old, new) in HEADS.items():
-        assert text.count(old) == 1, head
-        changed = text.replace(old, new)
+CREATURES = '''        # 1. Creature Quota Check
+        if pack >= 2 and "Creature" in types:
+            projected_creatures = self.pool_metrics["creature_count"] * (
+                self.TOTAL_PICKS / max(1, len(self.pool))
+            )
+            if projected_creatures < 13:
+                return 1.25, "Critical: Needs Creatures"
+
+'''
+DEF = "    def _calculate_composition_bonus(self, card: Dict, pack: int) -> Tuple[float, str]:\n"
+
+
+def flat(creature, removal):
+    """Needs Creatures and Needs Removal replaced by a flat multiplier on every
+    creature and every removal spell in packs 2-3, on top of whatever the other
+    composition rules give."""
+    wrapper = f'''    def _calculate_composition_bonus(self, card: Dict, pack: int) -> Tuple[float, str]:
+        mult, reason = self._composition_rule(card, pack)
+        if pack >= 2:
+            if "Creature" in card.get("types", []):
+                mult *= {creature}
+            if "removal" in card.get("tags", []):
+                mult *= {removal}
+        return mult, reason
+
+    def _composition_rule(self, card: Dict, pack: int) -> Tuple[float, str]:
+'''
+    return [(CREATURES, ""), (REMOVAL, ""), (DEF, wrapper)]
+
+
+# The rerun of 2026-11-17, in heads-rerun/: see the addendum in PROTOCOL.md.
+RERUN = {
+    "no-needs-2drops": HEADS["no-needs-2drops"],
+    "2drops-cap-1.25": HEADS["2drops-cap-1.25"],
+    "flat-bonus": flat(1.05, 1.1),
+    "flat-bonus-strong": flat(1.1, 1.2),
+}
+
+
+def write(text, heads, folder):
+    os.makedirs(os.path.join(HERE, folder), exist_ok=True)
+    for head, edits in heads.items():
+        changed = text
+        for old, new in [edits] if isinstance(edits, tuple) else edits:
+            assert changed.count(old) == 1, head
+            changed = changed.replace(old, new)
+        compile(changed, head, "exec")
         diff = difflib.unified_diff(
             text.splitlines(keepends=True), changed.splitlines(keepends=True),
             f"a/{PATH}", f"b/{PATH}", n=3,
         )
-        with open(os.path.join(HERE, "heads", f"{head}.patch"), "w", encoding="utf-8") as f:
+        with open(os.path.join(HERE, folder, f"{head}.patch"), "w", encoding="utf-8") as f:
             f.write(f"diff --git a/{PATH} b/{PATH}\n")
             f.writelines(diff)
-        print(head)
+        print(f"{folder}/{head}")
+
+
+def main():
+    with open(os.path.join(ROOT, PATH), encoding="utf-8") as f:
+        text = f.read()
+    write(text, HEADS, "heads")
+    write(text, RERUN, "heads-rerun")
 
 
 if __name__ == "__main__":

@@ -140,3 +140,76 @@ the drafters' own, so a head's effect on later picks (a pack-1 2-drop that would
 have changed what the advisor wants in pack 2) never reaches the replay; Curve
 Foundation is judged on its pack-1 picks alone. Fewer than 1% of top cards
 changing leaves the swap measure with little to read.
+
+## Addendum, 2026-11-17: the rerun
+
+Written after the first run's results and before any result of the rerun was seen.
+
+### Heads
+
+Patches in [heads-rerun/](heads-rerun/), written by [make_heads.py](make_heads.py),
+each against today's advisor (`src/` as on main at `d25398c`):
+
+| head | change |
+|---|---|
+| `no-needs-2drops` | as in the first run: no pack 2–3 Needs 2-Drops bonus |
+| `2drops-cap-1.25` | as in the first run: the bonus capped at 1.25x |
+| `flat-bonus` | Needs Creatures (1.25x) and Needs Removal (1.3x) removed; every creature 1.05x and every removal-tagged card 1.1x |
+| `flat-bonus-strong` | the same at 1.1x and 1.2x |
+
+Why the flat heads: 11-03 found creatures and removal beat a spell of the same
+rating by about the same before and after the "needs" thresholds (creatures +0.17
+while short, +0.19 past; removal +0.29 and +0.22), so the conditions may add
+little.
+
+How the flat bonus is applied, which the request left open:
+
+- **Packs 2–3 only**, as the two rules it replaces. Pack 1 is unchanged, so the
+  heads test the thresholds, not a new pack-1 rule.
+- **On top of the other composition rules**, not in their place. Today Needs
+  Creatures returns first, so a short pool's creature 2-drop gets 1.25x and never
+  the 2-drop bonus. A flat bonus returned the same way would take the 2-drop bonus
+  away from every creature in packs 2–3, a second change. So the flat factor
+  multiplies whatever Needs Fixing or Needs 2-Drops give (1.0 if neither).
+
+### What runs
+
+The Advisor heads workflow on the same 19 sets, 6,000 drafts a set and salt, the
+salts `needs3` and `needs4`, which no earlier run used, pushed through
+`run/need-rules-rerun`. The extra report is [rerun_extra.py](rerun_extra.py): the
+ranks table, both measures in the four high three-color sets (KTK, TDM, SNC, DMU,
+20%+ first-day share) against the other fifteen, the two 2-drop heads head to head,
+and [attribute.py](attribute.py)'s split of each regret slope change.
+
+### Rules
+
+Measures and "2 SEs worse/better" as above.
+
+- **2-drop reruns.** Each is confirmed if it is again 2+ SEs better than today's on
+  at least one measure and neither measure reads it 2+ SEs worse. If both are
+  confirmed, they are reported head to head, and removing the rule is preferred
+  (the simplification rule) unless removal is 2+ SEs worse than the 1.25x cap on
+  either measure. Neither confirmed: today's stays, and the first run's reading is
+  taken as having faded.
+- **Flat-bonus heads.** Adopted if 2+ SEs better than today's on one measure with
+  neither measure 2+ SEs worse. If both pass, the one further ahead on swap. Each
+  one's top-card change rate is reported.
+- **Score rescaling.** A head that passes on the regret slope while swap is within
+  1 SE of zero, and whose regret change comes mostly (over half) from picks where
+  the top card didn't change, is reported as passing by rescaling the scores, not
+  by changing advice, as Greedy Bomb did. It still passes by the rule; the write-up
+  says which kind of pass it is.
+- **First passes under 3 SEs** on their deciding measure are flagged as needing a
+  further rerun before a PR, as the first passes of other heads today faded.
+
+The high-set split is reported only. It doesn't decide; it says whether a pass
+leans on the three-color sets.
+
+### Predictions
+
+- `no-needs-2drops` confirmed on the regret slope (about -4 SEs) and swap better
+  but under 2 SEs; `2drops-cap-1.25` confirmed on the regret slope, about -3 SEs.
+  Head to head, removal not 2 SEs worse than the cap, so removal is preferred.
+- `flat-bonus` changes 1–2% of top cards and moves neither measure by 2 SEs.
+- `flat-bonus-strong` changes 3–5% of top cards; swap a little worse, not 2 SEs.
+- The 2-drop gains are no larger in the four high sets than in the other fifteen.
