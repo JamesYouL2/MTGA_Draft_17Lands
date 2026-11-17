@@ -123,3 +123,125 @@ slope change. The attribution, done after the run, separates them.
    1.3x, but neither head was near a 2 SE reading on 228,000 drafts.
 3. Greedy Bomb stays. If the advice, not the scoring, is the question, the rule is
    inert and could be judged by that, but the protocol's rule keeps it.
+
+# Rerun, 2026-11-17: the 2-drop heads and flat bonuses
+
+Run [44059805912](https://github.com/JamesYouL2/MTGA_Draft_17Lands/actions/runs/44059805912)
+at `8dde05b`: the same 19 sets and 6,000 drafts a set and salt, new salts `needs3`
+and `needs4`, 176,769 complete events. The rules are in PROTOCOL.md's addendum,
+written before the run. All 38 replay jobs passed. The run's Extra report step was
+cancelled after 27 minutes, probably out of memory, before anything was uploaded. So
+the reports were rerun from the run's artifacts by a one-off workflow on
+`run/need-rules-rerun-report`, run
+[44091224510](https://github.com/JamesYouL2/MTGA_Draft_17Lands/actions/runs/44091224510),
+with [rerun_extra.py](rerun_extra.py) changed to read one folder at a time. They were
+too big to run locally. Reports: [heads-rerun.md](heads-rerun.md),
+[by_set-rerun.md](by_set-rerun.md), [extra-rerun.md](extra-rerun.md) (ranks, the
+high-set split, head to head, attribution).
+
+## Verdicts
+
+Regret slope: positive is worse for the head. Swap: negative is worse.
+
+| head | regret slope (SE), SEs | swap (SE), SEs | top card / top three changes | by the addendum's rule |
+|---|---|---|---|---|
+| `no-needs-2drops` | +0.0001 (0.0002), +0.6 | +0.000 (0.032), +0.0 | 0.36% / 0.85% | better on neither: **not confirmed** |
+| `2drops-cap-1.25` | +0.0002 (0.0001), **+2.8** | +0.079 (0.078), +1.0 | 0.08% / 0.21% | 2.8 SEs *worse* on the regret slope: **not confirmed** |
+| `flat-bonus` (1.05x / 1.1x) | +0.0004 (0.0003), +1.4 | +0.018 (0.011), +1.6 | 3.69% / 10.60% | better on neither by 2 SEs: **not adopted** |
+| `flat-bonus-strong` (1.1x / 1.2x) | +0.0012 (0.0005), **+2.6** | -0.004 (0.008), -0.5 | 6.05% / 16.45% | 2.6 SEs worse on the regret slope: **not adopted** |
+
+Neither 2-drop head is confirmed, so by the addendum today's Needs 2-Drops stays
+and the first run's reading is taken as having faded. No head passes, so there's no
+pass under 3 SEs to flag and no case to check for passing by rescaling.
+
+## Needs 2-Drops: the first run's reading doesn't hold
+
+The first run had removal at -4.8 SEs and the cap at -3.3, better in 17 of 19 sets.
+On new salts, removal reads +0.6 and the cap +2.8, worse in 12 and 15 sets. Same
+code, same patches (byte for byte), the same daily dataset build (gh-pages last
+updated 01:05 UTC on the 17th, before both runs), and fixed files for KTK and SNC.
+Only the drafts sampled differ.
+
+The four salts disagree more than their SEs allow:
+
+| head | needs1 | needs2 | needs3 | needs4 | spread SD / bootstrap SE | χ²(3) |
+|---|---|---|---|---|---|---|
+| `no-needs-2drops` | -0.00075 | -0.00059 | +0.00005 | +0.00013 | 0.00044 / 0.00021, 2.1x | 13.6 |
+| `2drops-cap-1.25` | -0.00030 | -0.00014 | +0.00020 | +0.00017 | 0.00024 / 0.00010, 2.6x | 19.7 |
+
+Pooled over the four salts, with the SE taken from their spread, removal reads
+-0.00029 (0.00022), -1.3 SEs, and the cap -0.00002 (0.00012), -0.1. Pooled swap
+(inverse variance over the two runs): removal +0.044 (0.024), the cap +0.098 (0.057).
+Both measures lean toward a smaller bonus, but neither reaches 2 SEs. That is about
+what 11-03's game results say: 11-03 put the worth at about 0.9 of the rule's size
+at two short.
+
+Head to head (reported though neither is confirmed): removing the bonus against the
+1.25x cap reads -0.9 SEs on regret and -0.6 on swap, with the top card differing on
+0.27% of picks. They can't be told apart.
+
+## Flat bonuses
+
+Applied in packs 2–3 only, on top of the other composition rules (see the
+addendum). Neither beats today's on either measure by 2 SEs.
+
+- `flat-bonus` changes 3.7% of top cards, ten times the 2-drop heads. Swap leans
+  its way (+1.6 SEs) and the regret slope leans against it (+1.4). Its swap SE of
+  0.011 is well under 0.0175, so this run could have seen a cost the size of 20%
+  noise on swap, and it reads none. Dropping the thresholds for small flat bonuses
+  isn't shown harmful, but isn't shown better either.
+- `flat-bonus-strong` changes 6.1% of top cards and reads 2.6 SEs worse on the
+  regret slope, with swap flat (-0.5 SEs, SE 0.008). By [extra-rerun.md](extra-rerun.md),
+  71% of the regret change (+0.00085 of +0.00120, 2.5 SEs) comes from picks where
+  neither the top card nor the drafter's rank changed: only the spread of scores
+  moved. Picks where the top card changed carry +0.00008 (0.4 SEs). So this is
+  Greedy Bomb's case the other way round: it scores worse but advises no worse.
+  The rule still rejects it.
+
+`2drops-cap-1.25`'s +2.8 is the same kind: 84% of it (+0.00016, 3.1 SEs) is on
+"regret only" picks, and +0.00004 on changed top cards.
+
+## The four high three-color sets against the other fifteen
+
+Reported only (KTK, TDM, SNC, DMU against the rest):
+
+| head | four high: regret, swap (SEs) | other 15: regret, swap (SEs) |
+|---|---|---|
+| `no-needs-2drops` | +0.7, -1.4 | +0.2, +0.9 |
+| `2drops-cap-1.25` | +1.5, -1.2 | +2.6, +2.2 |
+| `flat-bonus` | -0.0, **+2.3** | +1.5, +0.7 |
+| `flat-bonus-strong` | -0.1, -0.2 | **+3.0**, -0.4 |
+
+`flat-bonus` reads better on swap only in the four high sets (+0.057, SE 0.025). That
+is one cell in sixteen over 2 SEs and decides nothing. `flat-bonus-strong`'s regret
+cost is all in the other fifteen. The 2-drop heads show no high-set lean.
+
+## Predictions
+
+| prediction | result |
+|---|---|
+| `no-needs-2drops` confirmed on regret, about -4 SEs; swap better, under 2 | wrong: +0.6, swap 0.0 |
+| `2drops-cap-1.25` confirmed on regret, about -3 SEs | wrong: +2.8, worse |
+| head to head, removal not 2 SEs worse than the cap | right: -0.9, -0.6 |
+| `flat-bonus` 1–2% top-card changes, neither measure 2 SEs | half: 3.69%; neither moves 2 SEs |
+| `flat-bonus-strong` 3–5%, swap a little worse, not 2 SEs | half: 6.05%; swap -0.5 is right, but regret +2.6 worse wasn't predicted |
+| 2-drop gains no larger in the four high sets | moot: no gains |
+
+## What this means for the measure
+
+The salt-to-salt spread is 2–2.6x the bootstrap SE for these two heads. The SE
+resamples events within a salt. It doesn't resample whatever a salt shares, such as
+its held-out ratings, rebuilt for each salt. Four salts is too few to pin the
+factor down. Within each run the two salts agree, so it could be partly run-level
+too, but nothing found differs between the runs. If the factor holds, one run's
+"3 SEs" is about 1.2–1.5 true SEs. That fits the first passes that faded today:
+lane share, wheel tiebreak, and these two. Greedy Bomb's 6.8 would still be about 3.
+
+What's next, replacing the first run's list:
+
+1. No 2-drop PR. Today's Needs 2-Drops stays; pooled, a smaller bonus leans better
+   on both measures (-1.3 and +1.8 SEs), not enough to act on.
+2. No flat-bonus PR. The thresholds stay.
+3. For any head: judge on four or more salts across runs, with the SE from their
+   spread, or work out what each salt shares and add it to the bootstrap. Until
+   then, treat single-run readings under about 5 SEs as unconfirmed.
