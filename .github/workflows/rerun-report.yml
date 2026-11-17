@@ -1,0 +1,62 @@
+name: Need-rules rerun report
+
+# One-off: the reports for Advisor heads run 44059805912, whose Extra report step
+# was cancelled before the report artifact was uploaded. Too big to run locally.
+
+on:
+  push:
+    branches: [run/need-rules-rerun-report]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: heads-*
+          path: results
+          run-id: 44059805912
+          github-token: ${{ github.token }}
+      - run: ls results | wc -l
+      - name: Heads
+        shell: bash
+        run: |
+          {
+            echo "# Advisor heads, run 44059805912 at \`8dde05b\`"
+            echo
+            poetry run python experiments/2026-11-08-pick-multipliers/heads.py results --json heads.json
+          } | tee heads.md
+      - name: By set
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          {
+            echo "# By set"
+            echo
+            poetry run python experiments/2026-11-15-off-color-share/by_set.py results --json by_set.json
+          } | tee by_set.md
+      - name: Extra report
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: poetry run python experiments/2026-11-16-need-rules-replay/rerun_extra.py results | tee extra.md
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: rerun-report
+          path: |
+            heads.md
+            heads.json
+            by_set.md
+            by_set.json
+            extra.md
