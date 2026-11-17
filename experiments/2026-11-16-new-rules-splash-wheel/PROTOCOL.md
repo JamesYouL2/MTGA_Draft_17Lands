@@ -135,3 +135,40 @@ finished decks, and the deck builder's splash choices aren't touched here.
 
 As in the measure-power run, the regret slope's floor is high: "no objection" rules out
 damage about the size of 40% noise and nothing smaller.
+
+## Addendum: the wheel tiebreak confirmation
+
+Written after the first run's results and before the confirmation run started.
+
+The first run found `wheel-tiebreak-strong` (s = 0.15) better by 2.1 SEs on event wins
+per swapped pick, one measure just over the line. As this protocol requires, it is
+rerun before anything is proposed.
+
+**Heads,** in [confirm/](confirm/), against today's advisor (engine blob `8bc464d`):
+
+| head | rule |
+|---|---|
+| `wheel-015` | picks 1 to 8: score × (1 − 0.15 × wheel chance), the same patch as `wheel-tiebreak-strong` |
+| `wheel-030` | the same with 0.30 |
+
+**What runs:** the Advisor heads workflow on branch `run/wheel-confirm`, the same ten
+sets and 3,000 drafts a set and salt, salts `wheelconfirm1` and `wheelconfirm2`, which
+no earlier run used.
+
+**Confirmed** if `wheel-015` is again 2+ SEs better than today's on at least one
+measure (regret slope change ≤ −2 SEs, or event wins per swapped pick ≥ +2 SEs), and
+neither measure reads it 2+ SEs worse. The first run is not pooled into this test.
+
+**s = 0.30 replaces 0.15** only if it beats 0.15 head to head on the same drafts: both
+measures computed with `wheel-015` in the base's place (the same `heads.py`, on the
+per-set results with `wheel-015.json` as `base.json`), with 0.30 better by 2+ SEs on at
+least one measure and neither reading it 2+ SEs worse. Otherwise 0.15 stays the
+candidate. If 0.15 isn't confirmed, 0.30 can't replace it by this test: it would need
+its own confirmation.
+
+**Reported:** for each head, both measures with SEs, the top-card change rate and the
+change in agreement with drafters (top-1).
+
+**Predictions:** `wheel-015` is confirmed on event wins, at a smaller margin than the
+first run (about 1.5 to 2.5 SEs), so it may well miss. `wheel-030` changes about twice
+as many top cards (about 2%) and doesn't beat 0.15 head to head.
