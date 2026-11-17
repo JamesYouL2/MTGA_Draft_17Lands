@@ -1,0 +1,24 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..c6f30ab 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -63,6 +63,10 @@ class DraftAdvisor:
+             else "All Decks"
+         )
+         self.active_colors = self.main_colors
++        # The pair's level: how much better the pair's cards do in it than the
++        # format's cards do overall, by the same mean as global_mean.
++        pair_mean = self.metrics.get_metrics(self.main_archetype, "gihwr")[0]
++        self.pair_level = pair_mean - self.global_mean if pair_mean > 0 else 0.0
+ 
+         # 3. Analyze Pool Needs
+         self.fixing_map = count_fixing(self.pool)
+@@ -469,6 +473,8 @@ class DraftAdvisor:
+             )
+             arch_stats = stats.get(self.main_archetype, {})
+             arch_wr = float(arch_stats.get("gihwr", global_wr))
++            if arch_wr > 0:
++                arch_wr -= self.pair_level
+ 
+             samples = int(arch_stats.get("samples", 0))
+ 
