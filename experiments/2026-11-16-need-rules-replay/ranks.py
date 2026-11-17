@@ -35,11 +35,11 @@ def counts(data):
             n += 1
             m += 1
             top1 += p[5] != q[5]
-            top3 += p[7] != q[7]
+            top3 += p[-1] != q[-1]
             rank += p[2] != q[2]
             if p[3] != q[3]:
                 moved += 1
-                if p[7] == q[7]:
+                if p[-1] == q[-1]:
                     only_moved += 1
                 up += q[3] > p[3]
                 k += 1

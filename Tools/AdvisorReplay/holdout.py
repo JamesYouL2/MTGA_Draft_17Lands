@@ -11,6 +11,8 @@ hides thinner ones from the app, and samples is that whole-dump count, which
 reads no results. So both datasets have the same cards rated and the same
 shrinkage. Cards the app has no data for, such as basic lands, stay unrated. GIH WR, GNS WR and IWD are replaced; the other fields stay the app's,
 which the advisor doesn't read for scoring, except ALSA, which reads no results.
+--also names more drafts whose games --heldout leaves out too, without replaying
+them: with the replayed drafts fixed, a new --also varies only the ratings.
 Standard library only.
 """
 
@@ -83,10 +85,14 @@ def main(argv=None):
     parser.add_argument("--dataset", required=True, help="The app's dataset (.json.gz)")
     parser.add_argument("--rebuilt", required=True, help="Every game (.json.gz)")
     parser.add_argument("--heldout", required=True, help="Without --drafts (.json.gz)")
+    parser.add_argument("--also", help="More drafts to leave out of --heldout (.json.gz)")
     args = parser.parse_args(argv)
 
     with gzip.open(args.drafts, "rt", encoding="utf-8") as f:
         held_ids = {d["id"] for d in json.load(f)}
+    if args.also:
+        with gzip.open(args.also, "rt", encoding="utf-8") as f:
+            held_ids |= {d["id"] for d in json.load(f)}
     with gzip.open(args.dataset, "rt", encoding="utf-8") as f:
         data = json.load(f)
     with gzip.open(args.games, "rt", encoding="utf-8", newline="") as f:

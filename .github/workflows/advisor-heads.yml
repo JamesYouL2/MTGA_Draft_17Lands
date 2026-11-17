@@ -5,6 +5,10 @@ name: Advisor heads
 # heads share one job per set and sample, so they're compared on the same drafts
 # and the same ratings. See experiments/2026-11-15-flag-snc-ktk/PROTOCOL.md.
 #
+# Each salt is its own sample of drafts and its own held-out ratings, so heads.py
+# combines the salts' estimates with the spread between them in the SE (see
+# experiments/2026-11-17-measure-salts). Use 4 or more salts.
+#
 # Run by hand: Actions > Advisor heads > Run workflow.
 
 on:
@@ -25,13 +29,16 @@ on:
       extra:
         description: A script to run on the results after the reports (optional)
         default: ""
+      ratings_salts:
+        description: 'JSON list; a non-empty entry also holds out a second sample of drafts from the ratings, replaying the same drafts (diagnostic)'
+        default: '[""]'
 
 permissions:
   contents: read
 
 jobs:
   replay:
-    name: Replay ${{ matrix.set }} ${{ matrix.salt }}
+    name: Replay ${{ matrix.set }} ${{ matrix.salt }} ${{ matrix.rsalt }}
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
@@ -39,9 +46,11 @@ jobs:
       matrix:
         set: ${{ fromJSON(inputs.sets || '["DFT", "FDN", "FIN", "FRA", "HOB", "MSH", "SOS", "TDM", "TLA", "TMT"]') }}
         salt: ${{ fromJSON(inputs.salts || '["", "arch2"]') }}
+        rsalt: ${{ fromJSON(inputs.ratings_salts || '[""]') }}
     env:
       SET: ${{ matrix.set }}
       SALT: ${{ matrix.salt }}
+      RSALT: ${{ matrix.rsalt }}
       DRAFTS: ${{ inputs.drafts || '3000' }}
       PATCHES: ${{ inputs.patches || 'experiments/2026-11-16-proposed-together/heads/*.patch' }}
     steps:
@@ -65,9 +74,15 @@ jobs:
               "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
           fi
       - name: Sample drafts and hold them out of the ratings
+        shell: bash
         run: |
           poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts "$DRAFTS" --salt "$SALT" --out drafts.json.gz
-          poetry run python Tools/AdvisorReplay/holdout.py --games games.csv.gz --drafts drafts.json.gz --dataset dataset.json.gz --rebuilt rebuilt.json.gz --heldout heldout.json.gz
+          also=()
+          if [ -n "$RSALT" ]; then
+            poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts "$DRAFTS" --salt "$RSALT" --out also.json.gz
+            also=(--also also.json.gz)
+          fi
+          poetry run python Tools/AdvisorReplay/holdout.py --games games.csv.gz --drafts drafts.json.gz --dataset dataset.json.gz --rebuilt rebuilt.json.gz --heldout heldout.json.gz "${also[@]}"
           rm dump.csv.gz games.csv.gz rebuilt.json.gz
       - name: Copy the app for each head
         shell: bash
@@ -91,7 +106,7 @@ jobs:
           { echo base; cat heads.txt; } | xargs -P 4 -I{} bash -c 'replay {}'
       - uses: actions/upload-artifact@v4
         with:
-          name: heads-${{ matrix.set }}-${{ matrix.salt || 'none' }}
+          name: heads-${{ matrix.set }}-${{ matrix.salt || 'none' }}${{ matrix.rsalt && format('+{0}', matrix.rsalt) || '' }}
           path: results/
 
   report:
@@ -110,20 +125,6 @@ jobs:
         with:
           pattern: heads-*
           path: results
-      - name: Report
-        shell: bash  # with pipefail, so a failed report fails the step
-        run: |
-          {
-            echo "# Advisor heads at \`${GITHUB_SHA::7}\`"
-            echo
-            poetry run python experiments/2026-11-08-pick-multipliers/heads.py results --json heads.json
-          } | tee heads.md >> "$GITHUB_STEP_SUMMARY"
-          {
-            echo
-            echo "# By set"
-            echo
-            poetry run python experiments/2026-11-15-off-color-share/by_set.py results --json by_set.json
-          } | tee by_set.md >> "$GITHUB_STEP_SUMMARY"
       - name: Extra report
         if: ${{ inputs.extra != '' }}
         shell: bash
@@ -134,7 +135,27 @@ jobs:
             echo
             poetry run python "$EXTRA" results
           } | tee extra.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Report
+        if: ${{ !cancelled() }}
+        shell: bash  # with pipefail, so a failed report fails the step
+        run: |
+          {
+            echo "# Advisor heads at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python experiments/2026-11-08-pick-multipliers/heads.py results --json heads.json
+          } | tee heads.md >> "$GITHUB_STEP_SUMMARY"
+      - name: By set
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          {
+            echo
+            echo "# By set"
+            echo
+            poetry run python experiments/2026-11-15-off-color-share/by_set.py results --json by_set.json
+          } | tee by_set.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
         with:
           name: heads-report
           path: |
@@ -143,3 +164,4 @@ jobs:
             by_set.md
             by_set.json
             extra.md
+            extra.json

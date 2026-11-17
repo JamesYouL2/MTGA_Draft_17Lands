@@ -92,17 +92,26 @@ def write_gz(path, text):
         f.write(text)
 
 
-def run(tmp_path, rows, drafts):
+def run(tmp_path, rows, drafts, also=None):
     write_gz(tmp_path / "games.csv.gz", "".join(lines(rows)))
     write_gz(tmp_path / "drafts.json.gz", json.dumps([{"id": d} for d in drafts]))
     write_gz(tmp_path / "dataset.json.gz", json.dumps(dataset()))
+    extra = []
+    if also is not None:
+        write_gz(tmp_path / "also.json.gz", json.dumps([{"id": d} for d in also]))
+        extra = ["--also", str(tmp_path / "also.json.gz")]
     holdout.main([
         "--games", str(tmp_path / "games.csv.gz"),
         "--drafts", str(tmp_path / "drafts.json.gz"),
         "--dataset", str(tmp_path / "dataset.json.gz"),
         "--rebuilt", str(tmp_path / "rebuilt.json.gz"),
         "--heldout", str(tmp_path / "heldout.json.gz"),
-    ])
+    ] + extra)
+
+
+def gihwr(tmp_path, name):
+    with gzip.open(tmp_path / name, "rt", encoding="utf-8") as f:
+        return json.load(f)["card_ratings"]["1"]["deck_colors"]["All Decks"]["gihwr"]
 
 
 def test_command_line_leaves_the_sampled_drafts_out(tmp_path):
@@ -116,6 +125,16 @@ def test_command_line_leaves_the_sampled_drafts_out(tmp_path):
 
     assert gihwr("rebuilt.json.gz") == 60.0
     assert gihwr("heldout.json.gz") == 50.0
+
+
+def test_also_leaves_more_drafts_out_of_the_heldout_ratings_only(tmp_path):
+    rows = [game("a", True) for _ in range(100)] + [game("c", False) for _ in range(100)]
+    rows += [game("b", True) for _ in range(200)] + [game("b", False) for _ in range(200)]
+    run(tmp_path, rows, ["a"], also=["c"])
+    assert gihwr(tmp_path, "rebuilt.json.gz") == 50.0
+    assert gihwr(tmp_path, "heldout.json.gz") == 50.0
+    run(tmp_path, rows, ["a"])
+    assert gihwr(tmp_path, "heldout.json.gz") == 40.0
 
 
 def test_command_line_refuses_drafts_missing_from_the_game_data(tmp_path):
