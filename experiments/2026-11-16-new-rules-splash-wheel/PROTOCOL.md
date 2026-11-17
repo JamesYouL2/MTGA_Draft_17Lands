@@ -172,3 +172,57 @@ change in agreement with drafters (top-1).
 **Predictions:** `wheel-015` is confirmed on event wins, at a smaller margin than the
 first run (about 1.5 to 2.5 SEs), so it may well miss. `wheel-030` changes about twice
 as many top cards (about 2%) and doesn't beat 0.15 head to head.
+
+## Addendum 2: a sweep above 0.30
+
+Written after the confirmation run's results and before the sweep run started.
+
+0.30 passed in only one run, the one where it was first tried. Its event-wins edge over
+0.15 there was 1.3 SEs, and the gain was still rising with s. This run reruns 0.30 on
+fresh drafts and tries two larger weights.
+
+**Heads,** in [sweep/](sweep/), against today's advisor (engine blob `8bc464d`). Each is
+the same one-line rule, score × (1 − s × wheel chance), in picks 1 to 8:
+
+| head | s |
+|---|---|
+| `wheel-030` | 0.30 |
+| `wheel-045` | 0.45 |
+| `wheel-060` | 0.60 |
+
+**What runs:** the Advisor heads workflow on branch `run/wheel-sweep`: the same ten sets,
+3,000 drafts a set and salt, salts `wheelsweep1` and `wheelsweep2`, which no earlier run
+used.
+
+**0.30 is confirmed** if it again beats today's by 2+ SEs on one measure (regret slope
+change ≤ −2 SEs, or event wins per swapped pick ≥ +2 SEs), and neither measure reads it
+2+ SEs worse. Earlier runs are not pooled in.
+
+**A larger s replaces the current pick** only if it beats that pick head to head on the
+same drafts by 2+ SEs on event wins per swapped pick, and the regret slope doesn't read
+it 2+ SEs worse. Event wins decides here because the regret slope is read on each head's
+own scores, and a larger s changes that scale more. The head-to-heads are run as before:
+the same `heads.py` on the per-set results, with the current pick in the base's place.
+They run in order:
+
+1. `wheel-045` against `wheel-030`. If it passes, 0.45 is the current pick.
+2. `wheel-060` against the current pick (0.45 if step 1 passed, otherwise 0.30).
+
+If nothing beats 0.30, it stays. If 0.30 isn't confirmed against today's, no weight is
+proposed from this run, whatever the head-to-heads say, and the rule goes back to the
+coordinator.
+
+Both head-to-heads are reported even when they don't decide anything.
+
+**Reported:** for each head against today's, both measures with SEs, top-card changes,
+change in agreement with drafters, and the regret slope change in TDM against the other
+nine sets (from `by_set.py`).
+
+**Predictions:**
+
+- `wheel-030` is confirmed, on the regret slope at 2.5+ SEs and on event wins at
+  about 2 SEs.
+- Top-card changes grow roughly in line with s: about 2%, 3% and 4%.
+- Neither larger head beats its comparison by 2 SEs on event wins, because event-wins
+  SEs head to head are about 0.05, and the gain from 0.15 to 0.30 was +0.06. 0.30 stays.
+- TDM stays flat for every head.
