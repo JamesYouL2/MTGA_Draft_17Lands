@@ -3,7 +3,7 @@
     python experiments/2026-11-08-heldout-replay/compare.py RUN_DIR [RUN_DIR ...]
 
 Each RUN_DIR holds one run's downloaded replay-* artifacts. Reads report.py's
-helpers, and needs only NumPy.
+helpers, and needs NumPy and SciPy (for combine's quantiles).
 """
 
 import glob
@@ -13,6 +13,7 @@ import sys
 from collections import defaultdict
 
 import numpy as np
+from scipy import stats
 
 sys.path.insert(
     0,
@@ -115,10 +116,13 @@ def picks(data):
     return total, changed, base_on, head_on, kinds
 
 
-def disagreements(data):
-    """Event wins per pick swapped from base's top card to head's, with its SE."""
-    rows, base, sets = [], [], []
-    for (code, _), v in data.items():
+def swap_frame(data):
+    """(rows of [wins, net, n], controls, keys) for complete events: net is how many
+    more of the event's changed picks matched head's top than base's, n how many
+    picks changed."""
+    rows, base, sets, keys = [], [], [], []
+    for key, v in data.items():
+        code = key[0]
         if not R.is_complete(v["base"]):
             continue
         head = {(p[0], p[1]): p for p in v["head"]["picks"]}
@@ -131,15 +135,119 @@ def disagreements(data):
         rows.append([v["base"]["wins"], net, n])
         base.append(v["base"])
         sets.append(code)
-    a = np.array(rows, dtype=float)
-    ctrl = R.controls(base, sets)
+        keys.append(key)
+    return np.array(rows, dtype=float), R.controls(base, sets), keys
 
-    def fit(idx):
-        X = np.column_stack([a[idx, 1], a[idx, 2], ctrl[idx]])
-        # Swapping a pick moves net by 2: -1 for base's card to +1 for head's.
-        return 2 * np.linalg.lstsq(X, a[idx, 0], rcond=None)[0][0]
 
-    return fit(np.arange(len(a))), R.bootstrap(fit, len(a))
+def swap(frame, idx):
+    """Event wins per pick swapped from base's top card to head's, over events idx."""
+    a, ctrl, _ = frame
+    X = np.column_stack([a[idx, 1], a[idx, 2], ctrl[idx]])
+    # Swapping a pick moves net by 2: -1 for base's card to +1 for head's.
+    return 2 * np.linalg.lstsq(X, a[idx, 0], rcond=None)[0][0]
+
+
+def disagreements(data):
+    """Event wins per pick swapped from base's top card to head's, with its SE."""
+    frame = swap_frame(data)
+    fit = lambda idx: swap(frame, idx)
+    return fit(np.arange(len(frame[0]))), R.bootstrap(fit, len(frame[0]))
+
+
+# --- Combining salts -----------------------------------------------------------
+#
+# Each salt of a heads run is its own sample of drafts and its own held-out
+# ratings, and R.bootstrap, which resamples events, sees neither. So the salts'
+# estimates spread more than their bootstrap SEs allow (2026-11-17-measure-salts),
+# and a run's SE has to come from that spread. combine is a random-effects
+# combination of the salts:
+#
+# - DerSimonian-Laird between-salt variance tau2, so a salt counts by
+#   1 / (bootstrap SE^2 + tau2): equal-sized salts count about equally, a thin one
+#   less.
+# - The SE is Hartung-Knapp-Sidik-Jonkman's, which rescales by the salts' own
+#   weighted spread and so stays honest when tau2 is poorly estimated from a few
+#   salts, floored at the plain random-effects SE (the "modified" HKSJ), so it is
+#   never narrower than the bootstrap alone when the salts happen to agree.
+# - Its interval uses t with k - 1 degrees of freedom. scaled_se is the SE times
+#   t / 1.96, so "2 scaled SEs" keeps meaning about 95% when k is small: with 4
+#   salts it is 1.62 times the SE, with 8 salts 1.21.
+
+
+def salt_of(key):
+    """The salt of a heads.py key, (set, "salt:draft id")."""
+    return key[1].split(":", 1)[0]
+
+
+def by_salt(keys, fn):
+    """{salt: (fn(indices), bootstrap SE)} over each salt's events."""
+    groups = {}
+    for i, key in enumerate(keys):
+        groups.setdefault(salt_of(key), []).append(i)
+    out = {}
+    for name, idx in sorted(groups.items()):
+        idx = np.array(idx)
+        out[name] = (float(fn(idx)), R.bootstrap(lambda i, a=idx: fn(a[i]), len(idx)))
+    return out
+
+
+def inflation(q, df, level=0.95):
+    """(phi, low, high): sqrt(Q / df), the spread over the SEs' allowance, with its
+    interval from chi-square(df), treating the SEs as known."""
+    if df < 1:
+        return float("nan"), float("nan"), float("nan")
+    tail = (1 - level) / 2
+    return (
+        float(np.sqrt(q / df)),
+        float(np.sqrt(q / stats.chi2.ppf(1 - tail, df))),
+        float(np.sqrt(q / stats.chi2.ppf(tail, df))),
+    )
+
+
+def combine(estimates, ses, level=0.95):
+    """Random-effects combination of per-salt estimates and their bootstrap SEs.
+
+    A dict: estimate, se (the corrected SE), scaled_se (se times t / z), df, t,
+    low and high (the interval), tau (between-salt SD), and for comparison fixed
+    and fixed_se (the inverse-variance mean and its bootstrap-only SE), q
+    (Cochran's Q) and phi with its interval (the inflation factor)."""
+    e, b = np.asarray(estimates, dtype=float), np.asarray(ses, dtype=float)
+    k = len(e)
+    if k == 0:
+        raise ValueError("nothing to combine")
+    z = float(stats.norm.ppf(0.5 + level / 2))
+    if not np.all(b > 0):
+        if np.all(b == 0) and np.all(e == e[0]):  # the head changed nothing
+            out = dict(estimate=float(e[0]), se=0.0, scaled_se=0.0, df=k - 1, t=z,
+                       low=float(e[0]), high=float(e[0]), tau=0.0, fixed=float(e[0]),
+                       fixed_se=0.0, q=0.0)
+            return out | dict(zip(("phi", "phi_low", "phi_high"), (float("nan"),) * 3))
+        if not np.any(b > 0):
+            raise ValueError("the salts differ but none has an SE")
+        # A salt where the head changed nothing measured has no spread of its own:
+        # count it as sure as the surest other salt, not infinitely sure.
+        b = np.where(b > 0, b, b[b > 0].min())
+    w = 1 / b**2
+    fixed = float((w * e).sum() / w.sum())
+    fixed_se = float(1 / np.sqrt(w.sum()))
+    q = float((w * (e - fixed) ** 2).sum())
+    if k == 1:
+        # No spread to measure: the bootstrap SE alone, and normal quantiles.
+        out = dict(estimate=fixed, se=fixed_se, scaled_se=fixed_se, df=0, t=z,
+                   low=fixed - z * fixed_se, high=fixed + z * fixed_se, tau=0.0)
+    else:
+        tau2 = max(0.0, (q - (k - 1)) / (w.sum() - (w**2).sum() / w.sum()))
+        ws = 1 / (b**2 + tau2)
+        mean = float((ws * e).sum() / ws.sum())
+        re_se = 1 / np.sqrt(ws.sum())
+        hk = (ws * (e - mean) ** 2).sum() / (k - 1)
+        se = float(re_se * max(1.0, np.sqrt(hk)))
+        t = float(stats.t.ppf(0.5 + level / 2, k - 1))
+        out = dict(estimate=mean, se=se, scaled_se=se * t / z, df=k - 1, t=t,
+                   low=mean - t * se, high=mean + t * se, tau=float(np.sqrt(tau2)))
+    phi = inflation(q, k - 1, level)
+    return out | dict(fixed=fixed, fixed_se=fixed_se, q=q, phi=phi[0], phi_low=phi[1],
+                      phi_high=phi[2])
 
 
 def main(runs):
