@@ -39,11 +39,12 @@ def load_pair(root, base, head):
     return dict(sorted(out.items()))
 
 
-def head_to_head(root):
-    m = H.measure(load_pair(root, "lane-share-10", "lane-share-05"))
-    print("## 0.05 against 0.10, head to head\n")
-    print("lane-share-10 is the base here. Regret: positive is worse for 0.05. "
-          "Event wins: positive is better for 0.05.\n")
+def head_to_head(root, base="lane-share-10", head="lane-share-05", labels=None):
+    labels = labels or LABELS
+    m = H.measure(load_pair(root, base, head))
+    print(f"## {labels[head]} against {labels[base]}, head to head\n")
+    print(f"{base} is the base here. Regret: positive is worse for {labels[head]}. "
+          f"Event wins: positive is better for {labels[head]}.\n")
     print("| regret slope change (SE) | SEs | event wins per swapped pick (SE) | SEs "
           "| top card changes |")
     print("|---|---|---|---|---|")
@@ -55,7 +56,7 @@ def head_to_head(root):
     return m
 
 
-def lanes(root):
+def lanes(root, LABELS=LABELS):
     """Lane sizes by pool size, for each label, on the same picks."""
     # {label: {bucket: [picks, picks with 3 main colors]}}
     three = {label: defaultdict(lambda: [0, 0]) for label in LABELS}
@@ -94,7 +95,7 @@ def lanes(root):
                             seen[label] = True
                             first[label].append(pool)
 
-    print("## What the lower threshold does\n")
+    print("## What the threshold does\n")
     print(f"{drafts} drafts, picks all three replays scored. The threshold acts only "
           "from 15 cards in the pool.\n")
     print("Share of picks where the advisor's lane has three main colors:\n")

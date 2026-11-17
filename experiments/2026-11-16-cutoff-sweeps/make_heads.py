@@ -26,12 +26,35 @@ CONFIRM = {
     "lane-share-10": HEADS["lane-share-10"],
     "lane-share-05": (SHARE + "0.15", SHARE + "0.05"),
 }
+# The removal run (REMOVAL.md): 0.05 again, and no share threshold at all.
+OLD_BLOCK = """            threshold = sum(color_counts.values()) * 0.15
+            leader_set = [
+                v[0]
+                for v in sorted(color_counts.items(), key=lambda x: x[1], reverse=True)[
+                    :2
+                ]
+                if v[1] > 0
+            ]
+            for col, weight in sorted_w:
+                if col in leader_set or color_counts[col] >= threshold:
+                    main_colors.append(col)
+"""
+NEW_BLOCK = """            main_colors = [col for col, weight in sorted_w]
+"""
+REMOVAL = {
+    "lane-share-05": CONFIRM["lane-share-05"],
+    "lane-share-none": (OLD_BLOCK, NEW_BLOCK),
+}
 
 
 def main():
     with open(os.path.join(ROOT, PATH), encoding="utf-8") as f:
         src = f.read()
-    for folder, heads in (("heads", HEADS), ("confirm-heads", CONFIRM)):
+    for folder, heads in (
+        ("heads", HEADS),
+        ("confirm-heads", CONFIRM),
+        ("removal-heads", REMOVAL),
+    ):
         write(src, os.path.join(HERE, folder), heads)
 
 

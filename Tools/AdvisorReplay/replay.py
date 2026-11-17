@@ -81,6 +81,10 @@ class App:
         """{card name: advisor score}, best first."""
         advisor = self.DraftAdvisor(self.metrics, pool)
         self.lane = set(advisor.main_colors)
+        counts = getattr(advisor, "color_counts", {}) or {}
+        # Non-land cards of the lane's thinnest color, and of all colors.
+        self.lane_min = min((counts.get(c, 0) for c in self.lane), default=0)
+        self.counted = sum(counts.values())
         recs = advisor.evaluate_pack(pack, pick_no, current_pack=pack_no)
         scores = {}
         for r in recs:
@@ -186,6 +190,8 @@ def replay_draft(app, draft, skipped):
                 int(on_lane),
                 len(app.lane),  # how many main colors the advisor saw
                 len(pool),  # cards in the pool before this pick
+                app.lane_min,  # non-land cards of the lane's thinnest color
+                app.counted,  # non-land cards counted over all colors
             ]
         )
 
