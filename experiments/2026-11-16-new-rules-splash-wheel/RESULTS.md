@@ -112,8 +112,8 @@ before the run. Reports: [confirm-heads.md](confirm-heads.md),
   top card, drafters took the head's choice about four times as often as today's (41%
   against 10% where both are on-lane), the same as in the first run.
 
-By set (regret slope), `wheel-030` leans better in seven of ten sets. It is 2+ SEs
-better in FRA, TLA and HOB and flat in TDM, SOS and DFT. TDM, the three-color set, is
+By set (regret slope), `wheel-030` leans better in seven of ten sets. It is 2.6 SEs
+better in FRA and 1.9 in TLA and HOB, and flat in TDM, SOS and DFT. TDM, the three-color set, is
 flat for both heads: +0.0002 (0.0007) and +0.0002 (0.0013).
 
 ## Predictions
