@@ -143,3 +143,83 @@ score. `test_wheel_chance_does_not_change_score` is replaced by a test that a li
 wheeler ranks below an equal card that won't come back, and the reason list could say
 "Likely to wheel". A sweep above 0.30 (0.45, 0.60) could come first if the upper end
 is wanted settled before the change is proposed.
+
+# The sweep above 0.30
+
+Run [44040052598](https://github.com/JamesYouL2/MTGA_Draft_17Lands/actions/runs/44040052598)
+at `7b930bd` on `run/wheel-sweep`: the same ten sets, 60,000 drafts, 45,256 complete
+events, salts `wheelsweep1` and `wheelsweep2`. The rules are in
+[addendum 2](PROTOCOL.md#addendum-2-a-sweep-above-030), written before the run.
+Reports: [sweep-heads.md](sweep-heads.md), [sweep-by_set.md](sweep-by_set.md),
+[sweep-h2h.md](sweep-h2h.md).
+
+## Against today's advisor
+
+| head | top card changes | agreement with drafters | regret slope change (SE) | event wins per swapped pick (SE) |
+|---|---|---|---|---|
+| `wheel-030` | 1.97% | +0.52 points | -0.0010 (0.0005), 2.3 SEs better | +0.023 (0.034), 0.7 SEs better |
+| `wheel-045` | 2.74% | +0.71 points | -0.0015 (0.0007), 2.3 SEs better | +0.038 (0.028), 1.4 SEs better |
+| `wheel-060` | 3.41% | +0.87 points | -0.0020 (0.0009), 2.2 SEs better | +0.029 (0.025), 1.2 SEs better |
+
+**0.30 is confirmed by the rule.** It beats today's by 2.3 SEs on the regret slope, and
+event wins doesn't read it worse. But the confirmation rests on the regret slope, the
+measure read on each head's own scores. Event wins is positive and well under 2 SEs:
++0.023 here against +0.086 (0.032) in the confirmation run. For context only (the
+protocol doesn't pool), the two runs' event-wins figures for 0.30 combine by inverse
+variance to +0.056 (0.023), 2.4 SEs.
+
+## Head to head
+
+Event wins per swapped pick decides. Rows are the larger weight against the smaller, on
+the same drafts.
+
+| comparison | top card changes | agreement | regret slope change (SE) | event wins per swapped pick (SE) | decides |
+|---|---|---|---|---|---|
+| `wheel-045` against `wheel-030` | 0.80% | +0.19 | -0.0005 (0.0002), 2.2 SEs better | +0.072 (0.054), 1.3 SEs | step 1: fails, 0.30 stays the pick |
+| `wheel-060` against `wheel-030` | 1.51% | +0.36 | -0.0009 (0.0004), 2.1 SEs better | +0.033 (0.038), 0.9 SEs | step 2: fails |
+| `wheel-060` against `wheel-045` | 0.72% | +0.17 | -0.0004 (0.0002), 1.8 SEs better | -0.005 (0.055), 0.1 SEs | reported only |
+
+**Nothing beats 0.30, so it stays.** The larger weights keep winning on the regret
+slope, about as much again with each step, but event wins doesn't follow them. Event
+wins for 0.45 over 0.30 is the closest, at 1.3 SEs, and 0.60 is no better than 0.45. A
+regret slope that improves steadily with s while event wins levels off is what the
+scale caveat predicts: more of s just rescales the scores regret is read in.
+
+## TDM against the other sets
+
+Regret slope change, from [sweep-by_set.md](sweep-by_set.md).
+
+| head | TDM | the other nine |
+|---|---|---|
+| `wheel-030` | -0.0027 (0.0014), 1.9 SEs better | -0.0009 (0.0005), 1.9 SEs better |
+| `wheel-045` | -0.0038 (0.0021), 1.8 SEs better | -0.0013 (0.0007), 1.9 SEs better |
+| `wheel-060` | -0.0047 (0.0027), 1.8 SEs better | -0.0017 (0.0009), 1.8 SEs better |
+
+Here TDM leans better with the rest. In the confirmation run it was flat
+(+0.0002 (0.0013) for 0.30). So across two runs TDM is no worse, and nothing in it argues
+for treating three-color sets differently. 0.30 leans better in seven of ten sets here
+as well. TLA and FIN lean slightly worse and DFT is flat.
+
+## Predictions
+
+| prediction | result |
+|---|---|
+| `wheel-030` confirmed, regret slope 2.5+ SEs, event wins about 2 SEs | confirmed, but weaker: 2.3 and 0.7 SEs |
+| top card changes about 2%, 3%, 4% | close: 1.97%, 2.74%, 3.41% |
+| neither larger head beats its comparison by 2 SEs on event wins; 0.30 stays | right |
+| TDM stays flat for every head | wrong: it leans better, 1.8 to 1.9 SEs |
+
+## Where the wheel tiebreak stands
+
+Over the two runs on independent salts that tested it, s = 0.30 against today's:
+
+| run | regret slope | event wins per swapped pick |
+|---|---|---|
+| confirmation (`wheelconfirm`) | 3.2 SEs better | +0.086 (0.032), 2.7 SEs better |
+| sweep (`wheelsweep`) | 2.3 SEs better | +0.023 (0.034), 0.7 SEs better |
+
+Both passes are by the rule, and neither measure has read it worse in any run. The
+event-wins figure varies more than its SE suggests, so the size of the gain is uncertain
+even if its sign isn't. s = 0.30 is the weight to propose: a one-line change in
+`evaluate_pack`, with `test_wheel_chance_does_not_change_score` replaced by a test that
+a likely wheeler ranks below an equal card that won't come back.
