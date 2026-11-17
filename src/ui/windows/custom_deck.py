@@ -7,14 +7,13 @@ Monte Carlo simulations on their custom creations.
 
 import tkinter
 from tkinter import ttk
-from typing import Dict, Any, List
+from typing import Dict, List
 import random
 import requests
 import urllib.parse
 import hashlib
 import os
 import io
-import re
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image, ImageTk
 
@@ -458,7 +457,7 @@ class CustomDeckPanel(ttk.Frame):
         self.sim_executor.submit(self._run_auto_optimize_task)
 
     def _run_auto_optimize_task(self):
-        """Background task that brute-forces deck permutations to find the mathematically optimal build."""
+        """Background task that simulates each candidate swap and keeps the best."""
         self.after(
             0,
             lambda: self._show_sim_loading(
@@ -1153,7 +1152,7 @@ class CustomDeckPanel(ttk.Frame):
 
     # --- MANA BASE LOGIC ---
     def _apply_auto_lands(self):
-        """Dispatches the brute-force mana optimization to a background thread."""
+        """Fills the land slots with basics chosen by the mana base rule."""
         self.notebook.select(self.hand_tab)
         self.sim_executor.submit(self._run_auto_lands_task)
 
@@ -1190,7 +1189,8 @@ class CustomDeckPanel(ttk.Frame):
 
             total_lands_needed = max(0, 40 - sum(c.get("count", 1) for c in spells))
 
-            # Trim excess non-basics if needed
+            # Trim excess non-basics if needed; the cut copies go to the sideboard
+            cut_lands = []
             if sum(c.get("count", 1) for c in non_basic_lands) > total_lands_needed:
                 non_basic_lands.sort(
                     key=lambda x: float(
@@ -1205,6 +1205,8 @@ class CustomDeckPanel(ttk.Frame):
                     if count > 0:
                         trimmed_lands.append(dict(card, count=count))
                         remaining -= count
+                    if card.get("count", 1) > count:
+                        cut_lands.append(dict(card, count=card.get("count", 1) - count))
                 non_basic_lands = trimmed_lands
 
             needed_basics = max(
@@ -1218,6 +1220,15 @@ class CustomDeckPanel(ttk.Frame):
             def _finalize():
                 # Wipe old basics
                 self.deck_list = spells + non_basic_lands
+
+                for card in cut_lands:
+                    sb_card = next(
+                        (c for c in self.sb_list if c["name"] == card["name"]), None
+                    )
+                    if sb_card:
+                        sb_card["count"] = sb_card.get("count", 1) + card["count"]
+                    else:
+                        self.sb_list.append(card)
 
                 # Append the new ones
                 for basic in basics_to_add:

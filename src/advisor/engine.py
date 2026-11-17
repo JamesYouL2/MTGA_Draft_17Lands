@@ -12,7 +12,7 @@ from src.advisor.schema import Recommendation
 from src import constants
 from src.card_utils import get_functional_cmc
 from src.advisor.mana_base import count_fixing, is_castable
-from src.mana_cost import assign_mana_colors, off_color_requirements
+from src.mana_cost import off_color_requirements
 from src.utils import normalize_color_string
 
 logger = logging.getLogger(__name__)
@@ -84,13 +84,6 @@ class DraftAdvisor:
         # pick 5 has removed eight cards, just like pick 9 in a normal draft.
         effective_pick = (safe_pick - 1) * max(1, cards_per_pick) + 1
 
-        on_color_pool = [
-            c
-            for c in self.pool
-            if is_castable(c, self.main_colors)
-        ]
-        needs_playables = len(on_color_pool) < 20 and pack_number == 3
-
         pack_wrs = []
         for c in pack_cards:
             try:
@@ -154,7 +147,7 @@ class DraftAdvisor:
                     )
                 is_on_lane = is_castable(card, self.main_colors)
                 if len(self.main_colors) >= 2 and is_on_lane:
-                    base_score *= 1.3 if needs_playables else 1.1
+                    base_score *= 1.1
 
                 # --- STEP 4: Castability (Pip-Sensitive Discipline & Premium Splashing) ---
                 cast_mult, cast_reason = self._calculate_castability_v5(
@@ -371,15 +364,9 @@ class DraftAdvisor:
         # Without a printed cost the pip count is unknown; keep the one-pip guess.
         off_color_pips = len(off_color) if card.get("mana_cost") else min(1, len(off_color))
 
+        # Pack 1 has no off-color penalty: the lane is still forming.
         if pack == 1:
-            if is_on_lane:
-                return 1.0, ""
-            pressure = 1.0 - (max(0, ((pack - 1) * 15 + (pick - 1)) - 7) * 0.05)
-            return (
-                (max(0.2, pressure - 0.2), "Off-Color Gold")
-                if len(set(assign_mana_colors([card])[0])) > 1 and off_color_pips > 0
-                else (max(0.4, pressure), "Off-Color")
-            )
+            return 1.0, ""
 
         if not is_on_lane:
             if (
