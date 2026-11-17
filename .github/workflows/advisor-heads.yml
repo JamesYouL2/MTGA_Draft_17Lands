@@ -7,7 +7,10 @@ name: Advisor heads
 #
 # Each salt is its own sample of drafts and its own held-out ratings, so heads.py
 # combines the salts' estimates with the spread between them in the SE (see
-# experiments/2026-11-17-measure-salts). Use 4 or more salts.
+# experiments/2026-11-17-measure-salts). The default is 8 salts of
+# 1000 drafts, the study's best use of the job time. Give `salts` as a
+# count for fresh salts named after the run (r<run number>s1, r<run number>s2, ...)
+# or a JSON list to reuse named ones; set `salt_prefix` to repeat a numbered run.
 #
 # Run by hand: Actions > Advisor heads > Run workflow.
 
@@ -21,11 +24,14 @@ on:
         description: 'JSON list of set codes, e.g. ["FRA", "TDM"] (empty: all ten)'
         default: ""
       salts:
-        description: JSON list of texts that sample different drafts
-        default: '["", "arch2"]'
+        description: 'Salts: a count (fresh salts for this run) or a JSON list of texts, e.g. ["a", "b"]'
+        default: "8"
+      salt_prefix:
+        description: 'Prefix for counted salts (default: r<run number>s); no "-"'
+        default: ""
       drafts:
         description: Drafts per set and salt
-        default: "3000"
+        default: "1000"
       extra:
         description: A script to run on the results after the reports (optional)
         default: ""
@@ -37,21 +43,43 @@ permissions:
   contents: read
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      salts: ${{ steps.salts.outputs.salts }}
+    steps:
+      - id: salts
+        env:
+          SALTS: ${{ inputs.salts || '8' }}
+          PREFIX: ${{ inputs.salt_prefix || format('r{0}s', github.run_number) }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          spec, prefix = os.environ["SALTS"].strip(), os.environ["PREFIX"]
+          salts = [f"{prefix}{i}" for i in range(1, int(spec) + 1)] if spec.isdigit() else json.loads(spec)
+          # heads.py reads the salt back from the artifact name after its last "-".
+          bad = [x for x in salts if "-" in x or "+" in x]
+          assert not bad and len(set(salts)) == len(salts), f"salts must be distinct, without - or +: {salts}"
+          print("salts=" + json.dumps(salts))
+          PY
+          cat "$GITHUB_OUTPUT"
+
   replay:
     name: Replay ${{ matrix.set }} ${{ matrix.salt }} ${{ matrix.rsalt }}
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
       fail-fast: false
       matrix:
         set: ${{ fromJSON(inputs.sets || '["DFT", "FDN", "FIN", "FRA", "HOB", "MSH", "SOS", "TDM", "TLA", "TMT"]') }}
-        salt: ${{ fromJSON(inputs.salts || '["", "arch2"]') }}
+        salt: ${{ fromJSON(needs.plan.outputs.salts) }}
         rsalt: ${{ fromJSON(inputs.ratings_salts || '[""]') }}
     env:
       SET: ${{ matrix.set }}
       SALT: ${{ matrix.salt }}
       RSALT: ${{ matrix.rsalt }}
-      DRAFTS: ${{ inputs.drafts || '3000' }}
+      DRAFTS: ${{ inputs.drafts || '1000' }}
       PATCHES: ${{ inputs.patches || 'experiments/2026-11-16-proposed-together/heads/*.patch' }}
     steps:
       - uses: actions/checkout@v4
