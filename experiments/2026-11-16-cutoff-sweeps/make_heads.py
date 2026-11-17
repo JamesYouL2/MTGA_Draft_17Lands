@@ -21,14 +21,23 @@ HEADS = {
     "arch-ramp-0.4": ("ARCH_WEIGHT_RAMP = 0.7\n", "ARCH_WEIGHT_RAMP = 0.4\n"),
     "arch-ramp-1.0": ("ARCH_WEIGHT_RAMP = 0.7\n", "ARCH_WEIGHT_RAMP = 1.0\n"),
 }
+# The confirmation run (CONFIRM.md): 0.10 again, and one step further down.
+CONFIRM = {
+    "lane-share-10": HEADS["lane-share-10"],
+    "lane-share-05": (SHARE + "0.15", SHARE + "0.05"),
+}
 
 
 def main():
     with open(os.path.join(ROOT, PATH), encoding="utf-8") as f:
         src = f.read()
-    out = os.path.join(HERE, "heads")
+    for folder, heads in (("heads", HEADS), ("confirm-heads", CONFIRM)):
+        write(src, os.path.join(HERE, folder), heads)
+
+
+def write(src, out, heads):
     os.makedirs(out, exist_ok=True)
-    for name, (old, new) in HEADS.items():
+    for name, (old, new) in heads.items():
         assert src.count(old) == 1, name
         patched = src.replace(old, new)
         diff = difflib.unified_diff(

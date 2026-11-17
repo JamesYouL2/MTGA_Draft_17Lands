@@ -1,0 +1,11 @@
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -251,7 +251,7 @@
+         sorted_w = sorted(color_weights.items(), key=lambda x: x[1], reverse=True)
+         main_colors = []
+         if total_pool_size >= 15 and sum(color_counts.values()) > 5:
+-            threshold = sum(color_counts.values()) * 0.15
++            threshold = sum(color_counts.values()) * 0.05
+             leader_set = [
+                 v[0]
+                 for v in sorted(color_counts.items(), key=lambda x: x[1], reverse=True)[

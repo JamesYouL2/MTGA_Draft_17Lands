@@ -184,6 +184,8 @@ def replay_draft(app, draft, skipped):
                 rank_of(by_gihwr, taken),
                 top,
                 int(on_lane),
+                len(app.lane),  # how many main colors the advisor saw
+                len(pool),  # cards in the pool before this pick
             ]
         )
 
