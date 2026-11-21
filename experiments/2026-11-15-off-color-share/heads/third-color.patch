@@ -1,0 +1,14 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..28c9aea 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -364,7 +364,8 @@ class DraftAdvisor:
+     def _calculate_castability_v5(
+         self, card: Dict, pack: int, pick: int, z_score: float
+     ) -> Tuple[float, str]:
+-        top_2_lane = self.main_colors[:2]
++        # Every color of the lane, up to three, not only its first two.
++        top_2_lane = self.main_colors
+ 
+         off_color = off_color_requirements(card, top_2_lane)
+         is_on_lane = not off_color

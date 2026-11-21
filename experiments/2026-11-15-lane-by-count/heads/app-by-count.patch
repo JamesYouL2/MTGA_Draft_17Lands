@@ -1,0 +1,14 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..7c8aa89 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -259,7 +259,8 @@ class DraftAdvisor:
+                 ]
+                 if v[1] > 0
+             ]
+-            for col, weight in sorted_w:
++            by_count = sorted(color_counts.items(), key=lambda x: x[1], reverse=True)
++            for col, _ in by_count:
+                 if col in leader_set or color_counts[col] >= threshold:
+                     main_colors.append(col)
+         else:

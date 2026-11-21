@@ -1,0 +1,19 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -351,14 +351,7 @@
+                 self.TOTAL_PICKS / max(1, len(self.pool))
+             )
+             if projected < self.TARGET_EARLY_PLAYS:
+-                return (
+-                    (
+-                        1.0 + min(0.5, (self.TARGET_EARLY_PLAYS - projected) * 0.15),
+-                        "Critical: Needs 2-Drops",
+-                    )
+-                    if pack >= 2
+-                    else (1.1, "Curve Foundation")
+-                )
++                return (1.0, "") if pack >= 2 else (1.1, "Curve Foundation")
+         return 1.0, ""
+ 
+     def _calculate_castability_v5(

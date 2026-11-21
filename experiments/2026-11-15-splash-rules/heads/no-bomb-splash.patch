@@ -1,0 +1,33 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..0033491 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -396,28 +396,6 @@ class DraftAdvisor:
+                 for options in off_color
+             )
+ 
+-            is_premium_removal = "removal" in card.get("tags", []) and z_score >= 1.0
+-
+-            # Allow premium 1-for-1s to be splashed just like game-winning bombs
+-            if z_score >= self.BOMB_Z_SCORE or is_premium_removal:
+-                if off_color_pips == 1:
+-                    if has_specific_fixing or self.pool_metrics["fixing_count"] >= (
+-                        4 if pack == 3 else 3
+-                    ):
+-                        reason = (
+-                            "Bomb Splash"
+-                            if z_score >= self.BOMB_Z_SCORE
+-                            else "Premium Removal Splash"
+-                        )
+-                        return (0.35 if pack == 3 else 0.45), reason
+-                elif (
+-                    off_color_pips == 2
+-                    and get_functional_cmc(card) >= 5
+-                    and z_score >= self.BOMB_Z_SCORE
+-                ):
+-                    if self.pool_metrics["fixing_count"] >= 4:
+-                        return 0.30, "Greedy Bomb Splash"
+-
+             if off_color_pips == 1 and has_specific_fixing:
+                 return 0.3, "Splashable"
+ 

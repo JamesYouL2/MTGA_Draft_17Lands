@@ -1,0 +1,12 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -343,7 +343,7 @@
+             and pack >= 2
+             and self.pool_metrics["hard_removal_count"] < self.TARGET_HARD_REMOVAL
+         ):
+-            return 1.3, "Critical: Needs Removal"
++            return 1.15, "Critical: Needs Removal"
+ 
+         # 4. Early Interaction
+         if cmc <= 2 and ("Creature" in types or "removal" in tags):

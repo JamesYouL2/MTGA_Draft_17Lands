@@ -1,0 +1,121 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..f5737d0 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -12,7 +12,7 @@ from src.advisor.schema import Recommendation
+ from src import constants
+ from src.card_utils import get_functional_cmc
+ from src.advisor.mana_base import count_fixing, is_castable
+-from src.mana_cost import assign_mana_colors, off_color_requirements
++from src.mana_cost import off_color_requirements
+ from src.utils import normalize_color_string
+ 
+ logger = logging.getLogger(__name__)
+@@ -38,6 +38,16 @@ class DraftAdvisor:
+     ARCH_RAMP_PICKS = 15
+     ARCH_WEIGHT_START = 0.6
+     ARCH_WEIGHT_RAMP = 0.7
++    # In a set where decks of three or more colors play this share of the
++    # games, an off-color card costs less: every off-color multiplier is raised
++    # to THREE_COLOR_OFF_COLOR_POWER, so 0.05 becomes 0.22 and 0.3 becomes 0.55.
++    # Replaying 17Lands drafts on held-out ratings, following the softer
++    # penalty went with more wins in Khans of Tarkir, Streets of New Capenna
++    # and Dominaria United (shares of 86%, 69% and 47%), made no difference in
++    # Tarkir: Dragonstorm (79%), and went with slightly fewer in the 15 sets
++    # tested under 25%. No set tested is between 25% and 47%.
++    THREE_COLOR_SET_SHARE = 0.3
++    THREE_COLOR_OFF_COLOR_POWER = 0.5
+     # Name the archetype in a card's reasons once it moves the card's score by
+     # this many points (15 points is one standard deviation of win rate).
+     ARCH_REASON_POINTS = 5.0
+@@ -64,6 +74,11 @@ class DraftAdvisor:
+         )
+         self.active_colors = self.main_colors
+ 
++        share = getattr(self.metrics, "three_color_share", 0.0)
++        self.three_color_set = (
++            isinstance(share, (int, float)) and share >= self.THREE_COLOR_SET_SHARE
++        )
++
+         # 3. Analyze Pool Needs
+         self.fixing_map = count_fixing(self.pool)
+         self.pool_metrics = self._analyze_pool()
+@@ -84,13 +99,6 @@ class DraftAdvisor:
+         # pick 5 has removed eight cards, just like pick 9 in a normal draft.
+         effective_pick = (safe_pick - 1) * max(1, cards_per_pick) + 1
+ 
+-        on_color_pool = [
+-            c
+-            for c in self.pool
+-            if is_castable(c, self.main_colors)
+-        ]
+-        needs_playables = len(on_color_pool) < 20 and pack_number == 3
+-
+         pack_wrs = []
+         for c in pack_cards:
+             try:
+@@ -154,12 +162,14 @@ class DraftAdvisor:
+                     )
+                 is_on_lane = is_castable(card, self.main_colors)
+                 if len(self.main_colors) >= 2 and is_on_lane:
+-                    base_score *= 1.3 if needs_playables else 1.1
++                    base_score *= 1.1
+ 
+                 # --- STEP 4: Castability (Pip-Sensitive Discipline & Premium Splashing) ---
+                 cast_mult, cast_reason = self._calculate_castability_v5(
+                     card, pack_number, effective_pick, z_score
+                 )
++                if self.three_color_set:
++                    cast_mult **= self.THREE_COLOR_OFF_COLOR_POWER
+                 if cast_reason:
+                     reasons.append(cast_reason)
+ 
+@@ -371,15 +381,9 @@ class DraftAdvisor:
+         # Without a printed cost the pip count is unknown; keep the one-pip guess.
+         off_color_pips = len(off_color) if card.get("mana_cost") else min(1, len(off_color))
+ 
++        # Pack 1 has no off-color penalty: the lane is still forming.
+         if pack == 1:
+-            if is_on_lane:
+-                return 1.0, ""
+-            pressure = 1.0 - (max(0, ((pack - 1) * 15 + (pick - 1)) - 7) * 0.05)
+-            return (
+-                (max(0.2, pressure - 0.2), "Off-Color Gold")
+-                if len(set(assign_mana_colors([card])[0])) > 1 and off_color_pips > 0
+-                else (max(0.4, pressure), "Off-Color")
+-            )
++            return 1.0, ""
+ 
+         if not is_on_lane:
+             if (
+diff --git a/src/set_metrics.py b/src/set_metrics.py
+index d862a2e..3da5eb5 100644
+--- a/src/set_metrics.py
++++ b/src/set_metrics.py
+@@ -25,6 +25,26 @@ class SetMetrics:
+         self._color_metrics: dict = {}
+         self._digits: int = digits
+         self.generate_metrics(dataset)
++        self.three_color_share: float = self._three_color_share(dataset)
++
++    @staticmethod
++    def _three_color_share(dataset: Dataset) -> float:
++        """The share of the set's games played by decks of three or more colors.
++
++        Each card's games are counted in every deck color group, so a group's
++        total is in proportion to its games. 0.0 without game counts.
++        """
++        games = three = 0
++        for card in (dataset.get_card_ratings() or {}).values() if dataset else ():
++            for colors, stats in card.get(DATA_FIELD_DECK_COLORS, {}).items():
++                if colors == "All Decks":
++                    continue
++                # Server datasets count games as game_count, app-built ones as ngp.
++                count = stats.get("game_count") or stats.get("ngp") or 0
++                games += count
++                if len(colors) >= 3:
++                    three += count
++        return three / games if games else 0.0
+ 
+     def get_metrics(self, color: str, field: str) -> Tuple[float, float]:
+         """

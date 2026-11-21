@@ -1,0 +1,16 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 3184224..e5afc47 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -379,11 +379,6 @@ class DraftAdvisor:
+             ):
+                 return 1.4, "Critical: Needs Fixing"
+ 
+-            if any(
+-                c in self.pool_metrics["splash_targets"] for c in card.get("colors", [])
+-            ):
+-                return 1.3, "Enables Bomb Splash"
+-
+             return (
+                 (1.15, "Premium Fixing")
+                 if pack == 1 and len(card.get("colors", [])) > 1

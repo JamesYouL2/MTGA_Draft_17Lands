@@ -1,0 +1,21 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index e3bab16..a99872c 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -334,16 +334,6 @@ class DraftAdvisor:
+ 
+         # 3. Fixing Hunger
+         if "Land" in types or "fixing_ramp" in tags:
+-            off_color_playables = self.pool_metrics.get("off_color_playables", 0)
+-            fixing_count = self.pool_metrics.get("fixing_count", 0)
+-
+-            if (
+-                pack >= 2
+-                and off_color_playables > 0
+-                and fixing_count <= off_color_playables
+-            ):
+-                return 1.4, "Critical: Needs Fixing"
+-
+             return 1.0, ""
+ 
+         # 4. Removal Check

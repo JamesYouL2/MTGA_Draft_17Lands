@@ -1,0 +1,13 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..bd93899 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -396,7 +396,7 @@ class DraftAdvisor:
+                 for options in off_color
+             )
+ 
+-            is_premium_removal = "removal" in card.get("tags", []) and z_score >= 1.0
++            is_premium_removal = False
+ 
+             # Allow premium 1-for-1s to be splashed just like game-winning bombs
+             if z_score >= self.BOMB_Z_SCORE or is_premium_removal:
