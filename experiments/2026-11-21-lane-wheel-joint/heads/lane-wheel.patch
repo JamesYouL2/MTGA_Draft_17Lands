@@ -1,0 +1,22 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8fc0050..34d4b1f 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -176,6 +176,8 @@ class DraftAdvisor:
+                 final_score = (
+                     (base_score + power_bonus) * cast_mult * role_mult
+                 )
++                # A card likely to wheel ranks a little lower now.
++                final_score *= 1.0 - 0.15 * wheel_pct / 100.0
+ 
+                 is_basic_land = name in constants.BASIC_LANDS or (
+                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])
+@@ -244,7 +246,7 @@ class DraftAdvisor:
+         sorted_w = sorted(color_weights.items(), key=lambda x: x[1], reverse=True)
+         main_colors = []
+         if total_pool_size >= 15 and sum(color_counts.values()) > 5:
+-            threshold = sum(color_counts.values()) * 0.15
++            threshold = sum(color_counts.values()) * 0.10
+             leader_set = [
+                 v[0]
+                 for v in sorted(color_counts.items(), key=lambda x: x[1], reverse=True)[
