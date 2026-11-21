@@ -25,6 +25,18 @@ def test_identify_main_colors(mock_metrics):
     assert "W" in advisor.main_colors
 
 
+@pytest.mark.parametrize("third_count, in_lane", [(2, True), (1, False)])
+def test_third_color_joins_lane_at_ten_percent(mock_metrics, third_count, in_lane):
+    """From 15 cards, a color beyond the top two is in the lane at 10% of the
+    pool's colored cards (2 of 20), not at 5% (1 of 20)."""
+    card = lambda color: {"colors": [color], "deck_colors": {"All Decks": {"gihwr": 55.0}}}
+    pool = [card("W")] * 9 + [card("U")] * (11 - third_count) + [card("R")] * third_count
+    advisor = DraftAdvisor(mock_metrics, pool)
+
+    assert set(advisor.main_colors[:2]) == {"W", "U"}
+    assert ("R" in advisor.main_colors) is in_lane
+
+
 @pytest.mark.parametrize(
     "first,second,expected",
     [("B", "U", "UB"), ("U", "B", "UB"), ("G", "W", "WG"), ("R", "G", "RG")],

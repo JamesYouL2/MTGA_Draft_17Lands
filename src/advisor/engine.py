@@ -244,7 +244,8 @@ class DraftAdvisor:
         sorted_w = sorted(color_weights.items(), key=lambda x: x[1], reverse=True)
         main_colors = []
         if total_pool_size >= 15 and sum(color_counts.values()) > 5:
-            threshold = sum(color_counts.values()) * 0.15
+            # A third color joins the lane at 10% of the pool's colored cards.
+            threshold = sum(color_counts.values()) * 0.10
             leader_set = [
                 v[0]
                 for v in sorted(color_counts.items(), key=lambda x: x[1], reverse=True)[
