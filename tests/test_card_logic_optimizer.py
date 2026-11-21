@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from src.advisor.deck_builder import optimize_deck
 
 
@@ -49,34 +49,16 @@ def base_deck_and_sb():
     return base_deck, base_sb
 
 
-def mock_simulator_results(deck, iterations):
-    """
-    Returns a mocked stats dictionary. We artificially boost the score if the
-    'Premium 2-Drop' is in the deck to force the optimizer to select that permutation.
-    """
-    deck_names = [c["name"] for c in deck]
-    is_optimal = "Premium 2-Drop" in deck_names
-
-    return {
-        "cast_t2": 60 if is_optimal else 40,
-        "cast_t3": 60 if is_optimal else 40,
-        "cast_t4": 60 if is_optimal else 40,
-        "curve_out": 20 if is_optimal else 10,
-        "mulligans": 5,
-        "screw_t3": 10,
-        "screw_t4": 10,
-        "color_screw_t3": 5,
-        "flood_t5": 10,
-        "avg_hand_size": 6.8,
-    }
+def fake_stats(deck, iterations):
+    return {"cast_t2": 50, "iterations": iterations, "size": len(deck)}
 
 
-@patch("src.advisor.deck_builder.simulate_deck", side_effect=mock_simulator_results)
-def test_optimize_deck_swaps_clunky_card_for_cheap_premium(mock_sim, base_deck_and_sb):
-    """
-    Verifies that the optimizer builds the permutations, simulates them,
-    and successfully swaps out the high-CMC card for the efficient sideboard card.
-    """
+@patch("src.advisor.deck_builder.simulate_deck", side_effect=fake_stats)
+def test_optimize_deck_swaps_worst_spell_for_best_sideboard_spell(
+    mock_sim, base_deck_and_sb
+):
+    """Power Up: the lowest-rated spell goes to the sideboard and the
+    highest-rated castable sideboard spell comes in. No simulation chooses."""
     base_deck, base_sb = base_deck_and_sb
 
     final_deck, final_sb, final_stats, opt_note = optimize_deck(
@@ -86,21 +68,96 @@ def test_optimize_deck_swaps_clunky_card_for_cheap_premium(mock_sim, base_deck_a
     final_names = [c["name"] for c in final_deck]
     sb_names = [c["name"] for c in final_sb]
 
-    # Assertions
-    assert len(final_deck) == 40, "Optimized deck must remain exactly 40 cards."
-    assert "Premium 2-Drop" in final_names, (
-        "Optimizer failed to include the premium sideboard card."
-    )
-    assert "Clunky Behemoth" not in final_names, (
-        "Optimizer failed to cut the clunky high-CMC card."
-    )
-    assert "Clunky Behemoth" in sb_names, "Cut card was not moved to the sideboard."
-    assert "Curve Lower" in opt_note, (
-        "Optimization note did not correctly identify the action taken."
+    assert sum(c.get("count", 1) for c in final_deck) == 40
+    assert "Premium 2-Drop" in final_names
+    assert "Clunky Behemoth" not in final_names
+    assert sb_names == ["Clunky Behemoth"]
+    assert opt_note == "Optimized: Power Up (-Clunky Behemoth, +Premium 2-Drop)"
+
+    # Only the result is simulated, for display.
+    mock_sim.assert_called_once()
+    assert final_stats["iterations"] == 10000
+
+
+@patch("src.advisor.deck_builder.simulate_deck", side_effect=fake_stats)
+def test_optimize_deck_rates_by_archetype_then_all_decks(mock_sim, base_deck_and_sb):
+    """The archetype's GIH WR decides, falling back to All Decks."""
+    base_deck, base_sb = base_deck_and_sb
+    # In the archetype, Bear 3 is the weakest spell.
+    base_deck[17 + 3] = {
+        **base_deck[17 + 3],
+        "deck_colors": {"All Decks": {"gihwr": 55.0}, "G": {"gihwr": 45.0}},
+    }
+
+    final_deck, _, _, opt_note = optimize_deck(base_deck, base_sb, "G", ["G"])
+
+    assert "Bear 3" not in [c["name"] for c in final_deck]
+    assert "Clunky Behemoth" in [c["name"] for c in final_deck]
+    assert opt_note == "Optimized: Power Up (-Bear 3, +Premium 2-Drop)"
+
+
+@patch("src.advisor.deck_builder.simulate_deck", side_effect=fake_stats)
+def test_optimize_deck_skips_uncastable_and_land_sideboard_cards(
+    mock_sim, base_deck_and_sb
+):
+    """Off-color spells and lands in the sideboard are never swapped in; with
+    nothing to bring in, the deck is unchanged but still simulated."""
+    base_deck, _ = base_deck_and_sb
+    base_sb = [
+        {
+            "name": "Off-Color Bomb",
+            "types": ["Creature"],
+            "count": 1,
+            "mana_cost": "{1}{R}{R}",
+            "cmc": 3,
+            "deck_colors": {"All Decks": {"gihwr": 70.0}},
+        },
+        {
+            "name": "Utility Land",
+            "types": ["Land"],
+            "count": 1,
+            "deck_colors": {"All Decks": {"gihwr": 65.0}},
+        },
+    ]
+
+    final_deck, final_sb, final_stats, opt_note = optimize_deck(
+        base_deck, base_sb, "G", ["G"]
     )
 
-    # Verify that the simulator was called multiple times (once per permutation + final run)
-    assert mock_sim.call_count > 2
+    assert final_deck == base_deck
+    assert final_sb == base_sb
+    assert final_stats is not None
+    assert "no castable sideboard spell" in opt_note
+
+
+@patch("src.advisor.deck_builder.simulate_deck", side_effect=fake_stats)
+def test_optimize_deck_merges_counts(mock_sim, base_deck_and_sb):
+    """A cut copy joins its copies in the sideboard; an added copy joins its
+    copies in the deck."""
+    base_deck, base_sb = base_deck_and_sb
+    base_deck = base_deck[:17] + base_deck[18:]  # drop Bear 0: 39 cards
+    base_deck.append({**base_sb[0], "count": 1})  # one Premium already in: 40
+    base_sb = [
+        {**base_sb[0], "count": 1},
+        {
+            "name": "Clunky Behemoth",
+            "types": ["Creature"],
+            "count": 2,
+            "mana_cost": "{6}{G}",
+            "cmc": 7,
+            "deck_colors": {"All Decks": {"gihwr": 51.0}},
+        },
+    ]
+
+    final_deck, final_sb, _, _ = optimize_deck(base_deck, base_sb, "G", ["G"])
+
+    deck_counts = {c["name"]: c.get("count", 1) for c in final_deck}
+    sb_counts = {c["name"]: c.get("count", 1) for c in final_sb}
+    assert deck_counts["Premium 2-Drop"] == 2
+    assert "Clunky Behemoth" not in deck_counts
+    assert sb_counts == {"Clunky Behemoth": 3}
+    # The inputs are not mutated.
+    assert base_sb[1]["count"] == 2
 
 
 def test_optimize_deck_rejects_invalid_deck_sizes():
@@ -113,56 +170,3 @@ def test_optimize_deck_rejects_invalid_deck_sizes():
 
     assert final_stats is None
     assert final_deck == deck
-
-
-def test_optimize_deck_permutation_generation(base_deck_and_sb):
-    """Verify the optimizer successfully generates permutations for 18 lands and fixing swaps."""
-    base_deck, base_sb = base_deck_and_sb
-
-    # Remove one basic land and replace it with a terrible colorless land to trigger "Fix Mana Base"
-    base_deck.pop(0)
-    base_deck.append(
-        {
-            "name": "Terrible Desert",
-            "types": ["Land"],
-            "colors": [],
-            "deck_colors": {"All Decks": {"gihwr": 40.0}},
-        }
-    )
-
-    # Add a terrible spell to trigger "Play 18 Lands"
-    worst_spell = base_deck[17]
-    worst_spell["deck_colors"]["All Decks"]["gihwr"] = 30.0
-
-    # Track the variations sent to the simulator
-    permutations_tested = []
-
-    def mock_sim(deck, *args, **kwargs):
-        # We uniquely identify the permutation by checking if the colorless land or terrible spell was cut
-        names = [c["name"] for c in deck]
-        if "Terrible Desert" not in names:
-            permutations_tested.append("Fixed Mana")
-        if worst_spell["name"] not in names:
-            if "Premium 2-Drop" in names:
-                permutations_tested.append("Swapped Spell")
-            else:
-                permutations_tested.append("18 Lands")
-        return {
-            "cast_t2": 50,
-            "cast_t3": 50,
-            "cast_t4": 50,
-            "curve_out": 10,
-            "mulligans": 5,
-            "screw_t3": 10,
-            "screw_t4": 10,
-            "color_screw_t3": 5,
-            "flood_t5": 10,
-            "avg_hand_size": 6.8,
-        }
-
-    with patch("src.advisor.deck_builder.simulate_deck", side_effect=mock_sim):
-        optimize_deck(base_deck, base_sb, "G", ["G"])
-
-    # Verify that the logic branched into creating the specific permutations
-    assert "Fixed Mana" in permutations_tested
-    assert "18 Lands" in permutations_tested

@@ -91,7 +91,7 @@ Users can click a single button to perfectly balance their lands using Pro-Tour 
 - **Pip Volume Calculation:** Counts the exact number of specific colored mana symbols.
 - **Universal Fixer Detection:** Explicitly identifies Treasure-makers, Fetchlands, and "Any Color" dorks.
 - **Hybrid Mana Resolution:** Pays hybrid mana (e.g., `{W/U}`) with a color the deck already plays; `{2/U}` and `{U/P}` never force a color. Castability, splash checks, mana allocation and deck labels share these rules; see [hybrid-mana.md](hybrid-mana.md).
-- **Allocation (4.33):** Auto Lands uses the pip-based mana allocation rule directly, without simulating land permutations. It fills `max(0, 40 − spell copies)` land slots, retains nonbasics that fit, moves trimmed nonbasic copies to the sideboard, and replaces the basics. Auto-Optimize is a separate simulation-based action.
+- **Allocation (4.33):** Auto Lands uses the pip-based mana allocation rule directly, without simulating land permutations. It fills `max(0, 40 − spell copies)` land slots, retains nonbasics that fit, moves trimmed nonbasic copies to the sideboard, and replaces the basics.
 - **Splash Starvation Protection:** Strictly caps basic land allocations for splash colors to prevent main-color starvation.
 
 ### B. Monte Carlo Simulation
@@ -124,11 +124,11 @@ The **estimated record** (`[Est: 3.5 wins]`) is the expected number of wins for 
 
 ### D. On-Demand AI Auto-Optimizer
 
-The Auto-Optimize button tries one-card changes to the current deck in a background task.
+The Auto-Optimize button makes one swap, **Power Up**, in a background task.
 
-- It generates variations: **Play 18 Lands** (one more land), **Play 16 Lands** (one land fewer), **Curve Lower**, **Power Up**, **Fix Mana Base** (swapping a colorless utility land for a basic) and **Optimize Mana** (one basic swapped for another).
-- It simulates 500 games for each variation, one after another, then 10,000 for the one it picks.
-- It picks the variation that maximizes `cast_t2/t3/t4` + `curve_out`, less penalties for `mulligans`, `color_screw`, `mana_screw` and `flood`.
+- The deck's lowest-rated spell goes to the sideboard and the highest-rated sideboard spell the deck can cast comes in, both rated by the color pair's GIH win rate (All Decks when the pair has none). If no castable sideboard spell exists, the deck is unchanged.
+- No simulation chooses the swap. The resulting deck is simulated over 10,000 games for display.
+- Through 4.33 the button simulated up to six kinds of one-card change (Power Up, Curve Lower, 16 or 18 lands, Fix Mana Base, Optimize Mana) over 500 games each and kept the best by a weighted fitness. On 346,299 17Lands decks from 19 sets, always making the Power Up swap raised the deck score by 0.75 win rate points [0.70, 0.79] more than that. The deck score can't price lands, so the land swaps that were dropped are unjudged; Auto Lands handles the mana base.
 
 ---
 

@@ -457,11 +457,12 @@ class CustomDeckPanel(ttk.Frame):
         self.sim_executor.submit(self._run_auto_optimize_task)
 
     def _run_auto_optimize_task(self):
-        """Background task that simulates each candidate swap and keeps the best."""
+        """Background task: swap the weakest spell for the best castable
+        sideboard spell, then simulate the result."""
         self.after(
             0,
             lambda: self._show_sim_loading(
-                "AI Auto-Optimizing: Simulating thousands of deck permutations..."
+                "Auto-Optimizing: swapping in your best sideboard spell..."
             ),
         )
         try:
