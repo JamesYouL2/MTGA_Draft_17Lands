@@ -44,8 +44,10 @@ passes on its own (event wins +2.2, regret -1.9).
 - Pooled with the 11-17 re-read (independent salts, inverse variance; not in the
   protocol): lane share event wins +0.036 (0.013), 2.7 SEs, regret -1.3 SEs; wheel regret
   -0.0004 (0.0001), 4.5 SEs, event wins +0.064 (0.025), 2.6 SEs.
-- The two changes add up: top card changes 3.13% against 2.19% + 1.03%, and the joint's
-  gains are no smaller than either single's.
+- The two changes add up: top card changes 3.13% against 2.19% + 1.03%; the joint's
+  regret change is larger than either single's, and against each single it is on the
+  better side. (Event wins per swapped pick is a rate per changed pick, so the joint's
+  +0.048 under the wheel's +0.086 reflects the mix of changes, not a loss.)
 - By set (for reading only): the wheel tiebreak's regret is better in seven of ten sets,
   clearest in FRA (-0.0023, 0.0006), worse in SOS (+0.0012, 0.0005). Neither change
   tracks the three-color share.
