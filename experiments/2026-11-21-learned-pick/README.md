@@ -13,6 +13,12 @@ than main (event wins 2.6 to 7.7 SEs better), but its scores track wins worse
 (regret 3.3 to 4.9 SEs worse), and the rule counts that as a loss. Nothing
 here goes to main.
 
+**Confirmation: rejected.** `lgbm-strong-noalsa` was rerun on fresh drafts
+with three times the drafts, under the rule in [CONFIRM.md](CONFIRM.md). Its
+event wins held (+10.0 SEs), but its regret came out 4.2 SEs worse than
+main's. The rule rejects any head 2 or more SEs worse on regret. So no learned
+head beats main. See "Confirmation run" below.
+
 ## Runs
 
 - Fits: Learned pick models, run
@@ -29,6 +35,11 @@ here goes to main.
   - `agreement.md`: top-1 and top-3.
   - `by_set_wins.md`: event wins set by set.
   - `by_set.md`: regret set by set.
+- Confirmation: Advisor heads, run
+  [45021236056](https://github.com/JamesYouL2/MTGA_Draft_17Lands/actions/runs/45021236056)
+  for the replays, reported by run
+  [45039932320](https://github.com/JamesYouL2/MTGA_Draft_17Lands/actions/runs/45039932320).
+  The reports are in [reports/confirm/](reports/confirm/).
 
 ## Results
 
@@ -87,6 +98,68 @@ lgbm-strong, lgbm-wins, noalsa and logit (agreement.md).
   app's own deck score rates 1 to 1.5 points worse, and the logit's 0.45
   better. This measure grades picks by the deck score's beliefs, so it favours
   heads that think like the app. It does not decide anything.
+
+## Confirmation run
+
+The rule was committed in [CONFIRM.md](CONFIRM.md) before the run started.
+The run had three heads: main, `lgbm-strong-noalsa`, and `gihwr-only` as the
+control. It used the fits from run 44982629430, reused as they were, and the
+same 19 sets. It drew 8 fresh salts (`r36s1` to `r36s8`) of 3000 drafts each:
+456,000 drafts and 353,760 complete events.
+
+| head | event wins per swapped pick | regret slope change (95% upper bound) | top-1 strong (vs main) | top-1 all (vs main) | simulated deck win rate |
+|---|---|---|---|---|---|
+| main | — | — | 50.1 | 46.8 | — |
+| gihwr-only (control) | −0.049 (0.002), −20.5 | +0.096 (0.005), +18.9 (0.106) | 40.3 (−9.9) | 37.0 (−9.8) | −0.24 (0.005) |
+| lgbm-strong-noalsa | +0.027 (0.003), +10.0 | +0.0168 (0.0040), +4.2 (0.0247) | 57.5 (+7.3) | 54.5 (+7.7) | −0.15 (0.004) |
+
+**Verdict: rejected.** The rule rejects a head whose event wins are under
+2 SEs better, or whose regret is 2 or more SEs worse. Event wins were
+10.0 SEs better, but regret was 4.2 SEs worse, so the head is rejected. It
+would have failed the confirmation bound as well: the regret change's 95%
+upper bound is 0.0247, against a cap of 0.0063. The control lost on both
+measures, as expected, so the run itself looks sound.
+
+- **The first run's +1.7 SEs on regret was the low draw.** Here the estimate
+  is +0.0168. In the first run it was +0.0089, with an upper bound of 0.019.
+  In 7 of the 8 salts the regret change is above +0.005. By set
+  (reports/confirm/by_set.md), regret is 2+ SEs worse in 10 of 19 sets and
+  2+ SEs better in one (KTK).
+- **The swap gain is real and steady.** It was +0.037 (0.005) in the first
+  run and +0.027 (0.003) here. Where the head's top card differs from main's,
+  drafters who took the head's card won more events. The regret slope says
+  something else: across all of a draft's picks, the head's score gaps track
+  wins worse than main's. The rule needs both measures, and the head fails
+  the second.
+- **Imitation check (not part of the rule).** CONFIRM.md asked whether the
+  swap gain comes only from picking like stronger drafters within a skill
+  bucket. It doesn't: the gain is about the same in every bucket, so the gain
+  holds.
+
+  | skill bucket | events | event wins per swapped pick |
+  |---|---|---|
+  | 60%+ | 74,464 | +0.029 (0.006), +4.6 |
+  | 56 to 60% | 72,593 | +0.032 (0.007), +4.5 |
+  | 52 to 56% | 79,094 | +0.030 (0.006), +4.9 |
+  | under 52% | 127,555 | +0.022 (0.004), +5.2 |
+  | all with a bucket | 353,706 | +0.027 (0.003), +10.2 |
+
+  For `gihwr-only`, the loss runs from −0.039 to −0.062 across the buckets.
+- **Top-1 and the simulated draft (screen only).** The top-1 lead holds:
+  +7.3 points among strong drafters, the same as in the first run. In the
+  simulated draft, the head's decks are 0.15 points worse by the app's own
+  deck score, again as in the first run.
+- **How the report was made.** The replays (run 45021236056) all finished,
+  but the report job ran out of memory. At 3000 drafts a salt, the results no
+  longer fit in a runner's memory.
+  - `slim.py` keeps only the pick fields the reports read. On six of the
+    run's artifacts, all five reports came out byte-identical, slimmed or
+    not.
+  - The workflow's new `report_run` input reports an earlier run again,
+    without replaying.
+  - The first report-only run, 45037035011, is partial and is not used.
+    `download-artifact` with a run ID fetched only 100 of the 152 artifacts.
+    Run 45039932320 reads all 152 (456 files).
 
 ## The top-1 lead without rarity and play counts
 
@@ -191,6 +264,13 @@ The weights are stable across folds: lane_fit 5.7 to 6.3, off-color −15.5 to
   training. Its drafts are replayed on ratings without their games, as in
   every heads run. `test_heldout_set_never_reaches_the_fit` checks the fold
   separation.
+- **The confirmation reused the first run's fits** (44982629430) rather
+  than refitting. Each set's model still never saw that set. `noalsa` itself
+  was added after a smoke test in the first run, which is why it needed a
+  confirmation.
+- **The confirmation's 95% bound uses t on 7 df** (8 salts). The skill
+  split uses heads.py's controls and salt combining within each bucket. The
+  swap measure is observational: drafters chose their picks.
 - **The fit workflow is triggered by a push.** It is not on the fork's default
   branch, so it can't be dispatched. It runs when its own file changes on
   `exp/learned-pick`.
@@ -204,6 +284,15 @@ The weights are stable across folds: lane_fit 5.7 to 6.3, off-color −15.5 to
   - `simulate=true`;
   - `models_run=<fits run>`;
   - `extra=experiments/2026-11-21-learned-pick/agreement.py`.
+- Confirmation: Advisor heads with:
+  - `patches=experiments/2026-11-21-learned-pick/confirm-heads/*.patch`;
+  - the 19 sets;
+  - `salts=8`, `drafts=3000`, `simulate=true`;
+  - `models_run=44982629430`;
+  - `extra=experiments/2026-11-21-learned-pick/confirm_extra.py`.
+
+  To report a finished run again, set `report_run=<run ID>` and the same
+  `extra`.
 - Per-set event wins: `by_set_wins.py RESULTS --append est.jsonl`, then
   `--combine est.jsonl`.
 - Tests: `pytest Tools/LearnedPick/tests` (features, sampling, fold
