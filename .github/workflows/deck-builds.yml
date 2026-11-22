@@ -76,7 +76,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           pattern: builds-*
-          path: .
+          path: results
           merge-multiple: true
       - name: Report
         shell: bash  # with pipefail, so a failed report fails the step
