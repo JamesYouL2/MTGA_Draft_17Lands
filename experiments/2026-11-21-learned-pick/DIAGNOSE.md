@@ -171,3 +171,146 @@ drafters chose their own picks.
 - One table for each check, and its reading above.
 - A short plain answer to two questions: what the disagreement between the
   measures means, and whether the final decks end up better.
+
+## Addendum, 2026-11-22: checks 6 to 9
+
+Added at the user's request ("Check everything") after checks 1 to 5 were
+registered and before any diagnosis run finished or was read. The first
+detail re-replay (Advisor heads 45058351317) was cancelled while queued, so
+that it could also save the pool facts check 7 needs. No results of any
+check had been seen when this was written.
+
+The question these add is "what is this?": does the swap measure's gain show
+that noalsa picks better cards, or would any model of human picking earn it,
+or does it come from the drafter's lane and seat?
+
+### Data changes
+
+- The detail re-replay (checks 2 and 5) also saves, for each draft, two facts
+  about the drafter's final pool, both on the lane the app's advisor finds
+  for that pool (its main colors):
+  - **two-color share:** the share of the pool's colored non-land cards whose
+    colors all lie in the lane;
+  - **on-lane playables:** non-land cards whose colors all lie in the lane
+    (colorless included), with GIH WR at least the set's mean minus one SD
+    (the advisor's own playable line).
+- The reports keep a pick's lane size (how many main colors the advisor saw,
+  field 7 of a pick) as well as its first seven fields. Field 6 already
+  records whether each head's top card is on that lane.
+
+### 6. Placebo: a model of weak drafters
+
+`lgbm-weak` is trained exactly as `lgbm-strong-noalsa` was, on weak
+drafters' picks instead of strong drafters'.
+
+- **Weak:** a 17Lands game win-rate bucket under 0.52, over a games bucket of
+  50 or more. That is the strong rule's game gate with the win rate below
+  0.52.
+- **Sample:** a third hash sample of 2000 weak drafts per set, beside the
+  existing strong and all-drafter samples (same salt). Training uses every
+  weak drafter's picks in any sample, as noalsa uses every strong drafter's.
+- **Same everything else:**
+  - the features, with ALSA hidden;
+  - the four validation sets per held-out set (the same hash);
+  - the leaves grid and early stopping on NDCG@3;
+  - choice by calibrated log-loss, then a refit on all 18 sets;
+  - each set's model fitted without that set.
+- **Replay:** the subset of checks 2 and 5. That is salts `r36s1` to
+  `r36s8` sampled at 3000 drafts, the first 1000 per salt replayed (152,000
+  drafts), on the same held-out ratings. Heads: main and `lgbm-weak`, without
+  `--simulate`. noalsa's figures on the same drafts come from the detail
+  re-replay.
+
+Readings, on event wins per swapped pick (`lgbm-weak` against main):
+
+- **2+ SEs better, and at least half of noalsa's estimate on the same
+  drafts:** the swap measure largely rewards human-like picking. noalsa's
+  +10 SEs would then say little about card value.
+- **2+ SEs better, but under half of noalsa's:** partly human-likeness,
+  partly what strong drafters know.
+- **Not 2+ SEs better (or worse):** the gain is specific to strong drafters'
+  picks, not to imitating people.
+
+`lgbm-weak`'s top-1 agreement with strong drafters and its regret are
+reported beside it.
+
+### 7. Placebo: confounding by lane and seat
+
+The swap measure is observational. A drafter who matches noalsa's top card
+may simply be in an open or coherent lane, and win for that reason.
+
+- **(a) Pool controls.** The swap regression (event wins on net agreement,
+  number of disagreements and the usual controls) is rerun on the subset with
+  three more controls: the final pool's two-color share, its GIH WR (pool
+  GIH WR, best 23 in a pair, as saved) and its on-lane playables. The same
+  controls are added to the regret slope change for comparison.
+
+  These controls are partly outcomes of the picks: a better pick raises pool
+  GIH WR. So any shrinkage is an upper bound on confounding.
+  - **The swap estimate keeps 2/3 or more of its value and stays 2+ SEs:**
+    lane and seat, as these controls measure them, explain little of the
+    gain.
+  - **It falls under half its value:** much of the gain goes with lane, seat
+    or the pool the picks built. This check can't tell those apart.
+  - **Between:** partial.
+
+- **(b) Picks that can hardly change the deck.** Disagreements are split into
+  a class and the rest. Event wins are regressed on each part's net agreement
+  and disagreement count, with the usual controls. Each class figure is "per
+  swapped pick of that class". Two splits, each on all 456,000 drafts and on
+  the subset:
+  - **off-lane in pack 3:** pack 3, the advisor sees a two-color lane, and
+    neither main's nor noalsa's top card is on it;
+  - **late pack 3:** pack 3, pick 10 or later.
+
+  Readings, for each split:
+  - **The class figure is 2+ SEs above zero and at least the rest's:** an
+    "effect" where the pick can hardly change the deck. That means
+    confounding.
+  - **The class figure is within 2 SEs of zero and below the rest's:**
+    consistent with the picks themselves causing the gain.
+  - **Otherwise:** inconclusive, with the class's share of disagreements
+    given.
+
+### 8. Train/serve skew
+
+For a sample of drafts from three sets (KTK, SNC and FDN; strong and other
+drafters, sampled by `drafts.py`), each pick's feature rows are computed two
+ways on the same dataset:
+
+- the training pipeline's way: `features.training_rows`, as `features.py`
+  runs it;
+- the replay head's way: `replay.py` through a copy of `src/` with the
+  noalsa patch, capturing the rows `learned_head` hands to the model.
+
+They are compared exactly, card by card, with NaN equal to NaN.
+
+Training stores rows as float32, but the head scores float64 rows. So each
+set's noalsa model (fits run 44982629430) also scores both, and the report
+gives the largest score difference and the share of picks whose top card
+changes.
+
+- **Any row mismatch:** skew. The feature and the picks it affects are
+  reported.
+- **Top card changes on more than 0.1% of picks from float32 alone:** a skew
+  worth fixing. Otherwise it is negligible.
+
+By design, training uses each training set's full ratings, while the replay
+uses held-out ratings. That difference is known and is not tested here.
+
+### 9. lgbm-strong (with ALSA): checks 1 and 3
+
+These run on the first measure run (Advisor heads 44985574439, 8 × 1000
+drafts, 19 sets). They come from its saved results, by a report-only run,
+for `lgbm-strong` and, on the same drafts, `lgbm-strong-noalsa`. The readings
+are checks 1 and 3's.
+
+- **lgbm-strong's rank regret 2+ SEs worse while noalsa's is not:** ALSA's
+  extra regret harm includes ordering.
+- **Neither 2+ SEs worse:** ALSA's extra harm is in the gaps.
+
+### The write-up
+
+Each check says plainly what it rules in or out. The write-up ends with
+"What the learned model is doing", which states only what the checks
+support.
