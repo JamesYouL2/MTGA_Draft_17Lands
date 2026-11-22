@@ -126,7 +126,7 @@ The **estimated record** (`[Est: 3.5 wins]`) is the expected number of wins for 
 
 The Auto-Optimize button makes one swap, **Power Up**, in a background task.
 
-- The deck's lowest-rated spell goes to the sideboard and the highest-rated sideboard spell the deck can cast comes in, both rated by the color pair's GIH win rate (All Decks when the pair has none). If no castable sideboard spell exists, the deck is unchanged.
+- The deck's lowest-rated spell goes to the sideboard and the highest-rated sideboard spell the deck can cast comes in, both rated by the color pair's GIH win rate (All Decks when the pair has none). The swap is made only if the incoming spell rates strictly higher; otherwise the deck is unchanged.
 - No simulation chooses the swap. The resulting deck is simulated over 10,000 games for display.
 - Through 4.33 the button simulated up to six kinds of one-card change (Power Up, Curve Lower, 16 or 18 lands, Fix Mana Base, Optimize Mana) over 500 games each and kept the best by a weighted fitness. On 346,299 17Lands decks from 19 sets, always making the Power Up swap raised the deck score by 0.75 win rate points [0.70, 0.79] more than that. The deck score can't price lands, so the land swaps that were dropped are unjudged; Auto Lands handles the mana base.
 

@@ -127,7 +127,41 @@ def test_optimize_deck_skips_uncastable_and_land_sideboard_cards(
     assert final_deck == base_deck
     assert final_sb == base_sb
     assert final_stats is not None
-    assert "no castable sideboard spell" in opt_note
+    assert "no castable sideboard spell rates higher" in opt_note
+
+
+@pytest.mark.parametrize("sb_wr", [51.0, 50.0])
+@patch("src.advisor.deck_builder.simulate_deck", side_effect=fake_stats)
+def test_optimize_deck_keeps_deck_when_best_sideboard_spell_rates_no_higher(
+    mock_sim, base_deck_and_sb, sb_wr
+):
+    """The swap is made only if the incoming spell rates strictly higher than
+    the spell it would cut (51.0 here); a tie or worse leaves the deck as is."""
+    base_deck, base_sb = base_deck_and_sb
+    base_sb[0]["deck_colors"] = {"All Decks": {"gihwr": sb_wr}}
+
+    final_deck, final_sb, final_stats, opt_note = optimize_deck(
+        base_deck, base_sb, "G", ["G"]
+    )
+
+    assert final_deck == base_deck
+    assert final_sb == base_sb
+    assert final_stats is not None
+    assert "rates higher" in opt_note
+
+
+@patch("src.advisor.deck_builder.simulate_deck", side_effect=fake_stats)
+def test_optimize_deck_guard_uses_the_pair_rating(mock_sim, base_deck_and_sb):
+    """The guard compares the same rating the swap uses: the pair's GIH WR,
+    which here puts the sideboard spell below the weakest deck spell even
+    though its All Decks rate is higher."""
+    base_deck, base_sb = base_deck_and_sb
+    base_sb[0]["deck_colors"] = {"All Decks": {"gihwr": 60.0}, "G": {"gihwr": 50.0}}
+
+    final_deck, _, _, opt_note = optimize_deck(base_deck, base_sb, "G", ["G"])
+
+    assert final_deck == base_deck
+    assert "rates higher" in opt_note
 
 
 @patch("src.advisor.deck_builder.simulate_deck", side_effect=fake_stats)

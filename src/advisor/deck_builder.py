@@ -119,12 +119,9 @@ def _swap_one(deck, sb, out_card, in_card):
 
 def optimize_deck(base_deck, base_sb, archetype_key, colors):
     """Auto-Optimize: swap the deck's lowest-rated spell for the highest-rated
-    sideboard spell it can cast ("Power Up"), rated by the archetype's GIH win
-    rate. No simulation chooses the swap; the result is simulated for display.
-
-    On 346,299 17Lands decks from 19 sets this raised the deck score by 0.75
-    win rate points more than the earlier button, which simulated six kinds of
-    one-card swap and kept the best by a weighted fitness.
+    sideboard spell it can cast ("Power Up"), if that spell rates strictly
+    higher. Ratings are the archetype's GIH win rate, All Decks as fallback.
+    No simulation chooses the swap; the result is simulated for display.
     """
     total_cards = sum(c.get("count", 1) for c in base_deck)
     if total_cards != 40:
@@ -151,12 +148,17 @@ def optimize_deck(base_deck, base_sb, archetype_key, colors):
     worst_spell = min(spells, key=get_wr) if spells else None
     best_sb_spell = max(sb_spells, key=get_wr) if sb_spells else None
 
-    if worst_spell and best_sb_spell and worst_spell["name"] != best_sb_spell["name"]:
+    if (
+        worst_spell
+        and best_sb_spell
+        and worst_spell["name"] != best_sb_spell["name"]
+        and get_wr(best_sb_spell) > get_wr(worst_spell)
+    ):
         final_deck, final_sb = _swap_one(base_deck, base_sb, worst_spell, best_sb_spell)
         note = f"Optimized: Power Up (-{worst_spell['name']}, +{best_sb_spell['name']})"
     else:
         final_deck, final_sb = base_deck, base_sb
-        note = "Optimized: no castable sideboard spell to swap in"
+        note = "Optimized: no castable sideboard spell rates higher than your weakest"
 
     final_stats = simulate_deck(final_deck, iterations=10000)
     return final_deck, final_sb, final_stats, note
