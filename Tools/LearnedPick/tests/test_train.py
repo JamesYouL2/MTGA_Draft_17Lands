@@ -117,3 +117,33 @@ def test_lightgbm_ranks_better_than_chance():
     top1, _ = T.agreement(test, booster.predict(test.X))
     assert top1 > 100 / 6 + 10
     assert best in grid
+
+
+def test_heads_fits_only_the_named_models_on_their_own_picks(tmp_path, monkeypatch):
+    rows = {s: synthetic(i) for i, s in enumerate(["A", "B", "C", "D", "E", "F"])}
+    for i, r in enumerate(rows.values()):
+        r["weak"] = np.random.default_rng(i).random(len(r["group"])) < 0.3
+    seen = []
+
+    def fake(train, valid):
+        seen.append(len(train) + len(valid))
+
+        class Booster:
+            def save_model(self, path):
+                open(path, "w").close()
+
+            def feature_importance(self, importance_type):
+                return np.ones(len(FEATURES))
+
+            def predict(self, X):
+                return np.zeros(len(X))
+
+        return {"leaves": 0, "rounds": 0}, [], Booster()
+
+    monkeypatch.setattr(T, "fit_lgbm", fake)
+    s = T.train(rows, "F", str(tmp_path), heads=["lgbm-weak"])
+    assert list(s["models"]) == ["lgbm-weak"]
+    weak_picks = sum(int(rows[x]["weak"].sum()) for x in s["train_sets"])
+    assert seen == [weak_picks]
+    assert s["models"]["lgbm-weak"]["picks"] == weak_picks
+    assert "lgbm-weak" in T.report(str(tmp_path))

@@ -9,7 +9,10 @@ used to fit or tune its models: its rows are only read for the held-out check.
 - lgbm-wins: the all-drafter sample's picks, each pick weighted by its draft's
   event match wins (0 to 7; drafts with 0 wins drop out).
 - lgbm-strong-noalsa: as lgbm-strong, with ALSA hidden (crowd pick order).
+- lgbm-weak: as lgbm-strong-noalsa, on weak drafters' picks (a placebo).
 - logit-simple: strong drafters' picks, as lgbm-strong.
+
+--heads fits only the named models.
 
 LightGBM's leaves are picked from a small grid, and its rounds by early
 stopping, on validation sets: four of the training sets, by a hash. The pick
@@ -95,13 +98,13 @@ def hide(picks, hidden):
 
 
 def picks_of(rows, sets, which):
-    """Picks of the given sets: which is "strong", "wins" or "all".
+    """Picks of the given sets: which is "strong", "weak", "wins" or "all".
 
     "all" is the all-drafter sample unweighted, for checking agreement."""
     parts = []
     for s in sets:
         r = rows[s]
-        keep = r["strong"] if which == "strong" else r["in_all"]
+        keep = r[which] if which in ("strong", "weak") else r["in_all"]
         weight = r["wins"] if which == "wins" else np.ones(len(r["group"]))
         if which == "wins":
             keep = keep & (weight > 0)
@@ -280,7 +283,13 @@ def quality_scores(picks):
     return np.nan_to_num(picks.X[:, FEATURES.index("quality")], nan=-99.0)
 
 
-def train(rows, heldout, out_dir, n_valid=VALIDATION_SETS):
+def train(rows, heldout, out_dir, n_valid=VALIDATION_SETS, heads=None):
+    if heads is None:
+        # Every model whose training picks the rows have (older rows lack "weak").
+        heads = [
+            h for h, (which, _) in LGBM_HEADS.items()
+            if which not in ("weak",) or all(which in r for r in rows.values())
+        ] + ["logit-simple"]
     train_sets = sorted(s for s in rows if s != heldout)
     valid_sets = validation_sets(train_sets, heldout, n_valid)
     fit_sets = [s for s in train_sets if s not in valid_sets]
@@ -301,6 +310,8 @@ def train(rows, heldout, out_dir, n_valid=VALIDATION_SETS):
     }
 
     for head, (which, hidden) in LGBM_HEADS.items():
+        if heads is not None and head not in heads:
+            continue
         best, grid, booster = fit_lgbm(
             hide(picks_of(rows, fit_sets, which), hidden),
             hide(picks_of(rows, valid_sets, which), hidden),
@@ -322,6 +333,10 @@ def train(rows, heldout, out_dir, n_valid=VALIDATION_SETS):
             "picks": len(picks_of(rows, train_sets, which)),
         }
 
+    if heads is not None and "logit-simple" not in heads:
+        with open(os.path.join(folder, "summary.json"), "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=1)
+        return summary
     picks = picks_of(rows, train_sets, "strong")
     beta, cov = fit_logit(picks)
     points, ses = logit_points(beta, cov)
@@ -352,8 +367,9 @@ def report(models_dir):
             summaries.append(json.load(f))
     if not summaries:
         return "No fits found.\n"
-    lgbm = list(LGBM_HEADS)
-    heads = lgbm + ["logit-simple"]
+    fitted = set(summaries[0]["models"])
+    lgbm = [h for h in LGBM_HEADS if h in fitted]
+    heads = lgbm + [h for h in ["logit-simple"] if h in fitted]
     out = ["# Learned pick models: fits", ""]
     out.append(
         "Each set scored by models fitted without it, on its own full ratings "
@@ -404,6 +420,8 @@ def report(models_dir):
             np.mean([s["models"][h]["gain_share"][f] for s in summaries]) for h in lgbm
         ]
         out.append(f"| {f} | " + " | ".join(f"{100 * v:.1f}%" for v in vals) + " |")
+    if "logit-simple" not in heads:
+        return "\n".join(out) + "\n"
     out.append("")
     out.append("## logit-simple weights (points; quality fixed at 15)")
     out.append("")
@@ -428,6 +446,7 @@ def main(argv=None):
     parser.add_argument("--out", help="Models folder")
     parser.add_argument("--validation-sets", type=int, default=VALIDATION_SETS)
     parser.add_argument("--report", help="Summarize a models folder instead")
+    parser.add_argument("--heads", default="", help="Comma-separated models to fit (default: all)")
     args = parser.parse_args(argv)
     if args.report:
         sys.stdout.write(report(args.report))
@@ -435,7 +454,8 @@ def main(argv=None):
     rows = load_rows(sorted(glob.glob(os.path.join(args.rows, "*.npz"))))
     if args.heldout not in rows:
         raise SystemExit(f"No rows for {args.heldout}")
-    summary = train(rows, args.heldout, args.out, args.validation_sets)
+    heads = [h for h in args.heads.split(",") if h] or None
+    summary = train(rows, args.heldout, args.out, args.validation_sets, heads)
     print(json.dumps({h: m["heldout"] for h, m in summary["models"].items()}))
 
 

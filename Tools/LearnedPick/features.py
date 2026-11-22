@@ -154,8 +154,8 @@ def training_rows(app, drafts):
 
     app is Tools/AdvisorReplay/replay.App for the set."""
     mean, sd = set_scale(app.metrics)
-    X, label, group, wins, strong, in_strong, in_all, draft_of = (
-        [], [], [], [], [], [], [], []
+    X, label, group, wins, strong, weak, in_strong, in_all, draft_of = (
+        [], [], [], [], [], [], [], [], []
     )
     for d_index, draft in enumerate(drafts):
         pool_names = []
@@ -175,6 +175,7 @@ def training_rows(app, drafts):
             group.append(len(rows))
             wins.append(draft.get("wins") or 0.0)
             strong.append(bool(draft.get("strong")))
+            weak.append(bool(draft.get("weak")))
             in_strong.append("strong" in draft.get("samples", ["strong", "all"]))
             in_all.append("all" in draft.get("samples", ["strong", "all"]))
             draft_of.append(d_index)
@@ -186,6 +187,7 @@ def training_rows(app, drafts):
         "group": np.asarray(group, dtype=np.int32),
         "wins": np.asarray(wins, dtype=np.float32),
         "strong": np.asarray(strong, dtype=bool),
+        "weak": np.asarray(weak, dtype=bool),
         "in_strong": np.asarray(in_strong, dtype=bool),
         "in_all": np.asarray(in_all, dtype=bool),
         "draft": np.asarray(draft_of, dtype=np.int32),

@@ -3,15 +3,19 @@
     python Tools/LearnedPick/drafts.py --dump draft_data_public.FRA.PremierDraft.csv.gz \
         --strong 2000 --all 2000 --out drafts.json.gz
 
-Two samples, each the drafts with the lowest hash of their draft_id:
+Up to three samples, each the drafts with the lowest hash of their draft_id:
 
 - "strong": drafters with a game win rate bucket of 0.6 or more over a games
   bucket of 50 or more.
 - "all": any drafter.
+- "weak" (only with --weak): drafters with a game win rate bucket under 0.52
+  over a games bucket of 50 or more (experiments/2026-11-21-learned-pick/
+  DIAGNOSE.md, check 6).
 
-A draft can be in both. Each draft has the same fields as
-Tools/AdvisorReplay/sample.py's, plus "strong" (true or false) and "samples"
-(which of the two samples it was drawn for).
+A draft can be in more than one. Each draft has the same fields as
+Tools/AdvisorReplay/sample.py's, plus "strong" and "weak" (true or false) and
+"samples" (which samples it was drawn for). Adding the weak sample leaves the
+other two unchanged.
 """
 
 import argparse
@@ -26,6 +30,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "AdvisorReplay"
 from sample import _names, _number, draft_priority  # noqa: E402
 
 STRONG_SKILL, STRONG_GAMES = 0.6, 50
+WEAK_SKILL = 0.52  # below this, over STRONG_GAMES games or more
 
 
 def is_strong(skill, games):
@@ -37,6 +42,15 @@ def is_strong(skill, games):
     )
 
 
+def is_weak(skill, games):
+    return (
+        skill is not None
+        and games is not None
+        and skill < WEAK_SKILL
+        and games >= STRONG_GAMES
+    )
+
+
 def _split(line):
     # Card names with commas are quoted; numbers never are.
     if '"' in line:
@@ -44,8 +58,9 @@ def _split(line):
     return line.rstrip("\r\n").split(",")
 
 
-def sample_two(lines, n_strong, n_all, salt=""):
-    """The strong and all-drafter samples, merged, in draft_id order."""
+def sample_two(lines, n_strong, n_all, salt="", n_weak=0):
+    """The strong, all-drafter and (n_weak > 0) weak samples, merged, in
+    draft_id order."""
     lines = iter(lines)
     header = next(csv.reader([next(lines)]))
     col = {name: i for i, name in enumerate(header)}
@@ -57,9 +72,9 @@ def sample_two(lines, n_strong, n_all, salt=""):
     pool_cols = [
         (i, c[len("pool_") :]) for i, c in enumerate(header) if c.startswith("pool_")
     ]
-    sizes = {"strong": n_strong, "all": n_all}
-    heaps = {"strong": [], "all": []}  # max-heaps of (-priority, draft_id)
-    members = {"strong": set(), "all": set()}
+    sizes = {"strong": n_strong, "all": n_all, "weak": n_weak}
+    heaps = {name: [] for name in sizes}  # max-heaps of (-priority, draft_id)
+    members = {name: set() for name in sizes}
     drafts = {}
     current_id, keep = None, False
     for line in lines:
@@ -75,7 +90,11 @@ def sample_two(lines, n_strong, n_all, salt=""):
                 skill = _number(row[col["user_game_win_rate_bucket"]])
                 games = _number(row[col["user_n_games_bucket"]])
                 priority = draft_priority(draft_id, salt)
-                wanted = ["all"] + (["strong"] if is_strong(skill, games) else [])
+                wanted = (
+                    ["all"]
+                    + (["strong"] if is_strong(skill, games) else [])
+                    + (["weak"] if n_weak and is_weak(skill, games) else [])
+                )
                 joined = []
                 for name in wanted:
                     heap = heaps[name]
@@ -97,6 +116,7 @@ def sample_two(lines, n_strong, n_all, salt=""):
                         "wins": _number(row[col["event_match_wins"]]),
                         "losses": _number(row[col["event_match_losses"]]),
                         "strong": is_strong(skill, games),
+                        "weak": is_weak(skill, games),
                         "picks": [],
                     }
         if keep and draft_id in drafts:
@@ -112,7 +132,7 @@ def sample_two(lines, n_strong, n_all, salt=""):
     out = []
     for draft_id in sorted(drafts):
         d = drafts[draft_id]
-        d["samples"] = [n for n in ("strong", "all") if draft_id in members[n]]
+        d["samples"] = [n for n in ("strong", "all", "weak") if draft_id in members[n]]
         if d["samples"]:
             out.append(d)
     return out
@@ -123,16 +143,18 @@ def main(argv=None):
     parser.add_argument("--dump", required=True, help="17Lands draft dump (.csv.gz)")
     parser.add_argument("--strong", type=int, default=2000, help="Strong drafts")
     parser.add_argument("--all", type=int, default=2000, help="Drafts by anyone")
+    parser.add_argument("--weak", type=int, default=0, help="Weak drafters' drafts")
     parser.add_argument("--salt", default="learned", help="Changes which drafts")
     parser.add_argument("--out", required=True, help="Where to write (.json.gz)")
     args = parser.parse_args(argv)
     opener = gzip.open if args.dump.endswith(".gz") else open
     with opener(args.dump, "rt", newline="", encoding="utf-8") as f:
-        drafts = sample_two(f, args.strong, args.all, args.salt)
+        drafts = sample_two(f, args.strong, args.all, args.salt, args.weak)
     with gzip.open(args.out, "wt", encoding="utf-8") as f:
         json.dump(drafts, f)
     strong = sum("strong" in d["samples"] for d in drafts)
-    print(f"Sampled {len(drafts)} drafts ({strong} strong) from {args.dump}")
+    weak = sum("weak" in d["samples"] for d in drafts)
+    print(f"Sampled {len(drafts)} drafts ({strong} strong, {weak} weak) from {args.dump}")
 
 
 if __name__ == "__main__":

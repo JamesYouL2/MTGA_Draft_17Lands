@@ -47,3 +47,18 @@ def test_sample_is_repeatable_and_salt_changes_it():
     ids = lambda salt: [d["id"] for d in sample_two(dump(drafts), 5, 5, salt)]
     assert ids("a") == ids("a")
     assert ids("a") != ids("b")
+
+
+def test_weak_sample_holds_only_weak_drafters_and_leaves_the_others_unchanged():
+    drafts = {f"d{i:02d}": [(0.62, 100), (0.5, 100), (0.54, 100)][i % 3] for i in range(90)}
+    drafts["weak_few_games"] = (0.4, 10)
+    without = sample_two(dump(drafts), 5, 10)
+    out = sample_two(dump(drafts), 5, 10, n_weak=6)
+    weak = [d for d in out if "weak" in d["samples"]]
+    assert len(weak) == 6
+    assert all(d["weak"] and d["skill"] < 0.52 and d["games"] >= 50 for d in weak)
+    assert not any(d["weak"] for d in out if d["skill"] >= 0.52 or d["games"] < 50)
+    for name in ("strong", "all"):
+        assert [d["id"] for d in out if name in d["samples"]] == [
+            d["id"] for d in without if name in d["samples"]
+        ]

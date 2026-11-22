@@ -8,6 +8,8 @@ Four models score the cards of a pack from features.py's rows:
 - "lgbm-strong-noalsa": lgbm-strong without ALSA. ALSA is the crowd's pick
   order, so it can buy agreement with human picks without buying wins; this
   head shows what the other features carry.
+- "lgbm-weak": lgbm-strong-noalsa fitted to weak drafters' picks instead, a
+  placebo (experiments/2026-11-21-learned-pick/DIAGNOSE.md, check 6).
 - "logit-simple": a conditional logit on three inputs, on the app's point scale
   (50 at the set's mean card, 15 points a standard deviation of GIH WR).
 
@@ -21,12 +23,13 @@ import numpy as np
 
 from features import FEATURES, pack_features
 
-HEADS = ("lgbm-strong", "lgbm-wins", "lgbm-strong-noalsa", "logit-simple")
+HEADS = ("lgbm-strong", "lgbm-wins", "lgbm-strong-noalsa", "lgbm-weak", "logit-simple")
 # LightGBM heads: (training picks, features hidden from the model).
 LGBM_HEADS = {
     "lgbm-strong": ("strong", ()),
     "lgbm-wins": ("wins", ()),
     "lgbm-strong-noalsa": ("strong", ("alsa",)),
+    "lgbm-weak": ("weak", ("alsa",)),
 }
 LOGIT_INPUTS = ["quality", "lane_fit", "off_settled"]
 UNRATED_QUALITY = -2.0  # the logit's stand-in for a card with no GIH WR

@@ -7,6 +7,10 @@ name: Learned pick models
 # Run by hand: Actions > Learned pick models > Run workflow. A push that changes
 # this file on the experiment's branch also runs it with the defaults (a
 # workflow only on a branch can't be dispatched until it has run once).
+#
+# The defaults are the last run's: the weak-drafter placebo, lgbm-weak only
+# (experiments/2026-11-21-learned-pick/DIAGNOSE.md, check 6). The first fits
+# (run 44982629430) had no weak sample and fitted every model.
 
 on:
   push:
@@ -23,6 +27,12 @@ on:
       all:
         description: Any drafters' drafts per set
         default: "2000"
+      weak:
+        description: Weak drafters' drafts per set (win-rate bucket < 0.52, >= 50 games; 0 for none)
+        default: "2000"
+      heads:
+        description: Comma-separated models to fit (empty for every model the rows allow)
+        default: "lgbm-weak"
 
 permissions:
   contents: read
@@ -71,7 +81,8 @@ jobs:
       - name: Sample drafts and build feature rows
         run: |
           poetry run python Tools/LearnedPick/drafts.py --dump dump.csv.gz \
-            --strong "${{ inputs.strong || '2000' }}" --all "${{ inputs.all || '2000' }}" --out drafts.json.gz
+            --strong "${{ inputs.strong || '2000' }}" --all "${{ inputs.all || '2000' }}" \
+            --weak "${{ inputs.weak || '2000' }}" --out drafts.json.gz
           mkdir rows
           poetry run python Tools/LearnedPick/features.py --drafts drafts.json.gz \
             --dataset dataset.json.gz --set "$SET" --out "rows/$SET.npz"
@@ -100,7 +111,10 @@ jobs:
           pattern: rows-*
           path: rows
           merge-multiple: true
-      - run: python Tools/LearnedPick/train.py --rows rows --heldout "${{ matrix.set }}" --out models
+      - run: python Tools/LearnedPick/train.py --rows rows --heldout "${{ matrix.set }}" --out models --heads "$HEADS"
+        env:
+          # A push runs with the defaults: inputs are empty then.
+          HEADS: ${{ github.event_name == 'push' && 'lgbm-weak' || inputs.heads }}
       - uses: actions/upload-artifact@v4
         with:
           name: models-${{ matrix.set }}
