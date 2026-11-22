@@ -176,16 +176,22 @@ jobs:
       - run: python -m pip install poetry==2.4.1
       - run: poetry install --no-interaction
       - uses: actions/download-artifact@v4
+        if: ${{ inputs.report_run == '' }}
         with:
           pattern: heads-*
           path: results
-          # report_run: that run's replay results instead of this run's.
-          run-id: ${{ inputs.report_run || github.run_id }}
-          github-token: ${{ github.token }}
+      - name: Download the earlier run's results
+        # download-artifact with run-id stops at the first 100 artifacts.
+        if: ${{ inputs.report_run != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.report_run }}
+        run: gh run download "$RUN" -R "$GITHUB_REPOSITORY" -p 'heads-*' -D results
       - name: Slim the results
         # Keeps only what the reports read, so 3000 drafts a salt fit in memory.
         run: |
           rm -rf results/heads-report
+          ls results | wc -l
           poetry run python experiments/2026-11-21-learned-pick/slim.py results
       - name: Report
         if: ${{ !cancelled() }}
