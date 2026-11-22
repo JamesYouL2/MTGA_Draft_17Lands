@@ -172,12 +172,15 @@ def in_pick_order(earlier, pool_names):
     return kept + list(left.elements())
 
 
-def replay_draft(app, draft, skipped, sim=None, drafter_deck=False):
+def replay_draft(app, draft, skipped, sim=None, drafter_deck=False, detail=False):
     """The draft's scored picks and final pool scores.
 
     sim, a Counter, also has the advisor draft the packs itself (simulate.py);
-    drafter_deck also scores the drafter's own pool the same way."""
-    picks, pool_names = [], []
+    drafter_deck also scores the drafter's own pool the same way. detail also
+    keeps, for each pick, every card's score ("detail": [scores of the pack's
+    cards in name order, index of the card taken]), and the parts of each deck's
+    score (simulate.deck_parts)."""
+    picks, pool_names, details = [], [], []
     for pack_no, pick_no, taken, pack_names, by_card in draft["picks"]:
         pool_names = in_pick_order(pool_names, by_card)
         pack, pool = app.cards(pack_names), app.cards(pool_names)
@@ -214,6 +217,9 @@ def replay_draft(app, draft, skipped, sim=None, drafter_deck=False):
                 order[:3],  # the advisor's top three, best first
             ]
         )
+        if detail:
+            names = sorted(scores)
+            details.append([[round(scores[n], 4) for n in names], names.index(taken)])
 
     deck_score = pool_gihwr = None
     if draft["picks"]:
@@ -228,13 +234,17 @@ def replay_draft(app, draft, skipped, sim=None, drafter_deck=False):
         "deck_score": deck_score,
         "pool_gihwr": pool_gihwr,
     }
+    if detail:
+        out["detail"] = details
     if sim is not None:
-        out["sim"] = simulate.simulate_draft(app, draft, sim)
+        out["sim"] = simulate.simulate_draft(app, draft, sim, detail)
         if out["sim"] and drafter_deck:
             # The drafter's own pool through the same Suggest Deck, for comparison.
             final_pool = app.cards(pool_names + [draft["picks"][-1][2]])
-            score, _ = simulate.deck_rating(app, final_pool)
+            score, _, deck = simulate.deck_choice(app, final_pool)
             out["sim"]["drafter_win"] = round(simulate.win_rate(score, app.scorer), 4)
+            if detail:
+                out["sim"]["drafter_parts"] = simulate.deck_parts(app, deck, len(final_pool))
     return out
 
 
@@ -259,18 +269,28 @@ def main(argv=None):
         action="store_true",
         help="Also let the advisor draft each draft's packs itself (simulate.py)",
     )
+    parser.add_argument(
+        "--detail",
+        action="store_true",
+        help="Also keep every card's score at each pick and the parts of each deck's score",
+    )
+    parser.add_argument(
+        "--limit", type=int, default=0, help="Replay only the first N drafts (0: all)"
+    )
     args = parser.parse_args(argv)
 
     sys.path.insert(0, os.path.abspath(args.src))
     app = App(args.dataset)
     with gzip.open(args.drafts, "rt", encoding="utf-8") as f:
         drafts = json.load(f)
+    if args.limit:
+        drafts = drafts[: args.limit]
 
     start, skipped = time.time(), Counter()
     sim = Counter() if args.simulate else None
     # Every copy replays the same drafters' pools; the base alone scores them.
     drafter_deck = args.simulate and args.label == "base"
-    results = [replay_draft(app, d, skipped, sim, drafter_deck) for d in drafts]
+    results = [replay_draft(app, d, skipped, sim, drafter_deck, args.detail) for d in drafts]
     seconds = time.time() - start
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:

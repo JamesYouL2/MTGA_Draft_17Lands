@@ -82,10 +82,11 @@ def win_rate(score, scorer):
     return 100.0 / (1.0 + math.exp(-log_odds))
 
 
-def simulate_draft(app, draft, counts):
+def simulate_draft(app, draft, counts, detail=False):
     """The advisor's own draft from these packs and its deck, or None.
 
-    app is replay.App; counts a Counter of what the simulation did."""
+    app is replay.App; counts a Counter of what the simulation did. detail also
+    gives the parts of the deck's score (deck_parts)."""
     forced = forced_picks(draft)
     if forced is None:
         counts["drafts: pools don't account for missing picks"] += 1
@@ -128,9 +129,10 @@ def simulate_draft(app, draft, counts):
             if mine != theirs:
                 pending[slot].append((mine, theirs))
             counts["picks"] += 1
-    score, how = deck_rating(app, app.cards(pool))
+    cards = app.cards(pool)
+    score, how, deck = deck_choice(app, cards)
     counts[f"decks: {how}"] += 1
-    return {
+    out = {
         "score": round(score, 4),
         "win": round(win_rate(score, app.scorer), 4),
         "agree": agree,
@@ -138,14 +140,52 @@ def simulate_draft(app, draft, counts):
         "wheel_swaps": swaps_fired,
         "deck": how,
     }
+    if detail:
+        out["parts"] = deck_parts(app, deck, len(cards))
+    return out
 
 
-def deck_rating(app, pool):
-    """(score, how) of the first deck the app's Suggest Deck offers for this pool.
+def deck_choice(app, pool):
+    """(score, how, deck) for the first deck the app's Suggest Deck offers for this
+    pool; deck is Suggest Deck's entry, or None for the quick build.
 
     Suggest Deck needs 15 spells; a pool short of them falls back to the best
     quick build, whose score charges for the missing spells."""
     decks = app.suggest(pool)
     if decks:
-        return next(iter(decks.values()))["rating"], "suggest deck"
-    return app.deck_score(pool), "quick build (no suggested deck)"
+        deck = next(iter(decks.values()))
+        return deck["rating"], "suggest deck", deck
+    return app.deck_score(pool), "quick build (no suggested deck)", None
+
+
+def deck_rating(app, pool):
+    """(score, how) of deck_choice."""
+    return deck_choice(app, pool)[:2]
+
+
+def deck_parts(app, deck, pool_size):
+    """The parts of a Suggest Deck entry's score, and a few plain counts, or None.
+
+    The parts are deck_scorer.deck_features, which the rating sums with their
+    weights. The counts (colors, removal, creatures, cheap plays, mean mana
+    value) are not in the rating; they describe the deck."""
+    if not deck:
+        return None
+    cards, colors = deck["deck_cards"], deck["colors"]
+    features = app.scorer.deck_features(cards, colors, pool_size, app.metrics) or {}
+    spells = [c for c in cards if "Land" not in c.get("types", [])]
+    copies = lambda keep: sum(c.get("count", 1) for c in spells if keep(c))
+    n = copies(lambda c: True)
+    removal = lambda c: "removal" in c.get("tags", [])
+    creature = lambda c: "Creature" in c.get("types", [])
+    mana = sum(float(c.get("cmc", 0) or 0) * c.get("count", 1) for c in spells)
+    return {
+        "rating": round(deck["rating"], 4),
+        **{k: round(float(v), 4) for k, v in features.items()},
+        "colors": len(colors),
+        "spells": n,
+        "removal": copies(removal),
+        "creatures": copies(creature),
+        "cheap": copies(lambda c: (creature(c) or removal(c)) and float(c.get("cmc", 0) or 0) <= 2),
+        "mana_value": round(mana / n, 4) if n else None,
+    }

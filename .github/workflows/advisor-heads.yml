@@ -45,6 +45,9 @@ on:
       models_run:
         description: 'A Learned pick models run ID: heads using learned models get its models-<SET> (experiments/2026-11-21-learned-pick)'
         default: ""
+      replay_args:
+        description: 'More replay.py options, e.g. "--detail --limit 1000" (experiments/2026-11-21-learned-pick/DIAGNOSE.md)'
+        default: ""
       report_run:
         description: 'Report only: an earlier Advisor heads run ID whose replay results to report again (no replays)'
         default: ""
@@ -150,11 +153,12 @@ jobs:
         shell: bash
         env:
           SIMULATE: ${{ inputs.simulate && '--simulate' || '' }}
+          REPLAY_ARGS: ${{ inputs.replay_args }}
         run: |
           replay() {
             if [ "$1" = base ]; then src=.; else src="copies/$1"; fi
             poetry run python Tools/AdvisorReplay/replay.py --src "$src" --drafts drafts.json.gz \
-              --dataset heldout.json.gz --set "$SET" --label "$1" --out "results/$1.json" $SIMULATE
+              --dataset heldout.json.gz --set "$SET" --label "$1" --out "results/$1.json" $SIMULATE $REPLAY_ARGS
           }
           export -f replay
           { echo base; cat heads.txt; } | xargs -P 4 -I{} bash -c 'replay {}'

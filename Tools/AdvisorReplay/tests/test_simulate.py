@@ -2,6 +2,7 @@ import os
 from collections import Counter
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 import replay
@@ -136,3 +137,37 @@ def test_simulates_a_real_draft(app):
     result = replay.replay_draft(app, d, Counter(), Counter(), drafter_deck=True)
     assert result["sim"]["win"] == out["win"]
     assert 30 < result["sim"]["drafter_win"] < 80
+
+
+def test_detail_reproduces_ranks_regret_and_ratings(app):
+    cards = sorted(
+        c["name"] for c in app.dataset.get_card_ratings().values()
+        if c.get("rarity") in ("common", "uncommon")
+    )
+    packs, takes = [], []
+    for r in range(3):
+        rp, rt = [], []
+        for p in range(14):
+            start = (r * 14 + p) * 5 % (len(cards) - 14)
+            pack = cards[start : start + 14 - p]
+            rp.append(pack)
+            rt.append(pack[len(pack) // 2])
+        packs.append(rp)
+        takes.append(rt)
+    d = full_draft(packs, takes, rounds=3)
+    plain = replay.replay_draft(app, d, Counter(), Counter(), drafter_deck=True)
+    out = replay.replay_draft(app, d, Counter(), Counter(), drafter_deck=True, detail=True)
+    # Detail adds fields and changes nothing else.
+    assert out["picks"] == plain["picks"]
+    assert {k: v for k, v in out["sim"].items() if "parts" not in k} == plain["sim"]
+    assert len(out["detail"]) == len(out["picks"])
+    for p, (scores, taken) in zip(out["picks"], out["detail"]):
+        assert sum(s > scores[taken] for s in scores) <= p[2]
+        sd = float(np.std(scores)) or 1.0
+        assert (max(scores) - scores[taken]) / sd == pytest.approx(p[3], abs=2e-3)
+    weights, base = app.scorer.WEIGHTS, app.scorer.BASE_SCORE
+    for parts in (out["sim"]["parts"], out["sim"]["drafter_parts"]):
+        assert parts["rating"] == pytest.approx(
+            base + sum(w * parts[k] for k, w in weights.items()), abs=1e-3
+        )
+        assert parts["spells"] >= parts["creatures"] and parts["colors"] >= 1
