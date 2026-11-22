@@ -117,6 +117,11 @@ def _swap_one(deck, sb, out_card, in_card):
     return new_deck, new_sb
 
 
+# Experiment hook (experiments/2026-11-21-optimize-guard, exp branch only):
+# False makes the swap whatever the two cards' ratings.
+_EXP_GUARD = True
+
+
 def optimize_deck(base_deck, base_sb, archetype_key, colors):
     """Auto-Optimize: swap the deck's lowest-rated spell for the highest-rated
     sideboard spell it can cast ("Power Up"), if that spell rates strictly
@@ -152,7 +157,7 @@ def optimize_deck(base_deck, base_sb, archetype_key, colors):
         worst_spell
         and best_sb_spell
         and worst_spell["name"] != best_sb_spell["name"]
-        and get_wr(best_sb_spell) > get_wr(worst_spell)
+        and (not _EXP_GUARD or get_wr(best_sb_spell) > get_wr(worst_spell))
     ):
         final_deck, final_sb = _swap_one(base_deck, base_sb, worst_spell, best_sb_spell)
         note = f"Optimized: Power Up (-{worst_spell['name']}, +{best_sb_spell['name']})"

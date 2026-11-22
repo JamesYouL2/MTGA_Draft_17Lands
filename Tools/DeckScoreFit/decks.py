@@ -22,8 +22,60 @@ def deck_hash(key, salt):
     return int(hashlib.sha1(f"{salt}{key}".encode()).hexdigest()[:15], 16)
 
 
-def read_decks(lines, n, salt=""):
-    """The n sampled decks from the dump's lines (header first), by ID."""
+def _counts(fields, cols):
+    # Some dumps (DMU, EOE, LTR, PIO) write counts as "1.0".
+    return {
+        name: copies
+        for i, name in cols
+        if fields[i] and (copies := int(float(fields[i])))
+    }
+
+
+def parse_exclusion(text):
+    """"SALT:N" or "SALT:N:FIRST" as (salt, n, first): an earlier sample of the n
+    decks hashing lowest under the salt, or only its first decks by ID."""
+    parts = text.rsplit(":", 2) if text.count(":") >= 2 else text.rsplit(":", 1)
+    salt, n = parts[0], int(parts[1])
+    return salt, n, int(parts[2]) if len(parts) == 3 else None
+
+
+def earlier_samples(lines, exclusions):
+    """The IDs of every deck in the earlier samples, from the dump's lines."""
+    lines = iter(lines)
+    header = next(csv.reader([next(lines)]))
+    draft, build = header.index("draft_id"), header.index("build_index")
+    heaps = [[] for _ in exclusions]  # (-hash, id) of each sample's decks
+    members = [set() for _ in exclusions]
+    last = None
+    for line in lines:
+        if '"' in line:
+            fields = next(csv.reader([line]))
+        else:
+            fields = line.split(",", max(draft, build) + 1)
+        key = f"{fields[draft]}:{fields[build]}"
+        if key == last:
+            continue
+        last = key
+        for (salt, n, _), heap, inside in zip(exclusions, heaps, members):
+            if key in inside:
+                continue
+            item = (-deck_hash(key, salt), key)
+            if len(heap) < n:
+                heapq.heappush(heap, item)
+                inside.add(key)
+            elif item > heap[0]:
+                inside.discard(heapq.heapreplace(heap, item)[1])
+                inside.add(key)
+    out = set()
+    for (_, _, first), heap in zip(exclusions, heaps):
+        ids = sorted(key for _, key in heap)
+        out.update(ids if first is None else ids[:first])
+    return out
+
+
+def read_decks(lines, n, salt="", excluded=frozenset()):
+    """The n sampled decks from the dump's lines (header first), by ID, leaving
+    out the excluded IDs."""
     lines = iter(lines)
     header = next(csv.reader([next(lines)]))
     col = {name: i for i, name in enumerate(header)}
@@ -31,6 +83,11 @@ def read_decks(lines, n, salt=""):
         (i, name[len("deck_") :])
         for i, name in enumerate(header)
         if name.startswith("deck_")
+    ]
+    sideboard_cols = [
+        (i, name[len("sideboard_") :])
+        for i, name in enumerate(header)
+        if name.startswith("sideboard_")
     ]
     kept, heap = {}, []  # heap holds (-hash, id) of the kept decks
     for line in lines:
@@ -40,6 +97,8 @@ def read_decks(lines, n, salt=""):
             fields = line.rstrip("\r\n").split(",")
         key = f"{fields[col['draft_id']]}:{fields[col['build_index']]}"
         deck = kept.get(key)
+        if deck is None and key in excluded:
+            continue
         if deck is None:
             # A deck's hash never changes and the cutoff only falls, so a deck
             # that is dropped or skipped here would never have been kept.
@@ -56,12 +115,8 @@ def read_decks(lines, n, salt=""):
                 "splash_colors": fields[col["splash_colors"]],
                 "skill": fields[col["user_game_win_rate_bucket"]],
                 "experience": fields[col["user_n_games_bucket"]],
-                # Some dumps (DMU, EOE, LTR, PIO) write counts as "1.0".
-                "cards": {
-                    name: copies
-                    for i, name in deck_cols
-                    if fields[i] and (copies := int(float(fields[i])))
-                },
+                "cards": _counts(fields, deck_cols),
+                "sideboard": _counts(fields, sideboard_cols),
                 "games": 0,
                 "wins": 0,
             }
@@ -76,10 +131,22 @@ def main(argv=None):
     parser.add_argument("--decks", type=int, default=20000, help="Decks to keep")
     parser.add_argument("--salt", default="", help="Changes which decks are kept")
     parser.add_argument("--out", required=True, help="Where to write them (.json.gz)")
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="SALT:N[:FIRST]",
+        help="Leave out an earlier sample: the N decks under SALT, or its first FIRST by ID",
+    )
     args = parser.parse_args(argv)
 
+    excluded = frozenset()
+    if args.exclude:
+        with gzip.open(args.games, "rt", encoding="utf-8", newline="") as f:
+            excluded = earlier_samples(f, [parse_exclusion(e) for e in args.exclude])
+        print(f"Left out {len(excluded)} decks of earlier samples")
     with gzip.open(args.games, "rt", encoding="utf-8", newline="") as f:
-        decks = read_decks(f, args.decks, args.salt)
+        decks = read_decks(f, args.decks, args.salt, excluded)
     with gzip.open(args.out, "wt", encoding="utf-8") as f:
         json.dump(decks, f)
     games = sum(d["games"] for d in decks)
