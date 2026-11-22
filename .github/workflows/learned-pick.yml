@@ -4,9 +4,14 @@ name: Learned pick models
 # set, the models fitted on every other set. Artifacts models-<SET> are what
 # Advisor heads' `models_run` input downloads.
 #
-# Run by hand: Actions > Learned pick models > Run workflow.
+# Run by hand: Actions > Learned pick models > Run workflow. A push that changes
+# this file on the experiment's branch also runs it with the defaults (a
+# workflow only on a branch can't be dispatched until it has run once).
 
 on:
+  push:
+    branches: [exp/learned-pick]
+    paths: [.github/workflows/learned-pick.yml]
   workflow_dispatch:
     inputs:
       sets:
@@ -43,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        set: ${{ fromJSON(inputs.sets) }}
+        set: ${{ fromJSON(inputs.sets || '["BLB","DFT","DMU","DSK","EOE","FDN","FIN","FRA","HOB","KTK","LTR","MSH","NEO","OTJ","SNC","SOS","TDM","TLA","TMT"]') }}
     env:
       SET: ${{ matrix.set }}
     steps:
@@ -66,7 +71,7 @@ jobs:
       - name: Sample drafts and build feature rows
         run: |
           poetry run python Tools/LearnedPick/drafts.py --dump dump.csv.gz \
-            --strong "${{ inputs.strong }}" --all "${{ inputs.all }}" --out drafts.json.gz
+            --strong "${{ inputs.strong || '2000' }}" --all "${{ inputs.all || '2000' }}" --out drafts.json.gz
           mkdir rows
           poetry run python Tools/LearnedPick/features.py --drafts drafts.json.gz \
             --dataset dataset.json.gz --set "$SET" --out "rows/$SET.npz"
@@ -83,7 +88,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        set: ${{ fromJSON(inputs.sets) }}
+        set: ${{ fromJSON(inputs.sets || '["BLB","DFT","DMU","DSK","EOE","FDN","FIN","FRA","HOB","KTK","LTR","MSH","NEO","OTJ","SNC","SOS","TDM","TLA","TMT"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
