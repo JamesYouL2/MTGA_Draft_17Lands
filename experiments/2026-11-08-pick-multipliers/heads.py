@@ -97,6 +97,30 @@ def combined(salts):
     return C.combine([v[0] for v in salts.values()], [v[1] for v in salts.values()])
 
 
+def sim_frame(data):
+    """(head minus base simulated deck win rate per draft, keys), for drafts both
+    copies simulated (replay.py --simulate). Empty if the run didn't simulate."""
+    keys = [k for k, v in data.items() if v["base"].get("sim") and v["head"].get("sim")]
+    diff = np.array([data[k]["head"]["sim"]["win"] - data[k]["base"]["sim"]["win"] for k in keys])
+    return diff, keys
+
+
+def sim_measure(data):
+    """The simulated draft's deck win rate, head minus base, in win rate points:
+    combined over salts like the others, or None if the run didn't simulate."""
+    diff, keys = sim_frame(data)
+    if not len(diff):
+        return None
+    salts = C.by_salt(keys, lambda i: diff[i].mean())
+    out = combined(salts)
+    return out | {
+        "drafts": len(diff),
+        "sd": float(diff.std()),
+        "changed": float(np.mean(diff != 0)),
+        "samples": {k: list(v) for k, v in salts.items()},
+    }
+
+
 def measure(data):
     frame = C.regret_frame(data)
     n = len(frame[0])
@@ -116,6 +140,8 @@ def measure(data):
         "regret": regret,
         "swap_combined": swaps,
         "decision": decide(regret, swaps),
+        # Not part of the decision: see experiments/2026-11-21-simulated-draft.
+        "sim": sim_measure(data),
         "samples": {k: list(v) for k, v in regret_salts.items()},
         "swap_samples": {k: list(v) for k, v in swap_salts.items()},
         # Bootstrap only, over all salts at once: as read before 2026-11-17.
@@ -170,6 +196,20 @@ def report(results):
             f"| {m['top_changes']:.2f}% | {m['top1']:+.2f} "
             f"| {m['on_lane_base']:.1f}% to {m['on_lane_head']:.1f}% |"
         )
+    sims = {head: m["sim"] for head, m in results.items() if m.get("sim")}
+    if sims:
+        print("\n## Simulated draft deck win rate\n")
+        print("The advisor drafts each draft's packs itself; the first deck Suggest Deck "
+              "builds from its pool, as an expected game win rate. Head minus base in win "
+              "rate points, combined over salts like the others: estimate (scaled SE), SEs. "
+              "Positive is better for the head. Not part of the decision: it grades "
+              "advisors by the deck score's own beliefs "
+              "(experiments/2026-11-21-simulated-draft).\n")
+        print("| head | simulated deck win rate change | SD per draft | drafts | decks changed |")
+        print("|---|---|---|---|---|")
+        for head, m in sims.items():
+            print(f"| {head} | {cell(m, 3)} | {m['sd']:.3f} | {m['drafts']} "
+                  f"| {100 * m['changed']:.1f}% |")
     print("\n## Bootstrap only, over all salts at once\n")
     print("As read before 2026-11-17: these SEs leave out the spread between salts. "
           "The verdict is PROTOCOL.md's, on the regret slope.\n")

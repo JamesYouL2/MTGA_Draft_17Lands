@@ -38,6 +38,10 @@ on:
       ratings_salts:
         description: 'JSON list; a non-empty entry also holds out a second sample of drafts from the ratings, replaying the same drafts (diagnostic)'
         default: '[""]'
+      simulate:
+        description: 'Also let each copy draft the packs itself and score its deck (about twice the replay time; experiments/2026-11-21-simulated-draft)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -124,11 +128,13 @@ jobs:
           done
       - name: Replay the base and the heads
         shell: bash
+        env:
+          SIMULATE: ${{ inputs.simulate && '--simulate' || '' }}
         run: |
           replay() {
             if [ "$1" = base ]; then src=.; else src="copies/$1"; fi
             poetry run python Tools/AdvisorReplay/replay.py --src "$src" --drafts drafts.json.gz \
-              --dataset heldout.json.gz --set "$SET" --label "$1" --out "results/$1.json"
+              --dataset heldout.json.gz --set "$SET" --label "$1" --out "results/$1.json" $SIMULATE
           }
           export -f replay
           { echo base; cat heads.txt; } | xargs -P 4 -I{} bash -c 'replay {}'
