@@ -56,9 +56,9 @@ Modern Limited is dictated by "Mana Velocity" and "Mana Stability."
 
 ---
 
-## 6. Wheel Chance (Shown, Not Scored)
+## 6. Wheel Chance
 
-The engine estimates each card's chance of coming back from its ALSA and its rank in the pack, and shows it in the Wheel column. It doesn't change the card's score. Packs with fewer than 9 cards, and picks 9 and later, show no chance. The existing curves assume eight-player, one-card picks: Pick-Two and other pod sizes show no percentage until a suitable model exists. This does not disable the scanner's pack-return tracker.
+The engine estimates each card's chance of coming back from its ALSA and its rank in the pack, and shows it in the Wheel column. A card's score is multiplied by `1 - 0.15 x wheel chance`, so a card at a 100% wheel chance loses 15% and, between close cards, the one likely to come back ranks lower. This is gentler than the wheel multiplier removed in v4.28; held-out replays favored it. Packs with fewer than 9 cards, and picks 9 and later, show no chance. The existing curves assume eight-player, one-card picks: Pick-Two and other pod sizes show no percentage, and so get no tiebreak, until a suitable model exists. This does not disable the scanner's pack-return tracker.
 
 In Pick-Two, archetype weighting uses pick `2N - 1` for passing round `N`,
 so weighting advances with cards removed. Pack 1 has no off-color penalty.

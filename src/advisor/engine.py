@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class DraftAdvisor:
     TOTAL_PICKS = 45
+    WHEEL_TIEBREAK = 0.15
     TARGET_EARLY_PLAYS = 7
     TARGET_HARD_REMOVAL = 3
     BOMB_Z_SCORE = 1.5
@@ -163,7 +164,7 @@ class DraftAdvisor:
                 if role_reason:
                     reasons.append(role_reason)
 
-                # --- STEP 6: Wheel chance (shown, not scored) ---
+                # --- STEP 6: Wheel chance ---
                 rank_in_pack = pack_ranks.get(name, 99)
                 wheel_pct = self._wheel_chance(
                     card, safe_pick, rank_in_pack,
@@ -176,6 +177,9 @@ class DraftAdvisor:
                 final_score = (
                     (base_score + power_bonus) * cast_mult * role_mult
                 )
+                # A card likely to come back ranks a little lower now:
+                # 0.15 of its score times its wheel chance.
+                final_score *= 1.0 - self.WHEEL_TIEBREAK * wheel_pct / 100.0
 
                 is_basic_land = name in constants.BASIC_LANDS or (
                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])

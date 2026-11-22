@@ -178,8 +178,9 @@ def test_evaluate_pack_wheel_chance_uses_pack_size(mock_metrics, pack_size, whee
     assert any(r.wheel_chance > 0 for r in recs) is wheels
 
 
-def test_wheel_chance_does_not_change_score(mock_metrics):
-    """The wheel chance is shown, but a likely wheel isn't marked down."""
+def test_likely_wheel_ranks_a_little_lower(mock_metrics):
+    """A card's score is cut by 0.15 times its wheel chance, so between
+    equal cards the one likely to come back ranks lower."""
     advisor = DraftAdvisor(mock_metrics, [])
     pack = [
         {
@@ -194,8 +195,12 @@ def test_wheel_chance_does_not_change_score(mock_metrics):
 
     recs = {r.card_name: r for r in advisor.evaluate_pack(pack, current_pick=2)}
 
-    assert recs["Card8"].wheel_chance >= 75.0
-    assert recs["Card8"].contextual_score == recs["Card0"].contextual_score
+    wheel = recs["Card8"].wheel_chance
+    assert wheel >= 75.0
+    assert recs["Card0"].wheel_chance == 0.0
+    expected = recs["Card0"].contextual_score * (1 - 0.15 * wheel / 100)
+    assert recs["Card8"].contextual_score == pytest.approx(expected, abs=0.1)
+    assert recs["Card8"].contextual_score < recs["Card0"].contextual_score
 
 
 def test_evaluate_pack_elite_detection(mock_metrics):
