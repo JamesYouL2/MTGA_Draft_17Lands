@@ -1,0 +1,16 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..967c79b 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -160,6 +160,11 @@ class DraftAdvisor:
+                 cast_mult, cast_reason = self._calculate_castability_v5(
+                     card, pack_number, effective_pick, z_score
+                 )
++                # Experiment: the square root for cards with two or more off-color pips only.
++                off = off_color_requirements(card, self.main_colors[:2])
++                off_pips = len(off) if card.get("mana_cost") else min(1, len(off))
++                if off_pips >= 2:
++                    cast_mult = cast_mult ** 0.5
+                 if cast_reason:
+                     reasons.append(cast_reason)
+ 

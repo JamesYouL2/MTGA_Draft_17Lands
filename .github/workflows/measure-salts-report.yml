@@ -1,0 +1,65 @@
+name: Measure-salts report
+
+# One-off: the reports for experiments/2026-11-17-measure-salts, from Advisor
+# heads runs 44122837249 (eight salts) and 44122845725 (ratings diagnostic). Too
+# big to run locally.
+
+on:
+  push:
+    branches: [run/measure-salts-report]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: heads-*
+          path: results
+          run-id: 44122837249
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: heads-*
+          path: diag
+          run-id: 44122845725
+          github-token: ${{ github.token }}
+      - name: Drop the runs' own reports
+        run: |
+          rm -rf results/heads-report diag/heads-report
+          ls results | wc -l
+          ls diag
+      - name: Salts
+        shell: bash
+        run: |
+          poetry run python experiments/2026-11-17-measure-salts/salts.py results --diag diag --json salts.json | tee salts.md
+      - name: Heads
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          {
+            echo "# Advisor heads, run 44122837249, at \`${GITHUB_SHA::7}\`"
+            echo
+            poetry run python experiments/2026-11-08-pick-multipliers/heads.py results --json heads.json \
+              --pair lane-share-0.10:wheel-0.15
+          } | tee heads.md
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: measure-salts-report
+          path: |
+            salts.md
+            salts.json
+            heads.md
+            heads.json

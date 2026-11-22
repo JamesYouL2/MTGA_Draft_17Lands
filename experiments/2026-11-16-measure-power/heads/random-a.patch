@@ -1,0 +1,17 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..6f6cc92 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -184,6 +184,12 @@ class DraftAdvisor:
+                     (base_score + power_bonus) * cast_mult * role_mult
+                 )
+ 
++                # Damage: the score is a fixed random number for each card.
++                import hashlib
++
++                draw = int(hashlib.md5(("ra" + name).encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
++                final_score = 100 * draw
++
+                 is_basic_land = name in constants.BASIC_LANDS or (
+                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])
+                 )

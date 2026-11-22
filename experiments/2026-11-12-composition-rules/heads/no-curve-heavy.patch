@@ -1,0 +1,15 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index e3bab16..7563c62 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -320,10 +320,6 @@ class DraftAdvisor:
+         tags, cmc = card.get("tags", []), get_functional_cmc(card)
+         types = card.get("types", [])
+ 
+-        # 1. Curve and Heavy Drops Check
+-        if cmc >= 5 and self.pool_metrics["heavy_drops"] >= 4 and "Land" not in types:
+-            return 0.7, "Curve Too Heavy"
+-
+         # 2. Creature Quota Check
+         if pack >= 2 and "Creature" in types:
+             projected_creatures = self.pool_metrics["creature_count"] * (

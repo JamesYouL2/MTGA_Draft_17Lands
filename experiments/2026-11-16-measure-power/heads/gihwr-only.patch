@@ -1,0 +1,14 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..82fb82c 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -184,6 +184,9 @@ class DraftAdvisor:
+                     (base_score + power_bonus) * cast_mult * role_mult
+                 )
+ 
++                # No rules: the card's overall GIH win rate and nothing else.
++                final_score = raw_gihwr
++
+                 is_basic_land = name in constants.BASIC_LANDS or (
+                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])
+                 )

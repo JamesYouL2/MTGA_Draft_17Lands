@@ -1,0 +1,14 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..f7df852 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -418,9 +418,6 @@ class DraftAdvisor:
+                     if self.pool_metrics["fixing_count"] >= 4:
+                         return 0.30, "Greedy Bomb Splash"
+ 
+-            if off_color_pips == 1 and has_specific_fixing:
+-                return 0.3, "Splashable"
+-
+             return 0.01 if pack == 3 else 0.05, "Off-Color"
+         return 1.0, ""
+ 

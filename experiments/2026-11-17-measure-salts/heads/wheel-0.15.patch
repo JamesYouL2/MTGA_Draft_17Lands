@@ -1,0 +1,12 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -183,6 +183,8 @@
+                 final_score = (
+                     (base_score + power_bonus) * cast_mult * role_mult
+                 )
++                # A card likely to wheel ranks a little lower now.
++                final_score *= 1.0 - 0.15 * wheel_pct / 100.0
+ 
+                 is_basic_land = name in constants.BASIC_LANDS or (
+                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])

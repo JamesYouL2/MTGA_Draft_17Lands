@@ -1,0 +1,14 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..5820988 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -184,6 +184,9 @@ class DraftAdvisor:
+                     (base_score + power_bonus) * cast_mult * role_mult
+                 )
+ 
++                # No ratings: the earlier other drafters take the card, the higher it scores.
++                final_score = max(0.0, 100 - 6 * float(stats.get("alsa", 0.0) or 15.0))
++
+                 is_basic_land = name in constants.BASIC_LANDS or (
+                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])
+                 )

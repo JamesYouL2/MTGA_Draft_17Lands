@@ -1,0 +1,13 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..7e769b4 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -160,6 +160,8 @@ class DraftAdvisor:
+                 cast_mult, cast_reason = self._calculate_castability_v5(
+                     card, pack_number, effective_pick, z_score
+                 )
++                # Experiment: every off-color multiplier squared.
++                cast_mult = cast_mult ** 2
+                 if cast_reason:
+                     reasons.append(cast_reason)
+ 

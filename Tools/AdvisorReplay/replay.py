@@ -79,9 +79,13 @@ class App:
 
     def advise(self, pack, pool, pack_no, pick_no):
         """{card name: advisor score}, best first."""
-        recs = self.DraftAdvisor(self.metrics, pool).evaluate_pack(
-            pack, pick_no, current_pack=pack_no
-        )
+        advisor = self.DraftAdvisor(self.metrics, pool)
+        self.lane = set(advisor.main_colors)
+        counts = getattr(advisor, "color_counts", {}) or {}
+        # Non-land cards of the lane's thinnest color, and of all colors.
+        self.lane_min = min((counts.get(c, 0) for c in self.lane), default=0)
+        self.counted = sum(counts.values())
+        recs =advisor.evaluate_pack(pack, pick_no, current_pack=pack_no)
         scores = {}
         for r in recs:
             scores.setdefault(r.card_name, r.contextual_score)
@@ -172,6 +176,10 @@ def replay_draft(app, draft, skipped):
             skipped["taken card missing from advice"] += 1
             continue
         by_gihwr = {c[app.constants.DATA_FIELD_NAME]: app.gihwr(c) for c in pack}
+        order = sorted(scores, key=lambda n: -scores[n])
+        top = order[0]
+        top_card = next(c for c in pack if c[app.constants.DATA_FIELD_NAME] == top)
+        on_lane = set(top_card.get(app.constants.DATA_FIELD_COLORS, [])) <= app.lane
         picks.append(
             [
                 pack_no,
@@ -179,6 +187,13 @@ def replay_draft(app, draft, skipped):
                 rank_of(scores, taken),
                 round(regret(scores, taken), 4),
                 rank_of(by_gihwr, taken),
+                top,
+                int(on_lane),
+                len(app.lane),  # how many main colors the advisor saw
+                len(pool),  # cards in the pool before this pick
+                app.lane_min,  # non-land cards of the lane's thinnest color
+                app.counted,  # non-land cards counted over all colors
+                order[:3],  # the advisor's top three, best first
             ]
         )
 
