@@ -154,11 +154,16 @@ def summarise(root, head, samples):
                 "games": d["games"],
                 "regret": (mean([p[3] for p in d["picks"]]), mean([q[3] for q in o["picks"]])),
                 "rank": (mean([p[2] for p in d["picks"]]), mean([q[2] for q in o["picks"]])),
+                # Audit variants of check 1: missed the top card; SD regret capped at 2.
+                "miss": (mean([float(p[2] != 0) for p in d["picks"]]), mean([float(q[2] != 0) for q in o["picks"]])),
+                "capped": (mean([min(p[3], 2.0) for p in d["picks"]]), mean([min(q[3], 2.0) for q in o["picks"]])),
                 "deck_score": d.get("deck_score"),
                 "pool_gihwr": d.get("pool_gihwr"),
             }
             split = defaultdict(lambda: ([], []))
             net = n = matched = 0
+            took = [0, 0, 0]  # disagreements where the drafter took the head's top, main's, neither
+            kind_net, kind_n = [0] * 4, [0] * 4  # by compare.KINDS (each top card on the lane or not)
             # Per class: [net in it, disagreements in it]; None if a pick lacks the lane size.
             cls = {c: [0, 0] for c in CLASSES}
             for p in d["picks"]:
@@ -174,6 +179,10 @@ def summarise(root, head, samples):
                     n += 1
                     step = int(q[2] == 0) - int(p[2] == 0)
                     net += step
+                    took[0 if q[2] == 0 else 1 if p[2] == 0 else 2] += 1
+                    k = (0 if p[6] else 2) + (0 if q[6] else 1)
+                    kind_net[k] += step
+                    kind_n[k] += 1
                     for c, inside in pick_class(p, q).items():
                         if inside is None or cls[c] is None:
                             cls[c] = None
@@ -186,6 +195,7 @@ def summarise(root, head, samples):
             pool = [facts.get("two_color_share"), d.get("pool_gihwr"), facts.get("on_lane_playables")]
             row["pool"] = pool if all(v is not None for v in pool) else None
             row["net"], row["n"], row["matched"] = net, n, matched
+            row["took"], row["kind_net"], row["kind_n"] = took, kind_net, kind_n
             if samples and "detail" in d and "detail" in o:
                 pairs = list(zip(d["picks"], d["detail"]))
                 theirs_detail = {(q[0], q[1]): det for q, det in zip(o["picks"], o["detail"])}
@@ -227,8 +237,64 @@ def summarise(root, head, samples):
     return rows, same_top, detail_bad
 
 
+# report.controls bins skill with float floor division, so 0.42, 0.58 and 0.70
+# fall a bin low and some bins hold three bucket values (the audit's point 4;
+# main has it too). FIXED_SKILL switches this script, and only it, to the
+# binning report.controls means: 0.04 wide from 0.30.
+FIXED_SKILL = False
+
+
+def skill_bin(s):
+    if s is None:
+        return None
+    return int((min(max(s, 0.30), 0.74) - 0.30) / 0.04 + 1e-9)
+
+
 def controls(rows):
-    return R.controls([{"skill": r["skill"], "games": r["games"]} for r in rows], [r["key"][0] for r in rows])
+    if not FIXED_SKILL:
+        return R.controls([{"skill": r["skill"], "games": r["games"]} for r in rows], [r["key"][0] for r in rows])
+    columns = (
+        R._dummies([r["key"][0] for r in rows])
+        + R._dummies([skill_bin(r["skill"]) for r in rows])
+        + R._dummies([r["games"] for r in rows])
+    )
+    return np.column_stack([np.ones(len(rows)), *columns])
+
+
+def swap_free(rows):
+    """The swap regression without its constraint: event wins on how many
+    disagreements the drafter settled with the head's top card (a), main's (b)
+    or neither (c), with the swap controls. {a, b, c, a - b}, combined."""
+    keep = [r for r in rows if r["complete"]]
+    a = np.array([[r["wins"], *r["took"]] for r in keep], dtype=float)
+    ctrl, keys = controls(keep), [r["key"] for r in keep]
+
+    def fit(idx):
+        X = np.column_stack([a[idx, 1:4], ctrl[idx]])
+        return np.linalg.lstsq(X, a[idx, 0], rcond=None)[0][:3]
+
+    out = {}
+    for name, f in (("a", lambda c: c[0]), ("b", lambda c: c[1]), ("c", lambda c: c[2]), ("a - b", lambda c: c[0] - c[1])):
+        out[name] = H.combined(C.by_salt(keys, lambda i, f=f: f(fit(i))))
+    return out, len(keep)
+
+
+def swap_kinds(rows):
+    """Event wins per swapped pick by kind of disagreement (compare.KINDS), one
+    regression on each kind's net agreement and all disagreements. Returns
+    ({kind: figure}, {kind: share of disagreements}, events)."""
+    keep = [r for r in rows if r["complete"]]
+    a = np.array([[r["wins"], *r["kind_net"], r["n"]] for r in keep], dtype=float)
+    ctrl, keys = controls(keep), [r["key"] for r in keep]
+    counts = np.array([r["kind_n"] for r in keep], dtype=float).sum(axis=0)
+
+    def fit(idx, k):
+        X = np.column_stack([a[idx, 1:6], ctrl[idx]])
+        return 2 * np.linalg.lstsq(X, a[idx, 0], rcond=None)[0][k]
+
+    figs = {kind: H.combined(C.by_salt(keys, lambda i, k=k: fit(i, k))) for k, kind in enumerate(C.KINDS)}
+    shares = {kind: float(counts[k] / max(1.0, counts.sum())) for k, kind in enumerate(C.KINDS)}
+    return figs, shares, len(keep)
 
 
 def with_pool(rows, ctrl, pool):
@@ -345,16 +411,30 @@ def main(argv=None):
         ("regret", "SD regret (as in heads.py)"),
         ("rank", "rank of the card taken (check 1)"),
         ("percentile", "rank percentile in the pack (check 1)"),
+        ("miss", "missed the head's top card (audit)"),
+        ("capped", "SD regret capped at 2 (audit)"),
         ("transfer", "SD regret, the head's order with main's gaps (check 2a)"),
         ("mapped", "SD regret, quantile map fitted on the other sets (check 2b)"),
     ]
     out["regret"] = {}
     for field, label in measures:
         m, n = regret_change(rows, field)
-        if m is None and field not in ("regret", "rank"):
+        if m is None and field not in ("regret", "rank", "miss", "capped"):
             continue
         out["regret"][field] = m
         print(f"| {label} | {n} | {cell(m, 4)} |")
+    print()
+    print("Per-draft means over complete events (spread: SD across drafts):")
+    print()
+    print("| measure | main mean | main spread | head mean | head spread |")
+    print("|---|---|---|---|---|")
+    out["spread"] = {}
+    done = [r for r in rows if r["complete"]]
+    for field, label in (("regret", "SD regret"), ("rank", "rank"), ("miss", "missed top card"), ("capped", "SD regret capped at 2")):
+        v = np.array([r[field] for r in done], dtype=float)
+        v = v[~np.isnan(v).any(axis=1)]
+        out["spread"][field] = [float(v[:, 0].mean()), float(v[:, 0].std()), float(v[:, 1].mean()), float(v[:, 1].std())]
+        print(f"| {label} | " + " | ".join(f"{x:.3f}" for x in out["spread"][field]) + " |")
     if samples:
         diffs = [abs(r["recomputed"] - r["regret"][1]) for r in rows if "recomputed" in r]
         out["same_top"] = same_top[0] / same_top[1] if same_top[1] else None
@@ -482,6 +562,60 @@ def main(argv=None):
             print(f"| {cls} | – | – | – | – |")
             continue
         print(f"| {cls} | {n} | {100 * share:.1f}% | {cell(inside, 3)} | {cell(outside, 3)} |")
+    print()
+
+    print("## 10. Audit checks (addendum 2)")
+    print()
+    print("### (a) The swap regression without its constraint")
+    print()
+    print("Event wins on how many disagreements went each way. The swap measure regresses on net "
+          "agreement and the count, which forces c = (a + b) / 2; here a, b and c are free. a − b is "
+          "the unconstrained figure per pick swapped from main's top card to the head's.")
+    print()
+    free, n_free = swap_free(rows)
+    took = np.array([r["took"] for r in rows if r["complete"]], dtype=float).mean(axis=0)
+    out["swap_free"] = free
+    out["took_per_draft"] = took.tolist()
+    print("| coefficient | per draft | event wins per such pick |")
+    print("|---|---|---|")
+    labels = {"a": "took the head's top card (a)", "b": "took main's top card (b)", "c": "took neither (c)"}
+    for i, k in enumerate(("a", "b", "c")):
+        print(f"| {labels[k]} | {took[i]:.2f} | {cell(free[k], 4)} |")
+    print(f"| **a − b** ({n_free} events) | | {cell(free['a - b'], 4)} |")
+    print(f"| swap measure as specified | | {cell(swap, 4)} |")
+    print()
+    print("### (b) By kind of disagreement")
+    print()
+    print("Per swapped pick of each kind, one regression; on-lane is the advisor's lane at that pick.")
+    print()
+    figs, shares, n_kinds = swap_kinds(rows)
+    out["kinds"] = {k: {"figure": figs[k], "share": shares[k]} for k in figs}
+    print("| kind | share of disagreements | per swapped pick |")
+    print("|---|---|---|")
+    for k in C.KINDS:
+        print(f"| {k} | {100 * shares[k]:.1f}% | {cell(figs[k], 4)} |")
+    print()
+    print("### (c) With report.controls' skill bins fixed")
+    print()
+    global FIXED_SKILL
+    keys_fixed = [
+        ("swap", "event wins per swapped pick", lambda: swap_y(rows, lambda r: r["wins"])[0]),
+        ("a - b", "unconstrained a − b", lambda: swap_free(rows)[0]["a - b"]),
+        ("regret", "SD regret slope change", lambda: regret_change(rows, "regret")[0]),
+        ("rank", "rank regret slope change", lambda: regret_change(rows, "rank")[0]),
+    ]
+    print("| measure | as run | skill bins fixed |")
+    print("|---|---|---|")
+    out["fixed_skill"] = {}
+    for key, label, fit in keys_fixed:
+        before = {"swap": swap, "a - b": free["a - b"]}.get(key) or out["regret"].get(key)
+        FIXED_SKILL = True
+        try:
+            after = fit()
+        finally:
+            FIXED_SKILL = False
+        out["fixed_skill"][key] = {"as_run": before, "fixed": after}
+        print(f"| {label} | {cell(before, 4)} | {cell(after, 4)} |")
     print()
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:

@@ -1,0 +1,19 @@
+{
+ "set": "KTK",
+ "drafts": 261,
+ "picks_train": 10925,
+ "picks_serve": 10145,
+ "picks_compared": 10145,
+ "cards_compared": 81183,
+ "row_mismatches": {},
+ "card_set_mismatches": 0,
+ "scale_mismatches": 0,
+ "pool_mismatches": 0,
+ "float32_max_score_change": 0.0,
+ "float32_top_changes": 0,
+ "only_train": 780,
+ "only_serve": 0,
+ "replay_skipped": {
+  "fewer than 2 different cards in pack": 780
+ }
+}

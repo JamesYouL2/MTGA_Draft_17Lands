@@ -1,0 +1,19 @@
+{
+ "set": "SNC",
+ "drafts": 259,
+ "picks_train": 10558,
+ "picks_serve": 9811,
+ "picks_compared": 9811,
+ "cards_compared": 78690,
+ "row_mismatches": {},
+ "card_set_mismatches": 0,
+ "scale_mismatches": 0,
+ "pool_mismatches": 0,
+ "float32_max_score_change": 0.0,
+ "float32_top_changes": 0,
+ "only_train": 747,
+ "only_serve": 0,
+ "replay_skipped": {
+  "fewer than 2 different cards in pack": 747
+ }
+}

@@ -70,7 +70,8 @@ lgbm-strong, lgbm-wins, noalsa and logit (agreement.md).
   learned head says yes. The regret measure asks whether the head's score gaps,
   over all of a draft's picks, predict wins. All four learned heads do worse
   than main on that.
-  - LightGBM's lambdarank scores rank cards well, but their gaps are not values.
+  - A hypothesis, tested in "Diagnosis" below: LightGBM's lambdarank scores
+    rank cards well, but their gaps are not values.
   - The logit's gaps are proportional to its inputs, but it leaves out
     everything except quality, lane fit and off-color pips.
 - **ALSA buys agreement, not wins.** ALSA is crowd pick order.
@@ -120,9 +121,11 @@ would have failed the confirmation bound as well: the regret change's 95%
 upper bound is 0.0247, against a cap of 0.0063. The control lost on both
 measures, as expected, so the run itself looks sound.
 
-- **The first run's +1.7 SEs on regret was the low draw.** Here the estimate
-  is +0.0168. In the first run it was +0.0089, with an upper bound of 0.019.
-  In 7 of the 8 salts the regret change is above +0.005. By set
+- **The two runs' regret agree within noise.** Here the estimate is +0.0168.
+  In the first run it was +0.0089, with an upper bound of 0.019. The two
+  differ by about 1.2 SEs, so neither is a "low draw" of the other; the
+  larger run simply has the power to clear 2 SEs. In 7 of the 8 salts the
+  regret change is above +0.005. By set
   (reports/confirm/by_set.md), regret is 2+ SEs worse in 10 of 19 sets and
   2+ SEs better in one (KTK).
 - **The swap gain is real and steady.** It was +0.037 (0.005) in the first
@@ -133,8 +136,11 @@ measures, as expected, so the run itself looks sound.
   the second.
 - **Imitation check (not part of the rule).** CONFIRM.md asked whether the
   swap gain comes only from picking like stronger drafters within a skill
-  bucket. It doesn't: the gain is about the same in every bucket, so the gain
-  holds.
+  bucket. The gain is about the same in every bucket. That makes "drafters
+  who pick like stronger drafters win more" less likely as the whole story,
+  but it can't detect lane or seat confounding: a drafter in an open lane
+  matches the head more often in any bucket. Checks 7 and 10 under
+  "Diagnosis" test that.
 
   | skill bucket | events | event wins per swapped pick |
   |---|---|---|

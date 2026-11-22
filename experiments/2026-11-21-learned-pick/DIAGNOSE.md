@@ -314,3 +314,69 @@ are checks 1 and 3's.
 Each check says plainly what it rules in or out. The write-up ends with
 "What the learned model is doing", which states only what the checks
 support.
+
+## Addendum 2, 2026-11-22: the audit's checks (check 10)
+
+Added after an independent audit of the branch, before any 19-set diagnosis
+result was read. The audit found no leakage and no bug that invalidates the
+runs. It did run directional checks on a 6-set subset of the confirmation run
+(FDN, DFT, BLB, NEO, KTK, SNC; 114,347 events), and those numbers were seen
+before this was written. The readings below apply to the 19-set runs only;
+the subset figures are quoted as the audit's, not as results.
+
+### What is added
+
+- **Check 1, more variants.** Beside SD regret and rank regret: the share of
+  picks where the drafter missed the head's top card, and SD regret capped at
+  2. Each draft's mean and its spread across drafts are reported for main
+  and the head.
+- **10a. The swap regression without its constraint.** The swap measure
+  regresses event wins on net agreement and the number of disagreements. That
+  forces the coefficient on "took neither top card" (c) to be the average of
+  "took the head's" (a) and "took main's" (b). Here a, b and c are free, and
+  a − b is the per-swap figure.
+- **10b. By kind of disagreement.** Per swapped pick, for each of compare's
+  four kinds: both top cards on the advisor's lane at that pick; main's on and
+  the head's off; main's off and the head's on; both off.
+- **10c. Skill bins.** `report.controls` bins skill with float floor
+  division. So 0.42, 0.58 and 0.70 land one bin low, and some bins hold three
+  bucket values (main has this too; it is not changed here). The swap figure,
+  10a's a − b, and SD and rank regret are rerun with the bins `controls`
+  means (0.04 wide from 0.30), in diagnose.py only.
+- All of this runs on the confirmation run (456,000 drafts), for
+  `lgbm-strong-noalsa` and for `gihwr-only` as the control. On the first
+  measure run it runs for every head (check 9), and on the lgbm-weak run for
+  `lgbm-weak`.
+
+### Readings
+
+- **Check 1 variants.**
+  - SD regret 2+ SEs worse while rank, missed-top and capped regret are not
+    2+ SEs worse: the regret harm is the scale of the head's scores (smaller
+    gaps, or a few large ones), not its order.
+  - Rank or missed-top regret 2+ SEs *better*: the head's order tracks wins
+    better than main's, and only its SD-scaled gaps track them worse.
+  - `gihwr-only` must stay 2+ SEs worse on every variant. If it doesn't, the
+    variants lack power and are not read.
+- **10a.**
+  - a − b 2+ SEs above 0: the swap gain survives without the constraint. Its
+    share of the constrained figure is reported.
+  - Otherwise, the constrained swap figure overstates the gain, and the
+    confirmation's +10 SEs is not read as a per-pick effect.
+- **10b.**
+  - "Both on-lane" 2+ SEs above 0: where lane choice is not at stake, the
+    drafter who took the head's card won more. That is the cleanest evidence
+    here of better card choice, though still observational.
+  - A gain only where main's top card is off-lane and the head's is on:
+    lane-following, which can't be told apart from lane confounding here.
+- **10c.** Any of the four figures moving by more than half its SE is
+  reported as material. Otherwise the binning bug does not matter here.
+
+### Caveats the write-up will state
+
+- Main's constants were tuned on these same measures, so main is fitted to
+  them, and a learned head is not.
+- Training uses the app dataset's ratings; the replay uses held-out
+  ratings, rebuilt per salt.
+- Main's scores are rounded to 0.1 and the head's are not, so main has more
+  ties. Rank 0 counts a tie for the top as a match.

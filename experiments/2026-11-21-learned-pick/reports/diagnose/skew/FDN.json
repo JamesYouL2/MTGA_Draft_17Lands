@@ -1,0 +1,19 @@
+{
+ "set": "FDN",
+ "drafts": 250,
+ "picks_train": 10500,
+ "picks_serve": 9747,
+ "picks_compared": 9747,
+ "cards_compared": 77650,
+ "row_mismatches": {},
+ "card_set_mismatches": 0,
+ "scale_mismatches": 0,
+ "pool_mismatches": 0,
+ "float32_max_score_change": 0.0,
+ "float32_top_changes": 0,
+ "only_train": 753,
+ "only_serve": 0,
+ "replay_skipped": {
+  "fewer than 2 different cards in pack": 753
+ }
+}
