@@ -3,9 +3,11 @@
     python experiments/2026-11-21-learned-pick/diagnose.py RESULTS [--head NAME] [--json out.json]
 
 RESULTS holds one folder per set and salt with base.json and NAME.json, from
-replay.py (an Advisor heads run). Checks 1, 3 and 4 read any run. Checks 2 and
-5's deck parts need `replay.py --detail`, and run only where every draft has
-it. Reads one folder at a time, so a full run fits in memory.
+replay.py (an Advisor heads run). Without --head, NAME is the one head beside
+base. Checks 1, 3, 4 and 7b read any run (7b needs a pick's lane size, which
+slim.py keeps). Checks 2, 5's deck parts and 7a need `replay.py --detail`, and
+run only where drafts have it. Reads one folder at a time, so a full run fits
+in memory.
 
 Every regret-style figure is compare.change (the head's slope of event wins on
 the draft's mean of the measure, within-set z, less base's) and every
@@ -20,7 +22,12 @@ import os
 import sys
 from collections import defaultdict
 
-import numpy as np
+# Thousands of small least-squares fits: threaded BLAS only contends on them
+# (one folder took 112 s threaded against 15 s on one thread).
+for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_var, "1")
+
+import numpy as np  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "2026-11-08-pick-multipliers"))
@@ -43,6 +50,34 @@ PARTS = [
     ("cheap", "creatures and removal at 2 mana or less", 1.0),
     ("mana_value", "mean mana value of spells", 1.0),
 ]
+
+
+def only_head(root):
+    """lgbm-strong-noalsa if RESULTS' first folder has it, else its one head."""
+    for folder in sorted(glob.glob(os.path.join(root, "*"))):
+        names = sorted(os.path.basename(p)[:-5] for p in glob.glob(os.path.join(folder, "*.json")))
+        if "base" in names:
+            heads = [n for n in names if n != "base"]
+            if "lgbm-strong-noalsa" in heads:
+                return "lgbm-strong-noalsa"
+            if len(heads) != 1:
+                raise SystemExit(f"Several heads ({heads}); give --head")
+            return heads[0]
+    raise SystemExit(f"No results in {root}")
+
+
+# DIAGNOSE.md check 7b: disagreements where the pick can hardly change the deck.
+def pick_class(p, q):
+    """{class: whether this disagreement is in it}; p is base's pick, q the head's."""
+    lane = p[7] if len(p) > 7 else None
+    return {
+        "off-lane in pack 3": None if lane is None else (p[0] == 3 and lane == 2 and not p[6] and not q[6]),
+        "late pack 3": p[0] == 3 and p[1] >= 10,
+    }
+
+
+CLASSES = ("off-lane in pack 3", "late pack 3")
+POOL_CONTROLS = ("two_color_share", "pool_gihwr", "on_lane_playables")
 
 
 def folders(root, head):
@@ -124,6 +159,8 @@ def summarise(root, head, samples):
             }
             split = defaultdict(lambda: ([], []))
             net = n = matched = 0
+            # Per class: [net in it, disagreements in it]; None if a pick lacks the lane size.
+            cls = {c: [0, 0] for c in CLASSES}
             for p in d["picks"]:
                 q = head_picks.get((p[0], p[1]))
                 if q is None:
@@ -135,8 +172,19 @@ def summarise(root, head, samples):
                     split[name][1].append(q[3])
                 if not agree:
                     n += 1
-                    net += int(q[2] == 0) - int(p[2] == 0)
+                    step = int(q[2] == 0) - int(p[2] == 0)
+                    net += step
+                    for c, inside in pick_class(p, q).items():
+                        if inside is None or cls[c] is None:
+                            cls[c] = None
+                        elif inside:
+                            cls[c][0] += step
+                            cls[c][1] += 1
             row["split"] = {k: (mean(v[0]), mean(v[1])) for k, v in split.items()}
+            row["classes"] = cls
+            facts = d.get("pool") or {}
+            pool = [facts.get("two_color_share"), d.get("pool_gihwr"), facts.get("on_lane_playables")]
+            row["pool"] = pool if all(v is not None for v in pool) else None
             row["net"], row["n"], row["matched"] = net, n, matched
             if samples and "detail" in d and "detail" in o:
                 pairs = list(zip(d["picks"], d["detail"]))
@@ -183,21 +231,30 @@ def controls(rows):
     return R.controls([{"skill": r["skill"], "games": r["games"]} for r in rows], [r["key"][0] for r in rows])
 
 
-def regret_change(rows, field, sub=None):
-    """compare.change on each draft's (base, head) mean of field, combined."""
+def with_pool(rows, ctrl, pool):
+    """ctrl, with the final pool's facts as more controls if pool."""
+    if not pool:
+        return ctrl
+    return np.column_stack([ctrl, np.array([r["pool"] for r in rows], dtype=float)])
+
+
+def regret_change(rows, field, sub=None, pool=False):
+    """compare.change on each draft's (base, head) mean of field, combined; pool
+    adds the final pool's facts to the controls (check 7a)."""
     def get(r):
         return r.get(field) if sub is None else r["split"].get(sub)
 
     keep = [
         r for r in rows
         if r["complete"] and (v := get(r)) is not None and not (np.isnan(v[0]) or np.isnan(v[1]))
+        and (not pool or r["pool"] is not None)
     ]
     if len(keep) < 100:
         return None, 0
     keys = [r["key"] for r in keep]
     frame = (
         np.array([r["wins"] for r in keep], dtype=float),
-        controls(keep),
+        with_pool(keep, controls(keep), pool),
         np.array([get(r)[0] for r in keep]),
         np.array([get(r)[1] for r in keep]),
         keys,
@@ -206,16 +263,40 @@ def regret_change(rows, field, sub=None):
     return H.combined(salts), len(keep)
 
 
-def swap_y(rows, y_of):
+def swap_y(rows, y_of, pool=False):
     """compare.swap with outcome y_of(row): change in y per pick swapped from base's
-    top card to the head's, combined over salts."""
-    keep = [r for r in rows if r["complete"] and y_of(r) is not None]
+    top card to the head's, combined over salts; pool adds the final pool's facts
+    to the controls (check 7a)."""
+    keep = [r for r in rows if r["complete"] and y_of(r) is not None and (not pool or r["pool"] is not None)]
     if len(keep) < 100:
         return None, 0
     a = np.array([[y_of(r), r["net"], r["n"]] for r in keep], dtype=float)
-    frame = (a, controls(keep), [r["key"] for r in keep])
+    frame = (a, with_pool(keep, controls(keep), pool), [r["key"] for r in keep])
     salts = C.by_salt(frame[2], lambda i: C.swap(frame, i))
     return H.combined(salts), len(keep)
+
+
+def swap_split(rows, cls):
+    """Event wins per swapped pick inside the class and outside it, one regression:
+    wins on each part's net agreement and disagreements, with the swap controls.
+    Returns (inside, outside, events, share of disagreements inside)."""
+    keep = [r for r in rows if r["complete"] and r["classes"][cls] is not None]
+    if len(keep) < 100:
+        return None, None, 0, None
+    a = np.array(
+        [[r["wins"], r["classes"][cls][0], r["net"] - r["classes"][cls][0],
+          r["classes"][cls][1], r["n"] - r["classes"][cls][1]] for r in keep],
+        dtype=float,
+    )
+    ctrl, keys = controls(keep), [r["key"] for r in keep]
+
+    def fit(idx, k):
+        X = np.column_stack([a[idx, 1:5], ctrl[idx]])
+        return 2 * np.linalg.lstsq(X, a[idx, 0], rcond=None)[0][k]
+
+    inside = H.combined(C.by_salt(keys, lambda i: fit(i, 0)))
+    outside = H.combined(C.by_salt(keys, lambda i: fit(i, 1)))
+    return inside, outside, len(keep), a[:, 3].sum() / max(1.0, (a[:, 3] + a[:, 4]).sum())
 
 
 def paired(rows, a, b, part):
@@ -238,9 +319,10 @@ def cell(m, digits, scale=1.0):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("results")
-    parser.add_argument("--head", default="lgbm-strong-noalsa")
+    parser.add_argument("--head", help="The head to diagnose (default: the only one)")
     parser.add_argument("--json")
     args = parser.parse_args(argv)
+    args.head = args.head or only_head(args.results)
     samples = quantile_maps(args.results, args.head)
     rows, same_top, detail_bad = summarise(args.results, args.head, samples)
     out = {"drafts": len(rows), "events": sum(r["complete"] for r in rows), "detail": bool(samples)}
@@ -263,7 +345,7 @@ def main(argv=None):
         ("regret", "SD regret (as in heads.py)"),
         ("rank", "rank of the card taken (check 1)"),
         ("percentile", "rank percentile in the pack (check 1)"),
-        ("transfer", "SD regret, noalsa's order with main's gaps (check 2a)"),
+        ("transfer", "SD regret, the head's order with main's gaps (check 2a)"),
         ("mapped", "SD regret, quantile map fitted on the other sets (check 2b)"),
     ]
     out["regret"] = {}
@@ -295,7 +377,7 @@ def main(argv=None):
     for sub in ["agree", "disagree"] + [f"pack {k}" for k in PACKS]:
         m, n = regret_change(rows, None, sub)
         out["split"][sub] = m
-        label = {"agree": "main and noalsa agree on the top card", "disagree": "they disagree"}.get(sub, sub)
+        label = {"agree": "main and the head agree on the top card", "disagree": "they disagree"}.get(sub, sub)
         print(f"| {label} | {n} | {cell(m, 4)} |")
     print()
 
@@ -317,16 +399,16 @@ def main(argv=None):
           f"(median {np.median(per_draft):.0f}, middle half {np.percentile(per_draft, 25):.0f} to "
           f"{np.percentile(per_draft, 75):.0f}).")
     print(f"- Event wins per swapped pick: {cell(swap, 3)} ({n_swap} events).")
-    print(f"- A drafter who followed noalsa instead of main on all {complete_n:.1f} disagreements "
+    print(f"- A drafter who followed {args.head} instead of main on all {complete_n:.1f} disagreements "
           f"of a complete event: {swap['estimate'] * complete_n:+.2f} ({swap['scaled_se'] * complete_n:.2f}) "
           "event wins, extrapolated linearly from the per-swap estimate. Observational.")
     print()
 
     print("## 5. Do the final decks differ?")
     print()
-    print("### (a) Drafters who sided with noalsa: their own final decks")
+    print(f"### (a) Drafters who sided with {args.head}: their own final decks")
     print()
-    print("Per pick swapped from main's top card to noalsa's, with the swap measure's controls. Observational.")
+    print("Per pick swapped from main's top card to the head's, with the swap measure's controls. Observational.")
     print()
     print("| outcome | events | per swapped pick |")
     print("|---|---|---|")
@@ -348,7 +430,7 @@ def main(argv=None):
         print(f"| {label} | {n} | {cell(m, digits)} |")
     print()
     if any(r.get("sim_head") for r in rows):
-        print("### (b) The simulated draft: noalsa's own deck less main's, same packs")
+        print(f"### (b) The simulated draft: {args.head}'s own deck less main's, same packs")
         print()
         print("Screen only: it grades decks by the deck score's own beliefs.")
         print()
@@ -361,6 +443,46 @@ def main(argv=None):
             out["sim"][part] = m
             print(f"| {label} | {n} | {cell(m, 3, scale)} | {base_mean:.3f} |")
         print()
+    print("## 7. Confounding by lane and seat")
+    print()
+    if any(r["pool"] is not None for r in rows):
+        print("### (a) With the final pool's facts as controls")
+        print()
+        print("Controls added: the pool's two-color share, pool GIH WR (best 23 in a pair) and on-lane "
+              "playables. They are partly outcomes of the picks, so shrinkage is an upper bound on confounding.")
+        print()
+        print("| measure | events | usual controls | with pool controls | kept |")
+        print("|---|---|---|---|---|")
+        out["pool_controls"] = {}
+        # Both columns on the drafts that have the pool facts, so they compare.
+        saved = [r for r in rows if r["pool"] is not None]
+        for label, fit in (
+            ("event wins per swapped pick", lambda pool: swap_y(saved, lambda r: r["wins"], pool)),
+            ("SD regret slope change", lambda pool: regret_change(saved, "regret", pool=pool)),
+        ):
+            (a, n), (b, _) = fit(False), fit(True)
+            kept = b["estimate"] / a["estimate"] if a and b and a["estimate"] else None
+            out["pool_controls"][label] = {"usual": a, "pool": b, "kept": kept}
+            digits = 3 if "wins" in label else 4
+            print(f"| {label} | {n} | {cell(a, digits)} | {cell(b, digits)} | "
+                  f"{'–' if kept is None else f'{100 * kept:.0f}%'} |")
+        print()
+    print("### (b) Disagreements where the pick can hardly change the deck")
+    print()
+    print("Per swapped pick inside the class and outside it, from one regression. Off-lane in pack 3: "
+          "pack 3, the advisor sees a two-color lane, and neither top card is on it. Late pack 3: pick 10 or later.")
+    print()
+    print("| class | events | share of disagreements | inside | outside |")
+    print("|---|---|---|---|---|")
+    out["classes"] = {}
+    for cls in CLASSES:
+        inside, outside, n, share = swap_split(rows, cls)
+        out["classes"][cls] = {"inside": inside, "outside": outside, "share": share, "events": n}
+        if inside is None:
+            print(f"| {cls} | – | – | – | – |")
+            continue
+        print(f"| {cls} | {n} | {100 * share:.1f}% | {cell(inside, 3)} | {cell(outside, 3)} |")
+    print()
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump(out, f, indent=1)

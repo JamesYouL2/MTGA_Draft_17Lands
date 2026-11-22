@@ -4,7 +4,8 @@
 
 The reports (heads.py, by_set.py, agreement.py, confirm_extra.py) read only a
 pick's first seven fields, and field 5, the top card's name, only to test it
-for equality with the other copy's. This keeps those seven fields and
+for equality with the other copy's; diagnose.py also reads field 7, the lane
+size. This keeps those eight fields and
 replaces each name with a number, using one numbering for every file, so
 equal names stay equal. Everything else in each file is kept. At 3000 drafts
 per salt, the full results ran the confirmation run's report job out of memory
@@ -17,7 +18,7 @@ import json
 import os
 import sys
 
-KEEP = 7  # pack, pick, rank of the card taken, regret, ..., top card, on lane
+KEEP = 8  # pack, pick, rank of the card taken, regret, ..., top card, on lane, lane size
 NAME = 5
 
 

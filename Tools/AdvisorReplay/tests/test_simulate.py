@@ -161,6 +161,11 @@ def test_detail_reproduces_ranks_regret_and_ratings(app):
     assert out["picks"] == plain["picks"]
     assert {k: v for k, v in out["sim"].items() if "parts" not in k} == plain["sim"]
     assert len(out["detail"]) == len(out["picks"])
+    assert "pool" not in plain
+    facts = out["pool"]
+    assert facts is not None and (
+        0 <= facts["two_color_share"] <= 1 and facts["on_lane_playables"] >= 0
+    )
     for p, (scores, taken) in zip(out["picks"], out["detail"]):
         assert sum(s > scores[taken] for s in scores) <= p[2]
         sd = float(np.std(scores)) or 1.0

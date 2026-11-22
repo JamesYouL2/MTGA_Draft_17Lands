@@ -101,6 +101,32 @@ class App:
             scores.setdefault(r.card_name, r.contextual_score)
         return scores
 
+    def pool_facts(self, pool):
+        """Two facts about a pool on the lane the advisor finds for it (its main
+        colors): the share of its colored non-land cards whose colors all lie in
+        the lane, and its on-lane playables, non-land cards whose colors all lie
+        in the lane (colorless too) with GIH WR at least the set's mean less one
+        SD (experiments/2026-11-21-learned-pick/DIAGNOSE.md, check 7)."""
+        c = self.constants
+        advisor = self.DraftAdvisor(self.metrics, pool)
+        lane = set(advisor.main_colors)
+        line = advisor.global_mean - advisor.global_std
+        colored = in_lane = playables = 0
+        for card in pool:
+            if "Land" in (card.get(c.DATA_FIELD_TYPES) or []):
+                continue
+            colors = set(card.get(c.DATA_FIELD_COLORS) or [])
+            fits = colors <= lane
+            if colors:
+                colored += 1
+                in_lane += fits
+            playables += fits and self.gihwr(card) >= line
+        return {
+            "lane": len(lane),
+            "two_color_share": round(in_lane / colored, 4) if colored else None,
+            "on_lane_playables": playables,
+        }
+
     def deck_score(self, pool):
         """The best score among the app's quick deck builds for this pool."""
         cl = self.card_logic
@@ -221,13 +247,15 @@ def replay_draft(app, draft, skipped, sim=None, drafter_deck=False, detail=False
             names = sorted(scores)
             details.append([[round(scores[n], 4) for n in names], names.index(taken)])
 
-    deck_score = pool_gihwr = None
+    deck_score = pool_gihwr = facts = None
     if draft["picks"]:
         taken = draft["picks"][-1][2]
         final_pool = app.cards(pool_names + [taken])
         if len(final_pool) >= DECK_SIZE:
             deck_score = round(app.deck_score(final_pool), 4)
             pool_gihwr = round(app.pool_gihwr(final_pool), 4)
+            if detail:
+                facts = app.pool_facts(final_pool)
 
     out = {k: draft[k] for k in ("id", "skill", "games", "wins", "losses")} | {
         "picks": picks,
@@ -236,6 +264,7 @@ def replay_draft(app, draft, skipped, sim=None, drafter_deck=False, detail=False
     }
     if detail:
         out["detail"] = details
+        out["pool"] = facts
     if sim is not None:
         out["sim"] = simulate.simulate_draft(app, draft, sim, detail)
         if out["sim"] and drafter_deck:
