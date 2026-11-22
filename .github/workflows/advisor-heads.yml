@@ -45,6 +45,9 @@ on:
       models_run:
         description: 'A Learned pick models run ID: heads using learned models get its models-<SET> (experiments/2026-11-21-learned-pick)'
         default: ""
+      report_run:
+        description: 'Report only: an earlier Advisor heads run ID whose replay results to report again (no replays)'
+        default: ""
 
 permissions:
   contents: read
@@ -52,6 +55,7 @@ permissions:
 
 jobs:
   plan:
+    if: ${{ inputs.report_run == '' }}
     runs-on: ubuntu-latest
     outputs:
       salts: ${{ steps.salts.outputs.salts }}
@@ -175,16 +179,14 @@ jobs:
         with:
           pattern: heads-*
           path: results
-      - name: Extra report
-        if: ${{ inputs.extra != '' }}
-        shell: bash
-        env:
-          EXTRA: ${{ inputs.extra }}
+          # report_run: that run's replay results instead of this run's.
+          run-id: ${{ inputs.report_run || github.run_id }}
+          github-token: ${{ github.token }}
+      - name: Slim the results
+        # Keeps only what the reports read, so 3000 drafts a salt fit in memory.
         run: |
-          {
-            echo
-            poetry run python "$EXTRA" results
-          } | tee extra.md >> "$GITHUB_STEP_SUMMARY"
+          rm -rf results/heads-report
+          poetry run python experiments/2026-11-21-learned-pick/slim.py results
       - name: Report
         if: ${{ !cancelled() }}
         shell: bash  # with pipefail, so a failed report fails the step
@@ -204,6 +206,16 @@ jobs:
             echo
             poetry run python experiments/2026-11-15-off-color-share/by_set.py results --json by_set.json
           } | tee by_set.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Extra report
+        if: ${{ !cancelled() && inputs.extra != '' }}
+        shell: bash
+        env:
+          EXTRA: ${{ inputs.extra }}
+        run: |
+          {
+            echo
+            poetry run python "$EXTRA" results
+          } | tee extra.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
