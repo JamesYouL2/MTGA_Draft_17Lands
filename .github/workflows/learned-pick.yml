@@ -1,0 +1,127 @@
+name: Learned pick models
+
+# Fits the learned pick models of experiments/2026-11-21-learned-pick: for each
+# set, the models fitted on every other set. Artifacts models-<SET> are what
+# Advisor heads' `models_run` input downloads.
+#
+# Run by hand: Actions > Learned pick models > Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sets:
+        description: JSON list of set codes
+        default: '["BLB","DFT","DMU","DSK","EOE","FDN","FIN","FRA","HOB","KTK","LTR","MSH","NEO","OTJ","SNC","SOS","TDM","TLA","TMT"]'
+      strong:
+        description: Strong drafters' drafts per set (win-rate bucket >= 0.6, >= 50 games)
+        default: "2000"
+      all:
+        description: Any drafters' drafts per set
+        default: "2000"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - run: poetry run pip install lightgbm
+      - run: poetry run pytest Tools/LearnedPick/tests
+
+  features:
+    name: Features ${{ matrix.set }}
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ${{ fromJSON(inputs.sets) }}
+    env:
+      SET: ${{ matrix.set }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - name: Download the dump and the app's dataset
+        run: |
+          curl -fsSL --retry 3 -o dump.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
+          if [ -f "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" ]; then
+            cp "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" dataset.json.gz
+          else
+            curl -fsSL --retry 3 -o dataset.json.gz \
+              "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+          fi
+      - name: Sample drafts and build feature rows
+        run: |
+          poetry run python Tools/LearnedPick/drafts.py --dump dump.csv.gz \
+            --strong "${{ inputs.strong }}" --all "${{ inputs.all }}" --out drafts.json.gz
+          mkdir rows
+          poetry run python Tools/LearnedPick/features.py --drafts drafts.json.gz \
+            --dataset dataset.json.gz --set "$SET" --out "rows/$SET.npz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rows-${{ matrix.set }}
+          path: rows/
+
+  train:
+    name: Train without ${{ matrix.set }}
+    needs: features
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ${{ fromJSON(inputs.sets) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install numpy lightgbm
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rows-*
+          path: rows
+          merge-multiple: true
+      - run: python Tools/LearnedPick/train.py --rows rows --heldout "${{ matrix.set }}" --out models
+      - uses: actions/upload-artifact@v4
+        with:
+          name: models-${{ matrix.set }}
+          path: models/${{ matrix.set }}/
+
+  report:
+    needs: train
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install numpy
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: models-*
+          path: models
+      - name: Report
+        shell: bash
+        run: |
+          # Each artifact unpacks into models/models-<SET>/; train.py wants models/<SET>/.
+          for d in models/models-*; do mv "$d" "models/${d#models/models-}"; done
+          python Tools/LearnedPick/train.py --report models | tee fits.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: learned-pick-report
+          path: fits.md

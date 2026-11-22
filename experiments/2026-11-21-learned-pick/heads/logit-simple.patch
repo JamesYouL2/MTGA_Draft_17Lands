@@ -1,0 +1,55 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8fc0050..7c47fe1 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -210,6 +210,12 @@ class DraftAdvisor:
+                 logger.warning(f"Advisor error: {e}")
+                 continue
+ 
++        # Experiment head: a learned pick model's score replaces the advisor's.
++        from src.advisor import learned_head
++
++        learned_head.rescore(
++            self, recommendations, pack_cards, safe_pick, pack_number, "logit-simple"
++        )
+         return sorted(recommendations, key=lambda x: x.contextual_score, reverse=True)
+ 
+     def _identify_main_colors(self) -> Tuple[List[str], Dict[str, float]]:
+diff --git a/src/advisor/learned_head.py b/src/advisor/learned_head.py
+new file mode 100644
+index 0000000..62fcd37
+--- /dev/null
++++ b/src/advisor/learned_head.py
+@@ -0,0 +1,32 @@
++"""Experiment head only (experiments/2026-11-21-learned-pick): score a pack
++with a learned pick model from Tools/LearnedPick instead of the advisor.
++
++The models are read from $LEARNED_MODELS/<$SET>/, fitted without that set."""
++
++import os
++import sys
++
++_models = {}
++
++
++def rescore(advisor, recommendations, pack_cards, pick, pack, head):
++    tool = os.path.abspath(os.environ.get("LEARNED_PICK_TOOL", "Tools/LearnedPick"))
++    if tool not in sys.path:
++        sys.path.insert(0, tool)
++    import model
++
++    key = (os.environ["SET"], head)
++    if key not in _models:
++        _models[key] = model.load(os.environ["LEARNED_MODELS"], *key)
++    scores = model.score_pack(
++        _models[key],
++        pack_cards,
++        advisor.pool,
++        pack,
++        pick,
++        advisor.global_mean,
++        advisor.global_std,
++    )
++    for r in recommendations:
++        if r.card_name in scores:
++            r.contextual_score = scores[r.card_name]

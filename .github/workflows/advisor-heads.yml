@@ -42,9 +42,13 @@ on:
         description: 'Also let each copy draft the packs itself and score its deck (about twice the replay time; experiments/2026-11-21-simulated-draft)'
         type: boolean
         default: false
+      models_run:
+        description: 'A Learned pick models run ID: heads using learned models get its models-<SET> (experiments/2026-11-21-learned-pick)'
+        default: ""
 
 permissions:
   contents: read
+  actions: read  # models_run's artifacts
 
 jobs:
   plan:
@@ -85,6 +89,8 @@ jobs:
       RSALT: ${{ matrix.rsalt }}
       DRAFTS: ${{ inputs.drafts || '1000' }}
       PATCHES: ${{ inputs.patches || 'experiments/2026-11-16-proposed-together/heads/*.patch' }}
+      LEARNED_MODELS: ${{ github.workspace }}/models
+      LEARNED_PICK_TOOL: ${{ github.workspace }}/Tools/LearnedPick
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -92,6 +98,16 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install poetry==2.4.1
       - run: poetry install --no-interaction
+      - name: Download the learned models
+        if: ${{ inputs.models_run != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: models-${{ matrix.set }}
+          path: models/${{ matrix.set }}
+          run-id: ${{ inputs.models_run }}
+          github-token: ${{ github.token }}
+      - if: ${{ inputs.models_run != '' }}
+        run: poetry run pip install lightgbm
       - name: Download the dumps and the app's dataset
         run: |
           curl -fsSL --retry 3 -o dump.csv.gz \
