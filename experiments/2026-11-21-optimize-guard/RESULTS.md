@@ -34,8 +34,8 @@ intervals. As on 11-16, `base`'s land-count swaps count as zero.
 ## What the guard does
 
 The guard blocks a swap the plain version would make in 0.84% of decks. On those decks
-the plain swap lowers the deck score by 0.163 [0.145, 0.181]. So the guard removes only
-swaps that hurt.
+the plain swap lowers the deck score by 0.163 [0.145, 0.181] on average. So the swaps
+the guard removes hurt on average.
 
 The per-deck effect is small, so the gain is tiny. But it appears in all 19 sets:
 - guard minus no-guard is between +0.000 and +0.004 in every set;
