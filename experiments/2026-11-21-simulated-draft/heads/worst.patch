@@ -1,0 +1,14 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+index 8bc464d..9718fbc 100644
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -184,6 +184,9 @@ class DraftAdvisor:
+                     (base_score + power_bonus) * cast_mult * role_mult
+                 )
+ 
++                # Damage: the advisor's order turned upside down.
++                final_score = 100 - min(100.0, max(0.0, final_score))
++
+                 is_basic_land = name in constants.BASIC_LANDS or (
+                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])
+                 )

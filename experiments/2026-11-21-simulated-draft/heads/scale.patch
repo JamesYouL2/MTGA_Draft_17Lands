@@ -1,0 +1,14 @@
+diff --git a/src/advisor/engine.py b/src/advisor/engine.py
+--- a/src/advisor/engine.py
++++ b/src/advisor/engine.py
+@@ -176,6 +176,10 @@
+                 final_score = (
+                     (base_score + power_bonus) * cast_mult * role_mult
+                 )
++
++                # Control: an order-preserving change of scale. The top card stays
++                # the same; only the gaps between scores change.
++                final_score = max(0.0, final_score) ** 2 / 50
+ 
+                 is_basic_land = name in constants.BASIC_LANDS or (
+                     "Basic" in card.get("types", []) and "Land" in card.get("types", [])
