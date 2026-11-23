@@ -669,3 +669,59 @@ has more on-color cards to choose from.
 - **Not settled: rank regret.** The Phase 3-lite rule still reads "mixed".
   This decomposition was registered to narrow the circularity, not to
   overturn the guard.
+
+## Phase 3-lite confirmation: fresh drafts, independent judge, order-only guard
+
+Rule: P3CONFIRM.md, registered before the run (commit 7c76686). Run
+45259059583; report in reports/p3confirm.md. The first attempt (45257044301)
+failed before any draft: 17Lands' S3 bucket began returning 403. The rerun
+downloads from data.17landscapes.com, the host 17Lands' dataset list now gives.
+
+**Why it was run:** two problems surfaced after the Phase 3-lite results.
+- PHASE3LITE.md's guard, named "rank regret", actually computed SD regret,
+  which penalizes how a head spaces its scores (p3_checks.py,
+  reports/p3checks.md).
+- The heads picked and built with the same ratings that graded their decks.
+
+**Design:**
+- Fresh drafts (salt p3c1), 500 per set, 19 sets.
+- The games outside the sampled drafts are split in half by draft. Main,
+  blend-1 and gihwr-only pick, replay and build on half A. Their simulated
+  decks are graded on half B.
+- The guard is true rank regret (pick field 2).
+
+**Result: confirmed.**
+
+| blend-1 minus main | result |
+|---|---|
+| **deck win rate, judged on half B (primary)** | **+0.791 pp (0.017), +46.3 SEs** |
+| deck win rate, judged on half A, same drafts | +0.783 pp, +47.9 SEs |
+| share of the half-A gain that survives on half B | 101% |
+| **rank regret (guard)** | **+0.0042 (0.0104), +0.4 SEs** |
+| missed top | −0.3 SEs |
+| SD regret (the old guard's measure) | +1.9 SEs |
+
+- **The gain is not rating noise.** It's the same size on ratings the advisor
+  never saw. It is positive in all 19 sets, from +0.43 (NEO) to +1.35 (TDM).
+  It is +0.790 on the 16 sets not used to tune λ.
+- **The order doesn't get worse.** Rank regret and missed top are flat.
+- **The guard has power here.** gihwr-only, the known-worse head, reads +3.1
+  SEs worse on rank regret and −0.204 pp on deck win rate (−7.9 SEs).
+- **Same mechanism as before:**
+  - card quality +0.673 of the +0.650 points on half B;
+  - +0.58 on-color spells in the pool, +0.95 spells (about one fewer land).
+
+**Still open:**
+- **The judge's form is still the deck score.** Independent ratings remove
+  rating noise, not the fact that the blend optimizes the function that
+  judges it. Phase 2a's draw test (the deck score is close to the causal
+  value) is the support for that function. The land blind spot is the known
+  hole: the blend drafts about one fewer land, and the deck score can't price
+  that.
+- **Cost:** the blend took 117.7 process hours against main's 0.8, about
+  45 s per draft (~1 s per pick) on CI runners. A real-code version needs a
+  faster marginal, such as reusing builds across a pack's cards.
+
+**What it means for the PRs:** per the rule, the deck-value term earns a
+real-code PR stack (helper, module, wiring). The wiring PR still needs its
+own measurement with the real code.
