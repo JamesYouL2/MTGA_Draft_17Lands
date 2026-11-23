@@ -1,5 +1,7 @@
 # experiments/2026-11-22-deck-value: Phase 2a (PHASE2A.md), within-deck draw
 # effects. Runs on a push that changes this file on exp/deck-value.
+# The first run (45163773464) failed on the older files' layout (17 meta
+# columns, counts written as 0.0) and was cancelled; this run redoes all sets.
 name: Deck value Phase 2a
 
 on:

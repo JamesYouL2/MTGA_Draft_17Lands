@@ -29,7 +29,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "Tools", "DeckScoreFit"))
 import features as F  # noqa: E402
 
-META = 18
+CARD_PREFIXES = ("opening_hand_", "drawn_", "tutored_", "deck_", "sideboard_")
 PREFIXES = ("opening_hand_", "drawn_", "deck_")
 COLOR_BITS = {c: 1 << i for i, c in enumerate("WUBRG")}
 MIN_RATED_COPIES = 10  # a deck needs this many rated spell copies to be used
@@ -45,8 +45,12 @@ def mask(colors):
 
 class Layout:
     def __init__(self, header):
-        self.meta = {name: i for i, name in enumerate(header[:META])}
-        cards = header[META:-2]
+        # The meta columns run up to the first card column (17 in older files, 18
+        # once game_time was added); the last two are the player buckets.
+        self.nmeta = n = next(i for i, c in enumerate(header) if c.startswith(CARD_PREFIXES))
+        assert header[-2:] == ["user_n_games_bucket", "user_game_win_rate_bucket"], header[-2:]
+        self.meta = {name: i for i, name in enumerate(header[:n])}
+        cards = header[n:-2]
         idx = {p: [] for p in PREFIXES}
         names = {p: [] for p in PREFIXES}
         for j, col in enumerate(cards):
@@ -54,10 +58,16 @@ class Layout:
                 if col.startswith(p):
                     idx[p].append(j)
                     names[p].append(col[len(p):])
-        assert names["opening_hand_"] == names["drawn_"] == names["deck_"], "card columns out of order"
+        # Older files group the columns by prefix rather than by card; match by
+        # name, and a card with no column of a kind reads from a zero column.
         self.names = names["deck_"]
-        self.oh, self.dr, self.dk = (np.array(idx[p]) for p in PREFIXES)
         self.width = len(cards)
+        self.missing = {}
+        for p in PREFIXES:
+            at = dict(zip(names[p], idx[p]))
+            self.missing[p] = [n for n in self.names if n not in at]
+            setattr(self, {"opening_hand_": "oh", "drawn_": "dr", "deck_": "dk"}[p],
+                    np.array([at.get(n, self.width) for n in self.names]))
 
 
 def chunks(path, limit=None):
@@ -69,12 +79,12 @@ def chunks(path, limit=None):
         for line in f:
             if '"' in line:
                 fields = next(csv.reader([line]))
-                meta.append(fields[:META])
-                body.append(",".join(fields[META:-2]))
+                meta.append(fields[:lay.nmeta])
+                body.append(",".join(fields[lay.nmeta:-2]))
             else:
-                parts = line.split(",", META)
-                meta.append(parts[:META])
-                body.append(parts[META].rsplit(",", 2)[0])
+                parts = line.split(",", lay.nmeta)
+                meta.append(parts[:lay.nmeta])
+                body.append(parts[lay.nmeta].rsplit(",", 2)[0])
             read += 1
             if len(meta) == CHUNK or (limit and read >= limit):
                 yield lay, meta, parse(body, lay.width)
@@ -86,8 +96,12 @@ def chunks(path, limit=None):
 
 
 def parse(body, width):
-    flat = np.array(",".join(body).split(","), dtype=np.int16)
-    return flat.reshape(len(body), width)
+    text = ",".join(body)
+    if "." in text:  # older files write counts as 0.0, 1.0, ...
+        flat = np.array(text.split(","), dtype=np.float32).astype(np.int16)
+    else:
+        flat = np.array(text.split(","), dtype=np.int16)
+    return np.pad(flat.reshape(len(body), width), ((0, 0), (0, 1)))  # last column: zeros
 
 
 def fold_of(draft_ids):
@@ -207,7 +221,8 @@ def build(path, app, limit=None):
     r = float(np.corrcoef(z_fold[0, both], z_fold[1, both])[0, 1]) if both.sum() > 2 else float("nan")
     info = dict(rows=rows, spells=int(cards.spell.sum()), rated=[int((~np.isnan(z_fold[f])).sum()) for f in (0, 1)],
                 app_rated=int((~np.isnan(cards.app_z)).sum()), reliability=r, rated_both=int(both.sum()),
-                unmatched=cards.unmatched[:20], n_unmatched=len(cards.unmatched), mean=cards.mean, sd=cards.sd)
+                unmatched=cards.unmatched[:20], n_unmatched=len(cards.unmatched), mean=cards.mean, sd=cards.sd,
+                missing_columns={p: lay.missing[p][:10] for p in PREFIXES if lay.missing[p]})
 
     # Pass 2: per-game terms.
     out = {k: [] for k in ("deck", "won", "on_play", "mull")}
