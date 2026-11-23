@@ -13,6 +13,12 @@ which the bootstrap can't see (experiments/2026-11-17-measure-salts). A head's
 decision reads both measures on the corrected SEs (decide). The bootstrap-only
 figures over all salts, and PROTOCOL.md's regret verdict read on them, are kept,
 labelled, to compare with runs before 2026-11-17. Reads compare.py's helpers.
+
+A second table reads the order alone (since 2026-11-22): rank regret and missed
+top, which SD regret's spacing of scores within a pack doesn't move, and the swap
+without its constraint (compare.swap_free). Its "order-only reading" applies
+decide's rule to rank regret and the unconstrained swap. It is a second reading,
+labelled as one, not the decision; see experiments/2026-11-22-measure-fixes.
 """
 
 import argparse
@@ -44,16 +50,17 @@ def verdict(change, se):
     return "no objection"
 
 
-def decide(regret, swap):
+def decide(regret, swap, names=("regret", "swap")):
     """A head's decision from both measures' combined figures (compare.combine).
 
     Adopt if 2+ scaled SEs better on one measure and not 2 scaled SEs worse on
-    either. Regret slope: positive is worse. Swap: negative is worse."""
+    either. Regret slope: positive is worse. Swap: negative is worse. names are
+    the measures' names in a "worse" decision."""
     if regret["se"] == 0 and swap["se"] == 0:
         return "no change"
     better_regret = -ses(regret)
     better_swap = ses(swap)
-    worse = [name for name, z in (("regret", better_regret), ("swap", better_swap)) if z <= -SES]
+    worse = [name for name, z in zip(names, (better_regret, better_swap)) if z <= -SES]
     if worse:
         return f"worse ({', '.join(worse)})"
     if max(better_regret, better_swap) >= SES:
@@ -108,6 +115,13 @@ def measure(data):
     swap_se = R.bootstrap(lambda i: C.swap(sframe, i), len(sframe[0]))
     swap_salts = C.by_salt(sframe[2], lambda i: C.swap(sframe, i))
     regret, swaps = combined(regret_salts), combined(swap_salts)
+    # The order alone: rank regret, missed top and the unconstrained swap.
+    order = {}
+    for name in ("rank", "missed"):
+        f = C.regret_frame(data, name)
+        order[name] = combined(C.by_salt(f[4], lambda i, f=f: C.change(f, i)))
+    free_salts = C.by_salt(sframe[2], lambda i: C.swap_free(sframe, i))
+    free = combined(free_salts)
     total, changed, base_on, head_on, kinds = C.picks(data)
     return {
         "drafts": len(data),
@@ -116,6 +130,11 @@ def measure(data):
         "regret": regret,
         "swap_combined": swaps,
         "decision": decide(regret, swaps),
+        "rank": order["rank"],
+        "missed": order["missed"],
+        "swap_free": free,
+        "swap_free_samples": {k: list(v) for k, v in free_salts.items()},
+        "order_decision": decide(order["rank"], free, names=("rank regret", "unconstrained swap")),
         "samples": {k: list(v) for k, v in regret_salts.items()},
         "swap_samples": {k: list(v) for k, v in swap_salts.items()},
         # Bootstrap only, over all salts at once: as read before 2026-11-17.
@@ -170,6 +189,27 @@ def report(results):
             f"| {m['top_changes']:.2f}% | {m['top1']:+.2f} "
             f"| {m['on_lane_base']:.1f}% to {m['on_lane_head']:.1f}% |"
         )
+    print("\n## The order alone\n")
+    print("A second reading, not the decision above. Rank regret (how many cards the "
+          "advisor ranked above the drafter's pick) and missed top (the share of picks "
+          "that weren't its top card) read the advisor's order, where SD regret also "
+          "reads how it spaces its scores within a pack: slope change per SD of each, "
+          "positive is worse. The unconstrained swap lets a changed pick that the "
+          "drafter settled with neither top card count for what it does, where the swap "
+          "above holds it halfway between the two; share is unconstrained over "
+          "constrained. Order-only reading: the decision's rule on rank regret and the "
+          "unconstrained swap.\n")
+    print("| head | rank regret change | missed top change "
+          "| event wins per swapped pick, unconstrained | share of constrained "
+          "| order-only reading | decision above |")
+    print("|---|---|---|---|---|---|---|")
+    for head, m in results.items():
+        w, f = m["swap_combined"], m["swap_free"]
+        share = f"{100 * f['estimate'] / w['estimate']:.0f}%" if w["estimate"] else "-"
+        print(
+            f"| {head} | {cell(m['rank'], 3)} | {cell(m['missed'], 3)} | {cell(f, 3)} "
+            f"| {share} | {m['order_decision']} | {m['decision']} |"
+        )
     print("\n## Bootstrap only, over all salts at once\n")
     print("As read before 2026-11-17: these SEs leave out the spread between salts. "
           "The verdict is PROTOCOL.md's, on the regret slope.\n")
@@ -189,7 +229,9 @@ def report(results):
     for head, m in results.items():
         print(f"**{head}** ({m['drafts']} drafts, {m['events']} complete events)\n")
         for name, salts, c, d in (("regret slope", m["samples"], m["regret"], 4),
-                                  ("swap", m["swap_samples"], m["swap_combined"], 3)):
+                                  ("swap", m["swap_samples"], m["swap_combined"], 3),
+                                  ("unconstrained swap", m["swap_free_samples"],
+                                   m["swap_free"], 3)):
             each = ", ".join(f"{s or 'none'}: {v[0]:+.{d}f} ({v[1]:.{d}f})" for s, v in salts.items())
             print(f"- {name}: {each}. tau {c['tau']:.{d}f}; phi {c['phi']:.2f} "
                   f"({c['phi_low']:.2f} to {c['phi_high']:.2f}); corrected SE "

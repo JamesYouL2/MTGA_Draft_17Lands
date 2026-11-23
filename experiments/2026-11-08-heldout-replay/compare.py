@@ -37,15 +37,27 @@ def load(runs, arm):
     return {k: v for k, v in sorted(out.items()) if len(v) == 2}
 
 
-def regret_frame(data):
-    """(wins, controls, base regret, head regret, keys) for complete events."""
+# What a pick reads on each regret-style measure. SD regret reads the advisor's
+# spacing of its scores within a pack as well as its order; rank regret and
+# missed top read only the order (2026-11-21-learned-pick, README "Diagnosis").
+PICK_MEASURES = {
+    "regret": lambda p: p[3],
+    "rank": lambda p: p[2],
+    "missed": lambda p: float(p[2] != 0),
+}
+
+
+def regret_frame(data, measure="regret"):
+    """(wins, controls, base mean, head mean, keys) for complete events, where
+    each draft's mean is of PICK_MEASURES[measure] over its picks."""
     keys = [
         k for k, v in data.items()
         if R.is_complete(v["base"]) and v["base"]["picks"] and v["head"]["picks"]
     ]
     base = [data[k]["base"] for k in keys]
+    of_pick = PICK_MEASURES[measure]
     regret = lambda label: np.array(
-        [np.mean([p[3] for p in data[k][label]["picks"]]) for k in keys]
+        [np.mean([of_pick(p) for p in data[k][label]["picks"]]) for k in keys]
     )
     wins = np.array([d["wins"] for d in base], dtype=float)
     return wins, R.controls(base, [k[0] for k in keys]), regret("base"), regret("head"), keys
@@ -117,22 +129,22 @@ def picks(data):
 
 
 def swap_frame(data):
-    """(rows of [wins, net, n], controls, keys) for complete events: net is how many
-    more of the event's changed picks matched head's top than base's, n how many
-    picks changed."""
+    """(rows of [wins, net, n, a, b, c], controls, keys) for complete events: of the
+    event's n changed picks, the drafter took head's top card in a, base's in b and
+    neither in c; net is a - b."""
     rows, base, sets, keys = [], [], [], []
     for key, v in data.items():
         code = key[0]
         if not R.is_complete(v["base"]):
             continue
         head = {(p[0], p[1]): p for p in v["head"]["picks"]}
-        net = n = 0
+        took = [0, 0, 0]
         for p in v["base"]["picks"]:
             q = head.get((p[0], p[1]))
             if q is not None and p[5] != q[5]:
-                n += 1
-                net += int(q[2] == 0) - int(p[2] == 0)
-        rows.append([v["base"]["wins"], net, n])
+                took[0 if q[2] == 0 else 1 if p[2] == 0 else 2] += 1
+        a, b, c = took
+        rows.append([v["base"]["wins"], a - b, a + b + c, a, b, c])
         base.append(v["base"])
         sets.append(code)
         keys.append(key)
@@ -145,6 +157,22 @@ def swap(frame, idx):
     X = np.column_stack([a[idx, 1], a[idx, 2], ctrl[idx]])
     # Swapping a pick moves net by 2: -1 for base's card to +1 for head's.
     return 2 * np.linalg.lstsq(X, a[idx, 0], rcond=None)[0][0]
+
+
+def swap_free(frame, idx):
+    """swap without its constraint: event wins on a, b and c (swap_frame) with the
+    controls, and the coefficient on a less the one on b.
+
+    swap fits wins on net = a - b and n = a + b + c, which holds c's coefficient at
+    the mean of a's and b's: a changed pick the drafter settled with neither top
+    card is taken to be worth halfway between the two. Where it isn't, swap reads
+    some of the gap between c and the others as a gap between a and b. For a
+    learned pick model this figure was 55% of swap's
+    (2026-11-21-learned-pick, DIAGNOSE.md check 10a)."""
+    a, ctrl, _ = frame
+    X = np.column_stack([a[idx, 3], a[idx, 4], a[idx, 5], ctrl[idx]])
+    beta = np.linalg.lstsq(X, a[idx, 0], rcond=None)[0]
+    return beta[0] - beta[1]
 
 
 def disagreements(data):
