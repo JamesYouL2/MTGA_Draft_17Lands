@@ -2,6 +2,8 @@
 # Fresh drafts (salt p3c1, first 500 per set). The games outside the sampled
 # drafts are split in two by draft: half A drives main, blend-1 and gihwr-only
 # (picks, replay, builds); half B grades their simulated decks.
+# Data from data.17landscapes.com, the host 17Lands' dataset list gives since the
+# S3 bucket began refusing requests on 2026-11-23 (run 45257044301).
 # Runs on a push that changes this file on exp/deck-value.
 name: Deck value Phase 3-lite confirmation
 
@@ -38,9 +40,9 @@ jobs:
       - name: Sample fresh drafts and build the two rating halves
         run: |
           curl -fsSL --retry 3 -o dump.csv.gz \
-            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
+            "https://data.17landscapes.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
           curl -fsSL --retry 3 -o games.csv.gz \
-            "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
+            "https://data.17landscapes.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
           if [ -f "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" ]; then
             cp "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" dataset.json.gz
           else
