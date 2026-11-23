@@ -65,6 +65,9 @@ def main(argv=None):
     ap.add_argument("--json")
     args = ap.parse_args(argv)
     sets, seconds = load(args.results)
+    missing = [h for h in (MAIN, "blend-1", "gihwr-only") if not any(h in lab for lab in sets.values())]
+    if missing:
+        raise SystemExit(f"No results for {', '.join(missing)}: no reading.")
 
     rep = {"sets": sorted(sets), "heads": {}}
     print("# Phase 3-lite confirmation (P3CONFIRM.md)\n")
