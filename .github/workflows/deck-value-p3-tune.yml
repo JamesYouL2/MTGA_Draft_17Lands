@@ -1,0 +1,94 @@
+# experiments/2026-11-22-deck-value: Phase 3-lite tuning (PHASE3LITE.md).
+# Picks blend's λ from {0.5, 1, 2} on BLB, DSK and OTJ (salt p3tune, 500
+# drafts each, simulate only). Runs on a push that changes this file on
+# exp/deck-value.
+name: Deck value Phase 3-lite tuning
+
+on:
+  push:
+    branches: [exp/deck-value]
+    paths: [.github/workflows/deck-value-p3-tune.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tune:
+    name: Tune ${{ matrix.set }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ["BLB", "DSK", "OTJ"]
+    env:
+      SET: ${{ matrix.set }}
+      DRAFTS: "500"
+      PARTS: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - name: Sample drafts and hold them out of the ratings
+        run: |
+          curl -fsSL --retry 3 -o dump.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o games.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
+          if [ -f "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" ]; then
+            cp "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" dataset.json.gz
+          else
+            curl -fsSL --retry 3 -o dataset.json.gz \
+              "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+          fi
+          poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts "$DRAFTS" --salt p3tune --out drafts.json.gz
+          poetry run python Tools/AdvisorReplay/holdout.py --games games.csv.gz --drafts drafts.json.gz \
+            --dataset dataset.json.gz --rebuilt rebuilt.json.gz --heldout heldout.json.gz
+          rm dump.csv.gz games.csv.gz rebuilt.json.gz
+      - name: Simulate main and the three blends
+        shell: bash
+        run: |
+          part() {
+            n=$(( (DRAFTS + PARTS - 1) / PARTS ))
+            poetry run python experiments/2026-11-22-deck-value/p3_heads.py --src . --drafts drafts.json.gz \
+              --dataset heldout.json.gz --set "$SET" --heads main blend-0.5 blend-1 blend-2 \
+              --simulate --no-replay --first $(( $1 * n )) --limit "$n" --out "out/part$1"
+          }
+          export -f part
+          seq 0 $(( PARTS - 1 )) | xargs -P "$PARTS" -I{} bash -c 'part {}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p3tune-${{ matrix.set }}
+          path: out/
+
+  report:
+    needs: tune
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: p3tune-*
+          path: results
+      - name: Report
+        shell: bash
+        run: |
+          poetry run python experiments/2026-11-22-deck-value/p3_report.py results --tune --json p3tune.json \
+            | tee p3tune.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: p3tune-report
+          path: |
+            p3tune.md
+            p3tune.json
