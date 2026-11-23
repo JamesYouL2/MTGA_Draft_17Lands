@@ -1,0 +1,121 @@
+# experiments/2026-11-22-deck-value: Phase 3-lite evaluation (PHASE3LITE.md).
+# main (base), gihwr-only, marginal and blend at the tuned λ, on the same 500
+# drafts per set: salt r36s1's 3000-draft sample and held-out ratings, as the
+# confirmation run 45021236056 and the E4 pilot built them. λ comes from the
+# tuning run 45172233735 (λ* = 1). Runs on a push that changes this file on exp/deck-value.
+name: Deck value Phase 3-lite
+
+on:
+  push:
+    branches: [exp/deck-value]
+    paths: [.github/workflows/deck-value-p3.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read  # the E4 labels and the confirmation run's noalsa tops
+
+env:
+  LAMBDA: "1"  # λ* from the tuning run (reports/p3tune.md), frozen
+  TUNING_RUN: "45172233735"
+
+jobs:
+  eval:
+    name: Eval ${{ matrix.set }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ["BLB", "DFT", "DMU", "DSK", "EOE", "FDN", "FIN", "FRA", "HOB", "KTK",
+              "LTR", "MSH", "NEO", "OTJ", "SNC", "SOS", "TDM", "TLA", "TMT"]
+    env:
+      SET: ${{ matrix.set }}
+      DRAFTS: "500"
+      PARTS: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - name: Rebuild r36s1's drafts and held-out ratings, as the replays did
+        run: |
+          curl -fsSL --retry 3 -o dump.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o games.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
+          if [ -f "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" ]; then
+            cp "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" dataset.json.gz
+          else
+            curl -fsSL --retry 3 -o dataset.json.gz \
+              "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+          fi
+          poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts 3000 --salt r36s1 --out drafts.json.gz
+          poetry run python Tools/AdvisorReplay/holdout.py --games games.csv.gz --drafts drafts.json.gz \
+            --dataset dataset.json.gz --rebuilt rebuilt.json.gz --heldout heldout.json.gz
+          rm dump.csv.gz games.csv.gz rebuilt.json.gz
+      - name: Copy the app for gihwr-only
+        run: |
+          mkdir -p copies/gihwr-only
+          cp -r src copies/gihwr-only/src
+          patch -p1 -d copies/gihwr-only < experiments/2026-11-21-simulated-draft/heads/gihwr-only.patch
+      - name: Replay and simulate main, gihwr-only, marginal and blend
+        shell: bash
+        run: |
+          task() {
+            n=$(( (DRAFTS + PARTS - 1) / PARTS ))
+            case "$1" in
+              base) poetry run python Tools/AdvisorReplay/replay.py --src . --drafts drafts.json.gz \
+                      --dataset heldout.json.gz --set "$SET" --label base --out out/base.json --simulate --limit "$DRAFTS" ;;
+              gihwr-only) poetry run python Tools/AdvisorReplay/replay.py --src copies/gihwr-only --drafts drafts.json.gz \
+                      --dataset heldout.json.gz --set "$SET" --label gihwr-only --out out/gihwr-only.json --simulate --limit "$DRAFTS" ;;
+              *) poetry run python experiments/2026-11-22-deck-value/p3_heads.py --src . --drafts drafts.json.gz \
+                      --dataset heldout.json.gz --set "$SET" --heads marginal "blend-$LAMBDA" --simulate \
+                      --first $(( $1 * n )) --limit "$n" --out "out/part$1" ;;
+            esac
+          }
+          export -f task
+          { echo base; echo gihwr-only; seq 0 $(( PARTS - 1 )); } | xargs -P "$PARTS" -I{} bash -c 'task {}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p3-${{ matrix.set }}
+          path: out/
+
+  report:
+    needs: eval
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: p3-*
+          path: results
+      - name: The E4 labels and the confirmation run's FDN and TDM replays
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 45131183513 -R "$GITHUB_REPOSITORY" -p 'e4-*' -D labels
+          gh run download 45021236056 -R "$GITHUB_REPOSITORY" -n heads-FDN-r36s1 -n heads-TDM-r36s1 -D conf
+      - name: Report
+        shell: bash
+        run: |
+          extra=()
+          if [ -d labels ] && [ -d conf ]; then extra=(--labels labels --conf conf); fi
+          poetry run python experiments/2026-11-22-deck-value/p3_report.py results "${extra[@]}" --json p3.json \
+            | tee p3.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: p3-report
+          path: |
+            p3.md
+            p3.json
