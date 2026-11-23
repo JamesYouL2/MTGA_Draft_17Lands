@@ -1,0 +1,101 @@
+# experiments/2026-11-22-deck-value: E3's skill-confound control (PROTOCOL.md
+# addendum, 2026-11-22). Reruns the E3 join, which now also saves each
+# disagreement pick's maindeck flags, then e3.py (which should reproduce run
+# 45106784317's E3 figures, plus KTK and SNC) and e3_confound.py.
+# Runs on a push that changes this file on exp/deck-value.
+name: Deck value E3 confound
+
+on:
+  push:
+    branches: [exp/deck-value]
+    paths: [.github/workflows/deck-value-e3c.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read  # the earlier runs' replay results
+
+env:
+  CONFIRM_RUN: "45021236056"  # base, lgbm-strong-noalsa, gihwr-only; 8 x 3000
+  WEAK_RUN: "45063954691"  # base, lgbm-weak; first 1000 per salt
+
+jobs:
+  join:
+    name: Join ${{ matrix.set }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ["BLB", "DFT", "DMU", "DSK", "EOE", "FDN", "FIN", "FRA", "HOB", "KTK", "LTR", "MSH", "NEO", "OTJ", "SNC", "SOS", "TDM", "TLA", "TMT"]
+    env:
+      SET: ${{ matrix.set }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - name: Download the game data and the app's dataset
+        run: |
+          NAME="${SET//_-_/%20-%20}"
+          curl -fsSL --retry 3 -o games.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
+          if [ -f "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" ]; then
+            cp "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" dataset.json.gz
+          else
+            curl -fsSL --retry 3 -o dataset.json.gz \
+              "https://unrealities.github.io/MTGA_Draft_17Lands/${NAME}_PremierDraft_All_Data.json.gz"
+          fi
+      - name: E3 join
+        run: |
+          mkdir -p out
+          gh run download "$CONFIRM_RUN" -R "$GITHUB_REPOSITORY" -p "heads-$SET-*" -D conf
+          gh run download "$WEAK_RUN" -R "$GITHUB_REPOSITORY" -p "heads-$SET-*" -D weak
+          poetry run python experiments/2026-11-22-deck-value/e3_join.py --src . --set "$SET" \
+            --games games.csv.gz --dataset dataset.json.gz --replays conf weak --out "out/e3-$SET.json.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e3c-${{ matrix.set }}
+          path: out/
+
+  report:
+    needs: [join]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: e3c-*
+          path: facts
+          merge-multiple: true
+      - name: E3 (reproduction)
+        shell: bash
+        run: |
+          mkdir -p report
+          poetry run python experiments/2026-11-22-deck-value/e3.py facts/e3-*.json.gz --json report/e3.json \
+            | tee report/e3.md >> "$GITHUB_STEP_SUMMARY"
+          # Run 45106784317's 17 sets (no KTK, SNC), to compare figure for figure.
+          poetry run python experiments/2026-11-22-deck-value/e3.py $(ls facts/e3-*.json.gz | grep -v -e KTK -e SNC) \
+            --json report/e3-17sets.json > report/e3-17sets.md
+      - name: E3 skill-confound control
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          mkdir -p report
+          poetry run python experiments/2026-11-22-deck-value/e3_confound.py facts/e3-*.json.gz \
+            --json report/e3c.json | tee report/e3c.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: deck-value-e3c-report
+          path: report/
