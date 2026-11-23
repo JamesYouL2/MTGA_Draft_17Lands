@@ -19,6 +19,10 @@ env:
   DETAIL_RUN: "45063945952"  # base, noalsa with --detail --simulate; first 1000 per salt
   E1_SALT: dv1
   E1_DECKS: "50000"
+  # The first run (45106784317) lost KTK's and SNC's joins and every E4 shard
+  # to a missing out/ folder; this run redoes those and takes the other sets'
+  # E1 and E3 facts from it.
+  PRIOR_RUN: "45106784317"
 
 jobs:
   facts:
@@ -28,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        set: ["BLB", "Cube_-_Powered", "DFT", "DMU", "DSK", "EOE", "FDN", "FIN", "FRA", "HOB", "KTK", "LTR", "MH3", "MSH", "NEO", "OTJ", "PIO", "SNC", "SOS", "TDM", "TLA", "TMT"]
+        set: ["KTK", "SNC"]
     env:
       SET: ${{ matrix.set }}
       GH_TOKEN: ${{ github.token }}
@@ -61,6 +65,7 @@ jobs:
       - name: E3 join
         if: ${{ contains(env.E3_SETS, matrix.set) }}
         run: |
+          mkdir -p out
           gh run download "$CONFIRM_RUN" -R "$GITHUB_REPOSITORY" -p "heads-$SET-*" -D conf
           gh run download "$WEAK_RUN" -R "$GITHUB_REPOSITORY" -p "heads-$SET-*" -D weak
           ls conf weak
@@ -103,6 +108,7 @@ jobs:
           rm dump.csv.gz games.csv.gz rebuilt.json.gz
       - name: Hindsight labels
         run: |
+          mkdir -p out
           poetry run python experiments/2026-11-22-deck-value/e4_hindsight.py --src . --drafts drafts.json.gz \
             --dataset heldout.json.gz --set "$SET" --limit 1000 --shard ${{ matrix.shard }} --shards 10 \
             --out "out/e4-$SET-${{ matrix.shard }}.json.gz"
@@ -135,6 +141,13 @@ jobs:
           pattern: e4-*
           path: e4
           merge-multiple: true
+      - name: Take the other sets' facts from the prior run
+        shell: bash
+        run: |
+          gh run download "$PRIOR_RUN" -R "$GITHUB_REPOSITORY" -p 'facts-*' -D prior
+          mkdir -p facts
+          cp -n prior/facts-*/* facts/
+          ls facts e4
       - name: E3
         if: ${{ !cancelled() }}
         shell: bash
