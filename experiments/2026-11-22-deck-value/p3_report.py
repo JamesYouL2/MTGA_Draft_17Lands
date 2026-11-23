@@ -24,6 +24,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "2026-11-08-heldout-replay"))
 import compare as C  # noqa: E402
 
+sys.path.insert(0, HERE)
+from e4_headroom import event_wins  # noqa: E402
+
 R = C.R
 TUNING_SETS = ["BLB", "DSK", "OTJ"]
 
@@ -52,6 +55,51 @@ def sim_diff(sets, head, main, only=None):
         out[code] = np.array([h[i]["sim"]["win"] - m[i]["sim"]["win"]
                               for i in m if i in h and h[i].get("sim") and m[i].get("sim")])
     return out
+
+
+def event_diff(sets, head, main):
+    """{set: per-draft head − main expected wins of a 7-win / 3-loss event}, from the
+    simulated game win rates (the record constants already turned score into p)."""
+    memo = {}
+
+    def e(p):
+        k = round(p, 6)
+        if k not in memo:
+            memo[k] = event_wins(k / 100)
+        return memo[k]
+
+    out = {}
+    for code, labels in sorted(sets.items()):
+        if head not in labels or main not in labels:
+            continue
+        h, m = labels[head], labels[main]
+        out[code] = np.array([e(h[i]["sim"]["win"]) - e(m[i]["sim"]["win"])
+                              for i in m if i in h and h[i].get("sim") and m[i].get("sim")])
+    return out
+
+
+def decide(out, cand, key):
+    """The registered decision rule on out["heads"][h][key] (primary) and regret."""
+    flags = {}
+    for h in cand:
+        p, r = out["heads"][h][key], out["heads"][h]["regret"]
+        flags[h] = (bool(p[0] >= 3 * p[1] and r[0] < 3 * r[1]), bool(abs(p[0]) < 2 * p[1]))
+    if any(f[0] for f in flags.values()):
+        return "promising", flags
+    if all(f[1] for f in flags.values()):
+        return "no headroom", flags
+    return "mixed", flags
+
+
+def share_closed(gap_head, gap_main, reps=2000, seed=0):
+    """Share of main's oracle gap (summed label gap, negative) that a chooser closes:
+    1 − mean(chooser's gap) / mean(main's gap), with a draft-bootstrap SE."""
+    def stat(i):
+        return 1.0 - gap_head[i].mean() / gap_main[i].mean()
+    n = len(gap_main)
+    rng = np.random.default_rng(seed)
+    boots = [stat(rng.integers(0, n, n)) for _ in range(reps)]
+    return float(stat(np.arange(n))), float(np.std(boots, ddof=1))
 
 
 def combine(diffs):
@@ -186,38 +234,41 @@ def evaluate(sets, seconds, args):
     print(f"Sets: {len(sets)}. Primary: simulated deck win rate, head − main, win-rate points; "
           "equal-weight mean of set means, SE √ΣSE²/sets. Rank regret: compare.change "
           "(positive is worse), bootstrap SE.\n")
-    print("| head | primary, all sets | primary, non-tuning sets | rank regret change | top cards changed |")
-    print("|---|---|---|---|---|")
+    print("| head | primary, all sets | primary, non-tuning sets | event wins per draft, all sets "
+          "| event wins, non-tuning | rank regret change | top cards changed |")
+    print("|---|---|---|---|---|---|---|")
     for h in heads:
         diffs = sim_diff(sets, h, "base")
         m, se = combine(diffs)
         m16, se16 = combine({k: v for k, v in diffs.items() if k not in TUNING_SETS})
+        ev = event_diff(sets, h, "base")
+        em, ese = combine(ev)
+        em16, ese16 = combine({k: v for k, v in ev.items() if k not in TUNING_SETS})
         rc, rse, n = regret(sets, h)
         tc = top_changes(sets, h)
         out["heads"][h] = {
-            "primary": [m, se], "primary_16": [m16, se16], "regret": [rc, rse, n],
+            "primary": [m, se], "primary_16": [m16, se16], "event_wins": [em, ese],
+            "event_wins_16": [em16, ese16], "regret": [rc, rse, n],
             "drafts": int(sum(len(v) for v in diffs.values())),
             "sets": {k: [float(v.mean()), float(v.std(ddof=1) / math.sqrt(len(v))), len(v)] for k, v in diffs.items()},
             "top_changes": tc,
         }
-        print(f"| {h} | {fmt(m, se)} | {fmt(m16, se16)} | {fmt(rc, rse, 4)} | {tc['all'][0]:.1%} |")
+        print(f"| {h} | {fmt(m, se)} | {fmt(m16, se16)} | {fmt(em, ese, 4)} | {fmt(em16, ese16, 4)} "
+              f"| {fmt(rc, rse, 4)} | {tc['all'][0]:.1%} |")
     print()
-    for h in heads:
-        if h == "gihwr-only":
-            continue
-        p, r = out["heads"][h]["primary"], out["heads"][h]["regret"]
-        out["heads"][h]["promising"] = bool(p[0] >= 3 * p[1] and r[0] < 3 * r[1])
-        out["heads"][h]["within2"] = bool(abs(p[0]) < 2 * p[1])
     cand = [h for h in heads if h != "gihwr-only"]
-    if any(out["heads"][h]["promising"] for h in cand):
-        verdict = "promising"
-    elif all(out["heads"][h]["within2"] for h in cand):
-        verdict = "no headroom"
-    else:
-        verdict = "mixed"
-    out["verdict"] = verdict
-    print(f"**Verdict: {verdict}** (" + "; ".join(
-        f"{h}: promising {out['heads'][h]['promising']}, within ±2 SE {out['heads'][h]['within2']}" for h in cand) + ")\n")
+    verdict, flags = decide(out, cand, "primary")
+    verdict16, flags16 = decide(out, cand, "primary_16")
+    for h in cand:
+        out["heads"][h]["promising"], out["heads"][h]["within2"] = flags[h]
+        out["heads"][h]["promising_16"], out["heads"][h]["within2_16"] = flags16[h]
+    out["verdict"], out["verdict_16"] = verdict, verdict16
+    n16 = len([k for k in sets if k not in TUNING_SETS])
+    print(f"**Verdict (registered rule, combined over all {len(sets)} sets): {verdict}** (" + "; ".join(
+        f"{h}: promising {flags[h][0]}, within ±2 SE {flags[h][1]}" for h in cand) + ")\n")
+    print(f"Same rule on the {n16} non-tuning sets (λ was chosen on {', '.join(TUNING_SETS)}): "
+          f"{verdict16} (" + "; ".join(
+              f"{h}: promising {flags16[h][0]}, within ±2 SE {flags16[h][1]}" for h in cand) + ")\n")
 
     print("### Per set: head − main simulated deck win rate (points, SE)\n")
     print("| set | drafts | " + " | ".join(heads) + " |")
@@ -264,6 +315,17 @@ def evaluate(sets, seconds, args):
                                       "gap": float(g.mean()), "gap_vs_main": dg}
                 print(f"| {h} | {a.mean():.1%} | {fmt(da[0] * 100, da[1] * 100, 2)} pp | "
                       f"{g.mean():+.4f} | {fmt(*dg, 4)} |")
+            print()
+            print(f"Share of main's oracle gap ({res['main'][1].mean():+.4f} log-odds per draft) that each "
+                  "chooser closes: 1 − its gap / main's gap, draft-bootstrap SE.\n")
+            print("| chooser | share closed |")
+            print("|---|---|")
+            for h, (a, g) in res.items():
+                if h == "main":
+                    continue
+                sc = share_closed(g, res["main"][1])
+                out["e4"][code][h]["share_closed"] = sc
+                print(f"| {h} | {sc[0]:+.1%} ({sc[1]:.1%}) |")
             print()
     hours = sum(seconds.values()) / 3600
     print(f"Replay seconds by copy: { {k: round(v) for k, v in seconds.items()} } ({hours:.1f} h of replay)\n")
