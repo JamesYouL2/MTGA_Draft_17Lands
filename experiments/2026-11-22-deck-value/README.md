@@ -619,3 +619,53 @@ be called better than main.
 - Total: 44.7 job-hours.
 - Per draft, CI ran about twice as slow as the registered estimate of
   112 process-hours.
+
+## Phase 3-lite decomposition: where the deck-value gain comes from
+
+Registered in `P3DECOMP.md` (commit 02357f1) before running. Run 45227758150:
+the same 500 drafts per set as the eval, simulation only, with each deck's
+score split into its terms. Report: `reports/p3decomp.md` and `.json`.
+
+**Reproduction:** all 9,469 simulated scores for main, blend-1 and marginal
+match the eval's (run 45187839933) draft for draft. 31 drafts fell back to the
+quick build (no Suggest Deck entry, so no parts) and are left out.
+
+**Verdict: quality-led, for both heads.** The gain is all card quality, the
+term the within-deck draws back. The color terms slightly offset it.
+
+| head minus main, 19 sets | score (points) | card quality | two colors | fixing | spells |
+|---|---|---|---|---|---|
+| blend-1 | +0.637 (0.013) | +0.665 (104%) | −0.026 (−4%) | −0.001 | 0 |
+| marginal | +0.480 (0.016) | +0.697 (145%) | −0.187 (−39%) | −0.022 | −0.009 |
+
+The 16 non-tuning sets read the same (blend-1: +0.650, 104% quality). Every
+set's gain is mostly card quality. In 15 of 19 sets the two-color term is
+negative or zero for blend-1. In all 19 it is negative for marginal, so
+marginal is the head that splashes (+0.49 splash spells per deck against
+blend-1's +0.07).
+
+**How the blend's decks get better (descriptive):**
+- **Its pool isn't better:** the pool's mean card quality is unchanged (−0.001 z).
+- **More of its picks fit its colors:** its pool has 0.70 more spells
+  castable in the deck's colors.
+- **It takes about one fewer land:** its pool has 0.96 more spells, so about
+  one fewer land (or unrated card) per draft.
+- **The deck stays the same shape:** colors, creatures, removal, cheap
+  plays and mana value barely move.
+
+So the blend takes cards that fit, and its deck plays better cards because it
+has more on-color cards to choose from.
+
+**What this settles and what it doesn't:**
+- **Settled:** the gain doesn't come from the untested color terms. It comes
+  from card quality, whose effect on winning the draws measured directly
+  (Phase 2a: +0.025 win probability per z, 133 SEs).
+- **Not settled: the land.** The deck score gives a two-color deck no credit
+  for lands. A dual land or other land the blend skipped is worth exactly
+  nothing to its judge, while main and the drafters rate it. Draws couldn't
+  test lands (E1: "lands just short"). Part of the gain, and part of the
+  rank-regret harm, may be the blend skipping lands the deck score
+  undervalues.
+- **Not settled: rank regret.** The Phase 3-lite rule still reads "mixed".
+  This decomposition was registered to narrow the circularity, not to
+  overturn the guard.
