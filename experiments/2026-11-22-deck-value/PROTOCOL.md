@@ -201,3 +201,35 @@ head.
 **Feasibility bar.** Phase 2 at full size is feasible if its projected cost
 fits in one day at 20 concurrent jobs (≤ 480 job-hours). Otherwise Phase 2
 shrinks as PLAN.md says.
+
+## Addendum, 2026-11-22: E3 skill-confound control (registered, not run)
+
+Added after E3's first results (run 45106784317) were seen, and before this
+control was looked at. The gihwr-only placebo is not explained by the deck
+controls, and noalsa's edge grows under them. That fits "drafters who pick like
+the crowd are better players" as well as it fits "crowd picks help".
+
+**Test.** Re-estimate the unconstrained a − b for lgbm-strong-noalsa, lgbm-weak
+and gihwr-only, under M0 and M4, on two disjoint subsets of the disagreement
+picks:
+
+- **neither:** neither the head's top card nor main's top card is in the
+  played maindeck of any of the draft's builds. Here the pick cannot have
+  changed the deck, so a real pick effect should be about 0.
+- **complement:** at least one of the two cards was maindecked.
+
+The a, b, c counts are rebuilt per subset, and both subsets go in one fit, as
+separate count columns. The report gives estimates, SEs and pick counts.
+
+**Reading** (per head, on M4):
+
+- **confound:** the neither-subset estimate is ≥ 50% of the full estimate and
+  more than 2 SEs from zero;
+- **pick effect:** the neither-subset estimate is within 2 SEs of zero and the
+  complement is more than 3 SEs from zero;
+- **mixed:** anything else.
+
+**Status: not run.** The E3 join artifacts hold only per-draft counts and deck
+facts averaged over builds, not per-pick card names or the maindeck lists. The
+test needs a new join that saves, for each disagreement pick, whether each top
+card was maindecked.
