@@ -1,5 +1,6 @@
-"""Supplementary Phase 2a numbers (not registered rules): the whole-game (D1)
-version of Rules 2 and 3, S and O per set, and the pooled S and O without EOE.
+"""Supplementary Phase 2a numbers, ADDED AFTER SEEING RESULTS (post hoc, not in
+PHASE2A.md, not part of any verdict): the whole-game (D1) version of Rules 2
+and 3, S and O per set, and the pooled S and O without EOE.
 
     python p2a_supp.py reports/p2a_sets
 """
@@ -39,6 +40,7 @@ def label(lo, hi):
     return "unclear"
 
 
+print("POST HOC (added after seeing results; not registered, not part of any verdict)")
 print("D1 (whole game, seen-count dummies) against E1, points per card")
 c = R.combine([s["models"]["D1"] for s in S])
 for n in ("C", "R", "K"):

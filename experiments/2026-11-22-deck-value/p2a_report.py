@@ -39,7 +39,7 @@ def combine(fits, names=None):
         V = np.array(f["cov"])[np.ix_(idx, idx)]
         b = np.array(f["beta"])[idx]
         live = np.diag(V) < 1e11  # p2a_fit marks a term with no variation in a set by 1e12
-        # near-dead too (deviation, see RESULTS_P2A.md): a term seen fewer than
+        # near-dead too (deviation, see README.md, Phase 2a): a term seen fewer than
         # MIN_SEEN times over the set's games, e.g. O in EOE (about one game), has a
         # clustered SE from a deck or two that is meaningless
         means, games = f.get("means"), f.get("games")

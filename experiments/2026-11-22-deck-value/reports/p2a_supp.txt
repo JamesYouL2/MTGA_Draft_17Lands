@@ -1,0 +1,33 @@
+POST HOC (added after seeing results; not registered, not part of any verdict)
+D1 (whole game, seen-count dummies) against E1, points per card
+  C: +0.120 (0.002), dis. +0.115; per E1 SD +0.32 / +0.31; rho 0.62 (0.11) -> partly confound
+  R: +0.149 (0.003), dis. +0.143; per E1 SD +0.36 / +0.34; rho 0.76 (0.18) -> consistent
+  K: -0.053 (0.003), dis. -0.051; per E1 SD -0.13 / -0.12; rho -0.70 (0.45) -> mostly confound
+  B5: +0.241 (0.005) points per card = premium 0.46 z units
+S and O per set (M1, points per card)
+  BLB: S -0.381 (0.046)  O -0.158 (0.073)
+  Cube_-_Powered: S +0.031 (0.094)  O +1.172 (0.203)
+  DFT: S -0.333 (0.047)  O -0.022 (0.236)
+  DMU: S -0.316 (0.030)  O -0.131 (0.043)
+  DSK: S -0.241 (0.041)  O +0.341 (0.133)
+  EOE: S -0.445 (0.066)  O +0.000 (20183451.573)
+  FDN: S -0.209 (0.055)  O -0.997 (0.465)
+  FIN: S -0.204 (0.053)  O +0.125 (0.271)
+  FRA: S -0.169 (0.045)  O -0.085 (0.045)
+  HOB: S -0.253 (0.068)  O -0.247 (0.051)
+  LTR: S -0.231 (0.042)  O -0.065 (0.133)
+  MH3: S -0.237 (0.041)  O +0.018 (0.108)
+  MSH: S +0.035 (0.065)  O -0.056 (0.099)
+  NEO: S -0.234 (0.057)  O +0.076 (0.139)
+  OTJ: S -0.203 (0.030)  O +0.000 (19610925.800)
+  PIO: S -0.184 (0.077)  O +0.219 (0.195)
+  SOS: S -0.357 (0.050)  O -0.355 (0.584)
+  TDM: S -0.152 (0.042)  O -0.191 (0.072)
+  TLA: S -0.130 (0.042)  O -0.104 (0.053)
+  TMT: S -0.168 (0.085)  O -0.200 (0.116)
+  pooled M1: S -0.238 (0.010)  O -0.110 (0.019)
+  pooled D1: S +0.027 (0.006)  O -0.204 (0.012)
+  pooled D0: S +0.084 (0.007)  O -0.225 (0.013)
+  pooled M1 without EOE: S -0.233 (0.011)  O -0.110 (0.019)
+  pooled D1 without EOE: S +0.031 (0.006)  O -0.205 (0.012)
+  pooled D0 without EOE: S +0.091 (0.007)  O -0.224 (0.013)
