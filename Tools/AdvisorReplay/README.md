@@ -19,11 +19,24 @@ to the app that breaks the harness fails there.
     in standard deviations of the pack's scores. If an advisor knows better
     picks, drafters who stray from it should win less, so more negative is
     better;
+  - *rank regret*: how many cards the advisor ranked above the drafter's pick
+    (0 when they took its top card). More negative is better;
+  - *missed top*: the share of picks that weren't the advisor's top card. More
+    negative is better;
   - *deck score*: the app's score for the best quick build of the final pool.
     More positive is better. Pool GIH WR is shown as a yardstick.
 
-  Both are per +1 SD and control for set and the drafter's skill and games
-  buckets.
+  Each is per +1 SD of the draft's mean and controls for set and the drafter's
+  skill and games buckets.
+
+  Read the three pick measures together. Regret in SDs reads how the advisor spaces
+  its scores within a pack as well as the order it puts the cards in: two
+  advisors that order every pack the same can differ on it. Rank regret and
+  missed top read only the order. A learned pick model once read 4.2 SEs worse
+  than main on regret but no worse on rank regret (0.5 SEs better) or missed top
+  (1.9 SEs better), and giving its order main's score gaps took the whole
+  regret difference away. A head that's worse on regret alone has spaced its
+  scores differently; worse on all three, it orders the cards worse.
 - **Head minus base** for each, with a paired bootstrap standard error. Treat a
   difference smaller than about two SEs as no difference.
 

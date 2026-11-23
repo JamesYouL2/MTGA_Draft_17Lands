@@ -51,6 +51,9 @@ on:
       report_run:
         description: 'Report only: an earlier Advisor heads run ID whose replay results to report again (no replays)'
         default: ""
+      pairs:
+        description: 'Head-to-head comparisons, space-separated HEAD_A:HEAD_B (HEAD_B against HEAD_A on the same drafts)'
+        default: ""
 
 permissions:
   contents: read
@@ -200,11 +203,15 @@ jobs:
       - name: Report
         if: ${{ !cancelled() }}
         shell: bash  # with pipefail, so a failed report fails the step
+        env:
+          PAIRS: ${{ inputs.pairs }}
         run: |
           {
             echo "# Advisor heads at \`${GITHUB_SHA::7}\`"
             echo
-            poetry run python experiments/2026-11-08-pick-multipliers/heads.py results --json heads.json
+            pairs=()
+            for pair in $PAIRS; do pairs+=(--pair "$pair"); done
+            poetry run python experiments/2026-11-08-pick-multipliers/heads.py results --json heads.json "${pairs[@]}"
           } | tee heads.md >> "$GITHUB_STEP_SUMMARY"
       - name: By set
         if: ${{ !cancelled() }}
