@@ -54,6 +54,24 @@ def test_wins_table_finds_the_better_advisor():
     assert float(head) > 1 and float(diff.split("**")[1]) > 0
 
 
+def test_wins_table_reads_rank_and_missed_top():
+    out = runs()
+    rng = np.random.default_rng(1)
+    # Drafters who stray from head take cards it ranks lower, and miss its top
+    # card; base's ranks are noise.
+    for d in out["head"]["FRA"].values():
+        stray = d["picks"][0][3]
+        d["picks"] = [[1, 1, int(3 * stray), stray, 0], [2, 5, int(stray > 0.5), stray, 1]]
+    for d in out["base"]["FRA"].values():
+        d["picks"] = [[*p[:2], int(rng.integers(0, 3)), *p[3:]] for p in d["picks"]]
+    lines = report.wins_table(out).splitlines()
+    for start in ("| rank regret", "| missed top"):
+        line = next(line for line in lines if line.startswith(start))
+        _, _, base, head, diff, _, _ = line.split("|")
+        assert float(head) < -1 and abs(float(base)) < 0.3
+        assert float(diff.split("**")[1]) < -1
+
+
 def test_needs_enough_complete_events():
     assert report.wins_table(runs(n=50)).startswith("Fewer than 100")
 

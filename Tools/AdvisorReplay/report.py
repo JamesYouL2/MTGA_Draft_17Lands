@@ -190,12 +190,26 @@ def wins_table(runs):
     wins = np.array([d["wins"] for d in base])
     ctrl = controls(base, sets)
 
-    def mean_regret(drafts):
-        return np.array([np.mean([p[3] for p in d["picks"]]) for d in drafts])
+    def per_draft(drafts, of_pick):
+        """Each draft's mean of of_pick over its picks."""
+        return np.array([np.mean([of_pick(p) for p in d["picks"]]) for d in drafts])
+
+    def regret(p):
+        return p[3]
+
+    def rank(p):
+        return p[2]
+
+    def missed(p):
+        return float(p[2] != 0)
 
     columns = {
-        "regret: base": mean_regret(base),
-        "regret: head": mean_regret(head),
+        "regret: base": per_draft(base, regret),
+        "regret: head": per_draft(head, regret),
+        "rank: base": per_draft(base, rank),
+        "rank: head": per_draft(head, rank),
+        "missed top: base": per_draft(base, missed),
+        "missed top: head": per_draft(head, missed),
         "deck score: base": within_set(np.array([d["deck_score"] for d in base]), sets),
         "deck score: head": within_set(np.array([d["deck_score"] for d in head]), sets),
         "pool GIH WR": within_set(np.array([d["pool_gihwr"] for d in base]), sets),
@@ -222,6 +236,16 @@ def wins_table(runs):
             row(
                 "regret: how far the drafter's picks fell below the advisor's top choice",
                 "regret",
+                "more negative",
+            ),
+            row(
+                "rank regret: how many cards the advisor ranked above the drafter's pick",
+                "rank",
+                "more negative",
+            ),
+            row(
+                "missed top: the share of picks that weren't the advisor's top choice",
+                "missed top",
                 "more negative",
             ),
             row("final pool's deck score (within set)", "deck score", "more positive"),
