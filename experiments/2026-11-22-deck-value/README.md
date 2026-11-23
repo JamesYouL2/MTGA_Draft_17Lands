@@ -410,3 +410,75 @@ the deck's average card. Inclusion value can differ:
 - removal's value depends on the opponent's deck;
 - the cards seen in a long game are a product of that game. The opening-hand
   model avoids this one, but the first two are not identified by draws.
+
+## Addendum: headroom over main (exploratory, not registered)
+
+This was added after Phase 2a, as a cheap check before committing ~300
+job-hours to Phase 2. It ran locally with no new CI. It reuses:
+- the E4 pilot labels from run 45131183513: FDN and TDM, 1000 drafts each;
+- the r36s1 replays from run 45021236056: main, gihwr-only, noalsa.
+
+Script: [e4_headroom.py](e4_headroom.py). Output:
+[reports/e4_headroom.md](reports/e4_headroom.md).
+
+**Label.** A pick's label for a card is the change in V of the drafter's
+final deck when that card replaces the card taken. Phase 2a found V is
+essentially the deck score, so these labels are the registered V minus its
+splash term.
+
+**Gap.** For each pick, the gap is label(choice) minus the best label in the
+pack, so it is never positive. It is summed per draft. SEs are clustered by
+draft.
+
+**Units.** Each draft's summed log-odds gap is converted at that draft's own
+baseline, p0 = σ(V(final pool)) from the record constants:
+- game win: × p0(1 − p0);
+- event wins: also × dE/dp, for a 7-win / 3-loss event (9.9 at p0 = 0.5,
+  11.6 at p0 = 0.6).
+
+| per draft, gap to hindsight-best | FDN log-odds | FDN event wins | TDM log-odds | TDM event wins |
+|---|---|---|---|---|
+| main | −0.137 (0.003) | −0.375 (0.008) | −0.190 (0.004) | −0.503 (0.009) |
+| gihwr-only | −0.219 (0.005) | −0.602 (0.013) | −0.140 (0.006) | −0.373 (0.015) |
+| noalsa | −0.102 (0.003) | −0.279 (0.008) | −0.220 (0.004) | −0.582 (0.011) |
+| drafter's pick | −0.208 (0.005) | −0.569 (0.013) | −0.371 (0.007) | −0.978 (0.018) |
+
+In game-win points per draft, main's gap is −3.3 (FDN) and −4.7 (TDM). Per
+pick it is −0.0035 and −0.0049 log-odds. Main's top card is the
+hindsight-best card on 76% (FDN) and 68% (TDM) of picks.
+
+**Oracle gap.** The oracle gap is hindsight-best minus main's top card,
+summed per draft. Split by pack and by main's lane status, the per-draft
+parts add up to the totals above (0.137 and 0.190).
+
+| oracle gap, per draft (log-odds) | FDN | TDM |
+|---|---|---|
+| P1 | 0.061 | 0.046 |
+| P2 | 0.042 | 0.075 |
+| P3 | 0.034 | 0.069 |
+| no lane yet (4–5% of picks) | 0.014 | 0.012 |
+| main's top card on-lane | 0.085 (78% of picks) | 0.136 (66% of picks) |
+| main's top card off-lane | 0.038 (19% of picks) | 0.041 (30% of picks) |
+
+Per pick, the gap is largest before a lane forms: 0.009 (FDN) and 0.007
+(TDM). After that the sets differ. In FDN, off-lane picks have the larger
+gap (0.005 vs 0.003 on-lane), and the gap shrinks pack by pack. In TDM,
+on-lane picks have the larger gap (0.005 vs 0.004 off-lane), and P2 and P3
+are worse than P1.
+
+**Reading.** At most about 0.14–0.19 log-odds per draft, or about 0.4–0.5
+event wins. Treat that as a loose ceiling:
+- **Hindsight knows the final colors.** That overstates the gap, most of all
+  in P1.
+- **Labels are single swaps.** Each one holds the rest of the final pool
+  fixed. Making several swaps together would not add up to the sum of their
+  labels, and later picks would have changed.
+- **Circular.** V is the app's own deck score, so the labels favour cards
+  the deck score likes. The heads' order also flips between sets: noalsa
+  beats main in FDN, and gihwr-only beats main in TDM. Don't read these as
+  head comparisons; the registered measures are the ones that count.
+
+**Splash sensitivity (V = deck score − 0.229 per splash spell):** skipped.
+The labels store only the score difference and a flip flag, not the splash
+count of each build. Recomputing them means rerunning the builds, at about
+19 s per draft.
