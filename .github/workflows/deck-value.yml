@@ -1,0 +1,171 @@
+# experiments/2026-11-22-deck-value: Phase 1 (E1, E3) and the E4 pilot.
+# Runs on a push that changes this file on exp/deck-value (workflows off the
+# default branch can't be started by hand).
+name: Deck value
+
+on:
+  push:
+    branches: [exp/deck-value]
+    paths: [.github/workflows/deck-value.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read  # the earlier runs' replay results
+
+env:
+  CONFIRM_RUN: "45021236056"  # base, lgbm-strong-noalsa, gihwr-only; 8 x 3000
+  WEAK_RUN: "45063954691"  # base, lgbm-weak; first 1000 per salt
+  DETAIL_RUN: "45063945952"  # base, noalsa with --detail --simulate; first 1000 per salt
+  E1_SALT: dv1
+  E1_DECKS: "50000"
+
+jobs:
+  facts:
+    name: Facts ${{ matrix.set }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ["BLB", "Cube_-_Powered", "DFT", "DMU", "DSK", "EOE", "FDN", "FIN", "FRA", "HOB", "KTK", "LTR", "MH3", "MSH", "NEO", "OTJ", "PIO", "SNC", "SOS", "TDM", "TLA", "TMT"]
+    env:
+      SET: ${{ matrix.set }}
+      GH_TOKEN: ${{ github.token }}
+      E1_SETS: "BLB Cube_-_Powered DFT DMU DSK EOE FDN FIN FRA HOB LTR MH3 MSH NEO OTJ PIO SOS TDM TLA TMT"
+      E3_SETS: "BLB DFT DMU DSK EOE FDN FIN FRA HOB KTK LTR MSH NEO OTJ SNC SOS TDM TLA TMT"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - name: Download the game data and the app's dataset
+        run: |
+          NAME="${SET//_-_/%20-%20}"
+          curl -fsSL --retry 3 -o games.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
+          if [ -f "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" ]; then
+            cp "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" dataset.json.gz
+          else
+            curl -fsSL --retry 3 -o dataset.json.gz \
+              "https://unrealities.github.io/MTGA_Draft_17Lands/${NAME}_PremierDraft_All_Data.json.gz"
+          fi
+      - name: E1 decks
+        if: ${{ contains(env.E1_SETS, matrix.set) }}
+        run: |
+          poetry run python Tools/DeckScoreFit/decks.py --games games.csv.gz --decks "$E1_DECKS" --salt "$E1_SALT" --out decks.json.gz
+          poetry run python experiments/2026-11-22-deck-value/deckfacts.py --src . --decks decks.json.gz \
+            --dataset dataset.json.gz --set "$SET" --out "out/e1-$SET.json.gz"
+      - name: E3 join
+        if: ${{ contains(env.E3_SETS, matrix.set) }}
+        run: |
+          gh run download "$CONFIRM_RUN" -R "$GITHUB_REPOSITORY" -p "heads-$SET-*" -D conf
+          gh run download "$WEAK_RUN" -R "$GITHUB_REPOSITORY" -p "heads-$SET-*" -D weak
+          ls conf weak
+          poetry run python experiments/2026-11-22-deck-value/e3_join.py --src . --set "$SET" \
+            --games games.csv.gz --dataset dataset.json.gz --replays conf weak --out "out/e3-$SET.json.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: facts-${{ matrix.set }}
+          path: out/
+
+  e4:
+    name: E4 ${{ matrix.set }} shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ["FDN", "TDM"]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    env:
+      SET: ${{ matrix.set }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - name: Rebuild r36s1's drafts and held-out ratings, as the replays did
+        run: |
+          curl -fsSL --retry 3 -o dump.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o games.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o dataset.json.gz \
+            "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+          poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts 3000 --salt r36s1 --out drafts.json.gz
+          poetry run python Tools/AdvisorReplay/holdout.py --games games.csv.gz --drafts drafts.json.gz \
+            --dataset dataset.json.gz --rebuilt rebuilt.json.gz --heldout heldout.json.gz
+          rm dump.csv.gz games.csv.gz rebuilt.json.gz
+      - name: Hindsight labels
+        run: |
+          poetry run python experiments/2026-11-22-deck-value/e4_hindsight.py --src . --drafts drafts.json.gz \
+            --dataset heldout.json.gz --set "$SET" --limit 1000 --shard ${{ matrix.shard }} --shards 10 \
+            --out "out/e4-$SET-${{ matrix.shard }}.json.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e4-${{ matrix.set }}-${{ matrix.shard }}
+          path: out/
+
+  report:
+    needs: [facts, e4]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: facts-*
+          path: facts
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: e4-*
+          path: e4
+          merge-multiple: true
+      - name: E3
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          mkdir -p report
+          poetry run python experiments/2026-11-22-deck-value/e3.py facts/e3-*.json.gz --json report/e3.json \
+            | tee report/e3.md >> "$GITHUB_STEP_SUMMARY"
+      - name: E4
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          mkdir -p rconf rweak report
+          for s in FDN TDM; do
+            gh run download "$CONFIRM_RUN" -R "$GITHUB_REPOSITORY" -n "heads-$s-r36s1" -D "rconf/heads-$s-r36s1"
+            gh run download "$WEAK_RUN" -R "$GITHUB_REPOSITORY" -n "heads-$s-r36s1" -D "rweak/heads-$s-r36s1"
+          done
+          poetry run python experiments/2026-11-22-deck-value/e4_report.py --labels e4 --replays rconf rweak \
+            --json report/e4.json | tee report/e4.md >> "$GITHUB_STEP_SUMMARY"
+      - name: E1
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          OPENBLAS_NUM_THREADS: "4"
+          OMP_NUM_THREADS: "4"
+        run: |
+          gh run download "$DETAIL_RUN" -R "$GITHUB_REPOSITORY" -p 'heads-*' -D detail
+          rm -rf detail/heads-report
+          poetry run python experiments/2026-11-22-deck-value/e1.py facts/e1-*.json.gz --detail detail \
+            --json report/e1.json | tee report/e1.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: deck-value-report
+          path: report/

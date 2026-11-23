@@ -132,8 +132,12 @@ the other deck-score parts:
 
 Then top-5 and weakest-5 are added together.
 
-The same rule applies (≥ 3 SEs and ≥ 0.5 points per SD, with points from
-card_quality's coefficient × 12). Linearity is tested two ways:
+The same rule applies: ≥ 3 SEs, and ≥ 0.5 points per SD. A shape stat's
+coefficient is converted to points by card_quality's coefficient ÷ 12 (log-odds
+per point). That coefficient is taken from the fit *without* shape stats, since
+top-k and the mean are collinear. (This clarification was added after local
+smoke tests on fake outcomes, before any CI run.) Linearity is tested two
+ways:
 
 - a squared card_quality term;
 - card_quality by deciles, with held-out log-loss.
