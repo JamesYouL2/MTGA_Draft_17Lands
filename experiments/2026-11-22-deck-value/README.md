@@ -1,7 +1,8 @@
 # Value to the deck: Phase 1 and Phase 2a results
 
-Phase 2a (within-deck draw effects) is [at the end](#phase-2a-within-deck-draw-effects).
-It replaces Phase 1's advice on which terms V should add.
+Phase 2a (within-deck draw effects) is [further down](#phase-2a-within-deck-draw-effects).
+It replaces Phase 1's advice on which terms V should add. Phase 3-lite (pick
+by value to the deck, no learned model) is [at the end](#phase-3-lite-pick-by-value-to-the-deck-no-learned-model).
 
 The question ([PLAN.md](PLAN.md)): can a pick model that values a card by what
 it adds to the final deck capture what the crowd knows? Phase 1 asks whether
@@ -482,3 +483,139 @@ event wins. Treat that as a loose ceiling:
 The labels store only the score difference and a flip flag, not the splash
 count of each build. Recomputing them means rerunning the builds, at about
 19 s per draft.
+
+## Phase 3-lite: pick by value to the deck, no learned model
+
+Registered in [PHASE3LITE.md](PHASE3LITE.md) before any run. There are two
+heads, both in [p3_heads.py](p3_heads.py):
+- **marginal** ranks each card by V(pool + card), where V is the registered
+  Phase 2a deck score with the splash term. The pool is padded with
+  average-quality fillers, so early picks reduce to quality plus color fit.
+- **blend-λ** is main's score + λ × main's within-pack SD × z(marginal).
+
+The judge is the simulated-draft measure. main, gihwr-only, marginal and
+blend-1 see the same 500 drafts per set (salt r36s1, held-out ratings), so
+every comparison is paired by draft.
+
+| what | run | commit |
+|---|---|---|
+| protocol, heads, report, tuning workflow (before any run) | – | 7cb4960 |
+| tuning: BLB, DSK, OTJ; λ ∈ {0.5, 1, 2} | 45172233735 | 7cb4960 |
+| eval workflow, λ* = 1 frozen | 45187839933 | 6b7d860 |
+| report additions: event wins, 16-set reading, oracle-gap share (made while the eval ran, before any result was seen) | – | c76dbb0 |
+
+Reports:
+- [p3tune.md](reports/p3tune.md) is from the tuning run.
+- [p3.md](reports/p3.md) and [p3.json](reports/p3.json) are p3_report.py at
+  c76dbb0, run locally on 45187839933's artifacts with the E4 labels.
+- [p3-ci.md](reports/p3-ci.md) is the eval run's own report, from the script at
+  6b7d860. Every figure the two share is identical.
+
+**Tuning.** blend − main simulated deck win rate, equal-weight mean of the
+three sets: +0.679 (0.037) at λ 0.5, **+0.728 (0.041) at λ 1**, and
++0.605 (0.047) at λ 2. So λ* = 1.
+
+### Verdict: mixed
+
+| head | deck value, 19 sets (win-rate pp) | 16 non-tuning sets | event wins per draft, 19 sets | rank regret change (positive is worse) | top cards changed |
+|---|---|---|---|---|---|
+| marginal | +0.569 (0.020), +28.1 SE | +0.604 (0.021), +28.3 SE | +0.067 (0.002) | +0.088 (0.019), **+4.6 SE** | 24.8% |
+| blend-1 | +0.765 (0.016), +47.1 SE | +0.781 (0.017), +44.9 SE | +0.089 (0.002) | +0.036 (0.011), **+3.3 SE** | 17.2% |
+| gihwr-only (reference) | −0.220 (0.025), −8.8 SE | −0.172 (0.027), −6.4 SE | −0.024 (0.003) | +0.086 (0.023), +3.7 SE | 40.6% |
+
+main's mean simulated deck win rate is 60.96% over 9,469 drafts.
+
+**Why the verdict is mixed:**
+- Both heads beat main on deck value by far more than 3 SEs.
+- Both make rank regret worse by more than 3 SEs: marginal by 4.6 SEs,
+  blend-1 by 3.3 SEs. That fails the "promising" guard.
+- Neither is within ±2 SEs, so the verdict is not "no headroom" either.
+
+**Which sets the verdict reads.** PHASE3LITE.md applies the rule to the
+combined figure over all 19 sets, so the registered verdict uses all 19,
+tuning sets included. The coordinator asked for the 16 non-tuning sets unless
+the protocol said otherwise, so the 16-set reading is printed beside it. It
+is also "mixed". The 16-set gains are slightly larger than the 19-set ones:
+BLB and DSK are among marginal's weakest sets. So tuning did not inflate the
+result.
+
+**Per set.**
+- blend-1 beats main in all 19 sets, from +0.40 (LTR) to +1.39 (SNC).
+- marginal is positive in all 19 sets. Its gains are near zero in BLB
+  (+0.12, 0.11) and DSK (+0.08, 0.11).
+- blend-1 beats marginal on the combined figure and in most sets. marginal is
+  ahead only in MSH, SNC and TDM, and by little.
+
+The full table is in [p3.md](reports/p3.md).
+
+**Event wins against the headroom ceiling.** The gain is converted to the
+expected wins of a 7-win / 3-loss event, per draft, from each copy's
+simulated game win rate.
+
+| | FDN | TDM |
+|---|---|---|
+| ceiling (main's oracle gap, headroom addendum) | 0.375 | 0.503 |
+| blend-1, simulated deck value | +0.081 (0.008) | +0.133 (0.008) |
+| marginal, simulated deck value | +0.063 (0.010) | +0.138 (0.009) |
+
+- So the heads realise about 17–27% of the loose ceiling.
+- Over all 19 sets, blend-1 adds +0.089 event wins per draft.
+- The two figures come from different paths. The ceiling is hindsight on the
+  drafter's pool path. The gain is measured on each copy's own simulated
+  path.
+
+**Share of the oracle gap closed (E4 view, the drafter's path, first 500
+drafts).** This is 1 − the chooser's summed label gap / main's, with
+draft-bootstrap SEs.
+
+| chooser | FDN (main's gap −0.133) | TDM (main's gap −0.189) |
+|---|---|---|
+| marginal | +29.1% (1.8%) | +21.4% (1.8%) |
+| blend-1 | +30.5% (1.4%) | +21.3% (1.1%) |
+| noalsa | +26.8% (1.8%) | −12.2% (2.4%) |
+| gihwr-only | −58.9% (5.6%) | +27.7% (3.9%) |
+| drafter | −53.3% (3.8%) | −89.2% (4.6%) |
+
+- Agreement with the hindsight-best card rises from main's 76.4% to 83.3%
+  (marginal) and 82.3% (blend-1) on FDN.
+- On TDM it rises from 68.2% to 74.2% and 72.9%.
+- marginal and blend-1 are the only choosers that close part of the gap in
+  both sets. noalsa and gihwr-only each help in one set and hurt in the
+  other.
+
+**Where the picks change.**
+- blend-1 changes 17.2% of main's top cards and marginal 24.8%.
+- Both change the most in P2: 19.5% for blend-1 and 30.4% for marginal.
+- Both change the least before a lane forms: 7.9% and 17.1%.
+- On-lane and off-lane picks change about equally often (blend-1 17.5% vs
+  17.9%).
+- gihwr-only changes 40.6%, mostly in P2 and P3 (about 55% each, against
+  12.3% in P1).
+
+**Circularity.** V is also the judge:
+- marginal ranks cards by the same deck score that the simulated measure
+  ends with;
+- λ was tuned on that measure;
+- the E4 labels are V too, although they read the heads on the drafter's
+  real path rather than their own.
+
+Phase 2a found no bomb or creature skill-confound bias in V, so it is the
+least-biased judge available. Even so, a +0.77 pp deck-value gain only says
+that main does not yet use the deck score's own advice. It does not show
+that decks win more games.
+
+The one non-circular measure here, rank regret, moves the wrong way for both
+heads. That is the case the rule's guard was written for. So deck value and
+regret disagree, and a non-circular judge is needed before a value head can
+be called better than main.
+
+**Budget.**
+- The request's 1000 drafts per set were cut to 500, as registered, because
+  the estimate for 1000 was over the ~150 job-hour cap.
+- Tuning took 4.4 job-hours (16.5 process-hours, 3 jobs).
+- The eval took 40.3 job-hours: 19 jobs, the longest 3.0 h. That is 154.5
+  process-hours for the four copies, of which marginal took 118.5 and
+  blend-1 34.2.
+- Total: 44.7 job-hours.
+- Per draft, CI ran about twice as slow as the registered estimate of
+  112 process-hours.
