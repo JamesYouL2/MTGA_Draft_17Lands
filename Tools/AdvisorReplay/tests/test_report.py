@@ -54,6 +54,24 @@ def test_wins_table_finds_the_better_advisor():
     assert float(head) > 1 and float(diff.split("**")[1]) > 0
 
 
+def test_wins_table_reads_rank_and_missed_top():
+    out = runs()
+    rng = np.random.default_rng(1)
+    # Drafters who stray from head take cards it ranks lower, and miss its top
+    # card; base's ranks are noise.
+    for d in out["head"]["FRA"].values():
+        stray = d["picks"][0][3]
+        d["picks"] = [[1, 1, int(3 * stray), stray, 0], [2, 5, int(stray > 0.5), stray, 1]]
+    for d in out["base"]["FRA"].values():
+        d["picks"] = [[*p[:2], int(rng.integers(0, 3)), *p[3:]] for p in d["picks"]]
+    lines = report.wins_table(out).splitlines()
+    for start in ("| rank regret", "| missed top"):
+        line = next(line for line in lines if line.startswith(start))
+        _, _, base, head, diff, _, _ = line.split("|")
+        assert float(head) < -1 and abs(float(base)) < 0.3
+        assert float(diff.split("**")[1]) < -1
+
+
 def test_needs_enough_complete_events():
     assert report.wins_table(runs(n=50)).startswith("Fewer than 100")
 
@@ -73,3 +91,18 @@ def test_load_pairs_drafts(tmp_path):
         == ["d1", "d2", "d3", "d4"]
     )
     assert report.report(loaded).startswith("## Picks")
+
+
+def test_skill_bins_are_two_buckets_wide():
+    # Every 17Lands win rate bucket from 0.30 to 0.74, as the dump writes them.
+    buckets = {
+        0.30: 0, 0.32: 0, 0.34: 1, 0.36: 1, 0.38: 2, 0.40: 2, 0.42: 3, 0.44: 3,
+        0.46: 4, 0.48: 4, 0.50: 5, 0.52: 5, 0.54: 6, 0.56: 6, 0.58: 7, 0.60: 7,
+        0.62: 8, 0.64: 8, 0.66: 9, 0.68: 9, 0.70: 10, 0.72: 10, 0.74: 11,
+    }
+    assert {s: report.skill_bin(s) for s in buckets} == buckets
+    # Float noise in the dump, and the clamps at both ends.
+    assert report.skill_bin(0.7000000000000001) == 10
+    assert report.skill_bin(0.0) == report.skill_bin(0.24) == 0
+    assert report.skill_bin(0.76) == report.skill_bin(0.82) == 11
+    assert report.skill_bin(None) is None

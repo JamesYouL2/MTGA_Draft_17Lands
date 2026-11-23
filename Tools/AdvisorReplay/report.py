@@ -95,16 +95,22 @@ def _dummies(values):
     return [np.array([float(v == level) for v in values]) for level in levels]
 
 
+def skill_bin(skill):
+    """The drafter's win rate bucket in a bin 0.04 wide from 0.30: 0.30 and 0.32
+    are bin 0, 0.34 and 0.36 bin 1, and so on to bin 11 for 0.74 and above.
+
+    17Lands gives the win rate in steps of 0.02. This counts in whole percentage
+    points, because float division doesn't: (0.42 - 0.30) // 0.04 is 2.0, not 3.
+    """
+    if skill is None:
+        return None
+    points = min(max(round(skill * 100), 30), 74)
+    return (points - 30) // 4
+
+
 def controls(drafts, sets):
     """Intercept plus set, skill bucket and games bucket indicators."""
-    skill = [
-        (
-            None
-            if d["skill"] is None
-            else int((min(max(d["skill"], 0.30), 0.74) - 0.30) // 0.04)
-        )
-        for d in drafts
-    ]
+    skill = [skill_bin(d["skill"]) for d in drafts]
     columns = _dummies(sets) + _dummies(skill) + _dummies([d["games"] for d in drafts])
     return np.column_stack([np.ones(len(drafts)), *columns])
 
@@ -184,12 +190,26 @@ def wins_table(runs):
     wins = np.array([d["wins"] for d in base])
     ctrl = controls(base, sets)
 
-    def mean_regret(drafts):
-        return np.array([np.mean([p[3] for p in d["picks"]]) for d in drafts])
+    def per_draft(drafts, of_pick):
+        """Each draft's mean of of_pick over its picks."""
+        return np.array([np.mean([of_pick(p) for p in d["picks"]]) for d in drafts])
+
+    def regret(p):
+        return p[3]
+
+    def rank(p):
+        return p[2]
+
+    def missed(p):
+        return float(p[2] != 0)
 
     columns = {
-        "regret: base": mean_regret(base),
-        "regret: head": mean_regret(head),
+        "regret: base": per_draft(base, regret),
+        "regret: head": per_draft(head, regret),
+        "rank: base": per_draft(base, rank),
+        "rank: head": per_draft(head, rank),
+        "missed top: base": per_draft(base, missed),
+        "missed top: head": per_draft(head, missed),
         "deck score: base": within_set(np.array([d["deck_score"] for d in base]), sets),
         "deck score: head": within_set(np.array([d["deck_score"] for d in head]), sets),
         "pool GIH WR": within_set(np.array([d["pool_gihwr"] for d in base]), sets),
@@ -216,6 +236,16 @@ def wins_table(runs):
             row(
                 "regret: how far the drafter's picks fell below the advisor's top choice",
                 "regret",
+                "more negative",
+            ),
+            row(
+                "rank regret: how many cards the advisor ranked above the drafter's pick",
+                "rank",
+                "more negative",
+            ),
+            row(
+                "missed top: the share of picks that weren't the advisor's top choice",
+                "missed top",
                 "more negative",
             ),
             row("final pool's deck score (within set)", "deck score", "more positive"),
