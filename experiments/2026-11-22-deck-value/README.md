@@ -639,7 +639,7 @@ term the within-deck draws back. The color terms slightly offset it.
 | marginal | +0.480 (0.016) | +0.697 (145%) | −0.187 (−39%) | −0.022 | −0.009 |
 
 The 16 non-tuning sets read the same (blend-1: +0.650, 104% quality). Every
-set's gain is mostly card quality. In 15 of 19 sets the two-color term is
+set's gain is mostly card quality. In 18 of 19 sets the two-color term is
 negative or zero for blend-1. In all 19 it is negative for marginal, so
 marginal is the head that splashes (+0.49 splash spells per deck against
 blend-1's +0.07).
