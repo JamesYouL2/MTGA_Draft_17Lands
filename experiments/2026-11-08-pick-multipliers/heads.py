@@ -141,11 +141,14 @@ def measure(data):
     regret, swaps = combined(regret_salts), combined(swap_salts)
     # The order alone: rank regret, missed top and the unconstrained swap.
     order = {}
+    rank_frame = C.regret_frame(data, "rank")
     for name in ("rank", "missed"):
-        f = C.regret_frame(data, name)
+        f = rank_frame if name == "rank" else C.regret_frame(data, name)
         order[name] = combined(C.by_salt(f[4], lambda i, f=f: C.change(f, i)))
     free_salts = C.by_salt(sframe[2], lambda i: C.swap_free(sframe, i))
     free = combined(free_salts)
+    every = np.arange(n)
+    every_swap = np.arange(len(sframe[0]))
     total, changed, base_on, head_on, kinds = C.picks(data)
     return {
         "drafts": len(data),
@@ -169,6 +172,10 @@ def measure(data):
         "verdict": verdict(change, se),
         "swap": swap,
         "swap_se": swap_se,
+        "rank_change": C.change(rank_frame, every),
+        "rank_se": R.bootstrap(lambda i: C.change(rank_frame, i), n),
+        "swap_free_all": C.swap_free(sframe, every_swap),
+        "swap_free_se": R.bootstrap(lambda i: C.swap_free(sframe, i), len(sframe[0])),
         "top1": C.top1(data),
         "top_changes": 100 * changed / total if total else 0.0,
         "on_lane_base": 100 * base_on / total if total else 0.0,
@@ -252,15 +259,21 @@ def report(results):
         )
     print("\n## Bootstrap only, over all salts at once\n")
     print("As read before 2026-11-17: these SEs leave out the spread between salts. "
-          "The verdict is PROTOCOL.md's, on the regret slope.\n")
+          "The verdict is PROTOCOL.md's, on the regret slope. The last two columns are "
+          "the order alone's rank regret and unconstrained swap, read the same way.\n")
     print("| head | regret slope change (SE), SEs | verdict "
-          "| event wins per swapped pick (SE), SEs |")
-    print("|---|---|---|---|")
+          "| event wins per swapped pick (SE), SEs | rank regret change (SE), SEs "
+          "| unconstrained swap (SE), SEs |")
+    print("|---|---|---|---|---|---|")
     for head, m in results.items():
         print(
             f"| {head} | {m['change']:+.4f} ({m['se']:.4f}), {ratio(m['change'], m['se']):+.1f} "
             f"| {m['verdict']} | {m['swap']:+.3f} ({m['swap_se']:.3f}), "
-            f"{ratio(m['swap'], m['swap_se']):+.1f} |"
+            f"{ratio(m['swap'], m['swap_se']):+.1f} "
+            f"| {m['rank_change']:+.3f} ({m['rank_se']:.3f}), "
+            f"{ratio(m['rank_change'], m['rank_se']):+.1f} "
+            f"| {m['swap_free_all']:+.3f} ({m['swap_free_se']:.3f}), "
+            f"{ratio(m['swap_free_all'], m['swap_free_se']):+.1f} |"
         )
     print("\n## By salt\n")
     print("Each salt's estimate (bootstrap SE). tau is the SD between salts beyond the "
