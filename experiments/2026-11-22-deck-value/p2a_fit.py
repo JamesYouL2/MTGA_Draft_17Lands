@@ -285,6 +285,13 @@ def fe_fit(y, X, names, deck, keep):
     V = np.eye(k) * 1e12
     Xl = Xt[:, live]
     A = Xl.T @ Xl
+    # Columns that each vary can still be jointly collinear with the deck effects
+    # (a dummy set whose reference level is empty: D1 in run 45164368901), and
+    # inv() does not raise on that. Check the scale-free condition number.
+    sd = np.sqrt(np.diag(A))
+    cond = float(np.linalg.cond(A / np.outer(sd, sd)))
+    if cond > 1e8:
+        raise ValueError(f"near-singular design (scaled cond {cond:.1e}): {[n for n, l in zip(names, live) if l]}")
     Ainv = np.linalg.inv(A)
     b = Ainv @ (Xl.T @ yt)
     e = yt - Xl @ b
@@ -295,7 +302,7 @@ def fe_fit(y, X, names, deck, keep):
     beta[live] = b
     li = np.flatnonzero(live)
     V[np.ix_(li, li)] = Vl
-    return dict(names=names, beta=beta.tolist(), cov=V.tolist(), games=int(sub.sum()), decks=int(G),
+    return dict(names=names, beta=beta.tolist(), cov=V.tolist(), games=int(sub.sum()), decks=int(G), cond=cond,
                 means={n: float(X[sub, j].mean()) for j, n in enumerate(names)})
 
 
@@ -339,7 +346,11 @@ def models(data):
     dcols = [d(t) for t in base] + [d("lands"), d("U"), c("on_play")] + mcols
     run("D0", dnames, dcols, ok)
     seen = np.clip(c("d_seen"), 7, 25)
-    levels = [v for v in np.unique(seen) if v != 7]
+    # Reference level: the modal count among D1's games. Run 45164368901 used 7
+    # (no draws at all), which is empty in most sets, so the dummies summed to 1
+    # within every deck and the design was singular.
+    vals, cnt = np.unique(seen[ok], return_counts=True)
+    levels = [v for v in vals if v != vals[cnt.argmax()]]
     run("D1", dnames + [f"seen={int(v)}" for v in levels], dcols + [(seen == v).astype(float) for v in levels], ok)
     return res
 

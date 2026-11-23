@@ -25,6 +25,9 @@ LABEL = {"Q": "(a) quality Q", "B5": "(d) best-five seen", "T": "(d') best-five 
          "lands>=5": "(e) ≥5 lands", "lands": "(e) lands seen", "U": "unrated spells", "on_play": "on the play"}
 
 
+MIN_SEEN = 100
+
+
 def combine(fits, names=None):
     """Inverse-variance combination of {names, beta, cov} fits over common names."""
     if names is None:
@@ -36,9 +39,19 @@ def combine(fits, names=None):
         V = np.array(f["cov"])[np.ix_(idx, idx)]
         b = np.array(f["beta"])[idx]
         live = np.diag(V) < 1e11  # p2a_fit marks a term with no variation in a set by 1e12
+        # near-dead too (deviation, see RESULTS_P2A.md): a term seen fewer than
+        # MIN_SEEN times over the set's games, e.g. O in EOE (about one game), has a
+        # clustered SE from a deck or two that is meaningless
+        means, games = f.get("means"), f.get("games")
+        if means and games:
+            seen = np.array([abs(means.get(n, 1.0)) * games for n in names])
+            live &= seen >= MIN_SEEN
         li = np.flatnonzero(live)
         Vi = np.zeros_like(V)
-        Vi[np.ix_(li, li)] = np.linalg.inv(V[np.ix_(li, li)])
+        # pseudo-inverse with a relative eigenvalue cutoff: a set whose live block is
+        # numerically singular (EOE in M1, where O barely varies) would otherwise
+        # inject a huge, indefinite precision and distort every pooled term
+        Vi[np.ix_(li, li)] = np.linalg.pinv(V[np.ix_(li, li)], rcond=1e-10, hermitian=True)
         P += Vi
         Pb += Vi @ b
     live = np.diag(P) > 0
