@@ -1,0 +1,100 @@
+# experiments/2026-11-22-deck-value: Phase 3-lite decomposition (P3DECOMP.md).
+# main, blend-1 and marginal simulated on the eval's drafts (salt r36s1, held-out
+# ratings, first 500 per set) with the parts of each deck's score saved.
+# Runs on a push that changes this file on exp/deck-value.
+name: Deck value Phase 3-lite decomposition
+
+on:
+  push:
+    branches: [exp/deck-value]
+    paths: [.github/workflows/deck-value-p3-decomp.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read  # the eval run's artifacts, for the reproduction check
+
+jobs:
+  sim:
+    name: Simulate ${{ matrix.set }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        set: ["BLB", "DFT", "DMU", "DSK", "EOE", "FDN", "FIN", "FRA", "HOB", "KTK",
+              "LTR", "MSH", "NEO", "OTJ", "SNC", "SOS", "TDM", "TLA", "TMT"]
+    env:
+      SET: ${{ matrix.set }}
+      DRAFTS: "500"
+      PARTS: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - name: Rebuild r36s1's drafts and held-out ratings, as the replays did
+        run: |
+          curl -fsSL --retry 3 -o dump.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/draft_data_public.$SET.PremierDraft.csv.gz"
+          curl -fsSL --retry 3 -o games.csv.gz \
+            "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/game_data_public.$SET.PremierDraft.csv.gz"
+          if [ -f "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" ]; then
+            cp "experiments/2026-11-15-flag-snc-ktk/datasets/$SET.json.gz" dataset.json.gz
+          else
+            curl -fsSL --retry 3 -o dataset.json.gz \
+              "https://unrealities.github.io/MTGA_Draft_17Lands/${SET}_PremierDraft_All_Data.json.gz"
+          fi
+          poetry run python Tools/AdvisorReplay/sample.py --dump dump.csv.gz --drafts 3000 --salt r36s1 --out drafts.json.gz
+          poetry run python Tools/AdvisorReplay/holdout.py --games games.csv.gz --drafts drafts.json.gz \
+            --dataset dataset.json.gz --rebuilt rebuilt.json.gz --heldout heldout.json.gz
+          rm dump.csv.gz games.csv.gz rebuilt.json.gz
+      - name: Simulate main, blend-1 and marginal with the deck score's parts
+        shell: bash
+        run: |
+          n=$(( (DRAFTS + PARTS - 1) / PARTS ))
+          seq 0 $(( PARTS - 1 )) | xargs -P "$PARTS" -I{} bash -c \
+            "poetry run python experiments/2026-11-22-deck-value/p3_decomp.py --src . --drafts drafts.json.gz \
+               --dataset heldout.json.gz --set $SET --heads main blend-1 marginal \
+               --first \$(( {} * $n )) --limit $n --out out/part{}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p3d-${{ matrix.set }}
+          path: out/
+
+  report:
+    needs: sim
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install poetry==2.4.1
+      - run: poetry install --no-interaction
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: p3d-*
+          path: results
+      - name: The eval run's results, for the reproduction check
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 45187839933 -R "$GITHUB_REPOSITORY" -p 'p3-*' -D eval
+      - name: Report
+        shell: bash
+        run: |
+          extra=()
+          if [ -d eval ]; then extra=(--eval eval); fi
+          poetry run python experiments/2026-11-22-deck-value/p3_decomp_report.py results "${extra[@]}" --json p3decomp.json \
+            | tee p3decomp.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: p3d-report
+          path: |
+            p3decomp.md
+            p3decomp.json
