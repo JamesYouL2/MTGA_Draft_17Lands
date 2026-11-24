@@ -100,3 +100,9 @@ p3c1), the halves, the heads, the outcomes and the decision rule are the same.
 
 Both reports are kept: reports/p3confirm.md (once per game) and
 reports/p3confirm-copies.md.
+
+**Result (run 45468963568): holds.** With copy-counted ratings the rule reads
+"confirmed" again: primary +0.810 points (0.017), +46.4 SEs (once per game:
++0.791, +46.3 SEs), positive on half B at 103% of the half-A gain; rank regret
++0.2 SEs (was +0.4). gihwr-only reads +3.3 SEs worse on rank regret, so the
+guard had power. Full report: reports/p3confirm-copies.md.
