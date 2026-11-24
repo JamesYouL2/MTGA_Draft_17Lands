@@ -7,8 +7,9 @@ The games of the drafts in --drafts are left out of both, as holdout.py's
 --heldout leaves them out. Every other draft goes to half A or half B by a hash
 of its draft ID, so all builds of one pool land in the same half. Each output is
 the app's dataset with win rates from its half only. As in holdout.py, a card is
-rated where it has MIN_SAMPLES games in hand in the whole dump, so both halves
-rate the same cards.
+rated where it has MIN_SAMPLES copies in hand in the whole dump, so both halves
+rate the same cards. Copies are counted as 17Lands counts them (since the rerun
+of 2026-11-24; run 45259059583 counted a card once per game).
 """
 
 import argparse
@@ -45,7 +46,7 @@ def main(argv=None):
         return 0 if draft in held else 1 + deck_hash(draft, SALT) % 2
 
     with gzip.open(args.games, "rt", encoding="utf-8", newline="") as f:
-        _, folds = read_games(f, set(), fold_of=fold_of)
+        _, folds = read_games(f, set(), fold_of=fold_of, copies=True)
     whole = holdout.merged(holdout.merged(folds[0], folds[1]), folds[2])
     for path, counts in ((args.a, folds[1]), (args.b, folds[2])):
         with gzip.open(path, "wt", encoding="utf-8") as f:

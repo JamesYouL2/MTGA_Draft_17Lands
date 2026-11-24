@@ -80,3 +80,23 @@ The decision still stands as written.
 - **not confirmed:** drop the deck-value scorer. The simulated measure (PR #0)
   stays useful.
 - **mixed:** hold, and say which part failed.
+
+## Rerun with copy-counted ratings (registered 2026-11-24, before running)
+
+Run 45259059583 built both rating halves by counting a card once per game it
+was in hand. 17Lands counts copies: two copies in hand count twice for GIH WR,
+and GNS WR counts each copy left in the deck that was neither in hand nor
+tutored. A review of the holdout tool (upstream PR 284) found this; on FDN the
+copy count sits closer to the app's dataset (GNS WR off by 0.29 points RMS
+instead of 0.58, GIH WR by 0.28 instead of 0.32).
+
+The rerun changes one thing: fold_ratings.py counts copies. The drafts (salt
+p3c1), the halves, the heads, the outcomes and the decision rule are the same.
+
+- **holds:** the rule above reads "confirmed" again. The earlier verdict
+  stands, and the copy-counted numbers replace it.
+- **does not hold:** the rule reads anything else. The earlier "confirmed" is
+  withdrawn, and the PR stack waits.
+
+Both reports are kept: reports/p3confirm.md (once per game) and
+reports/p3confirm-copies.md.

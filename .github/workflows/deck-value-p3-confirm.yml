@@ -4,6 +4,8 @@
 # (picks, replay, builds); half B grades their simulated decks.
 # Data from data.17landscapes.com, the host 17Lands' dataset list gives since the
 # S3 bucket began refusing requests on 2026-11-23 (run 45257044301).
+# Rerun 2026-11-24 (P3CONFIRM.md, "Rerun with copy-counted ratings"): the same
+# drafts and halves, with fold_ratings.py counting card copies as 17Lands does.
 # Runs on a push that changes this file on exp/deck-value.
 name: Deck value Phase 3-lite confirmation
 
