@@ -18,6 +18,10 @@ on:
       salt:
         description: Any text; changes which decks are sampled
         default: ""
+      copies:
+        description: Count card copies in the win rates, as 17Lands does, and not games
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -30,6 +34,7 @@ jobs:
       decks: ${{ inputs.decks || '50000' }}
       salt: ${{ inputs.salt }}
       ratings: true
+      copies: ${{ inputs.copies }}
 
   ratings:
     needs: features

@@ -24,6 +24,10 @@ on:
         description: Also rate the decks from the dump's other games (hours, not minutes)
         type: boolean
         default: false
+      copies:
+        description: Count card copies in those win rates, as 17Lands does, and not games
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -64,7 +68,7 @@ jobs:
         run: poetry run python Tools/DeckScoreFit/features.py --src . --decks decks.json.gz --dataset dataset.json.gz --set "$SET" --out "results/$SET.json"
       - name: Read out-of-sample win rates
         if: inputs.ratings
-        run: poetry run python Tools/DeckScoreFit/games.py --games games.csv.gz --decks decks.json.gz --out games.json.gz
+        run: poetry run python Tools/DeckScoreFit/games.py --games games.csv.gz --decks decks.json.gz --out games.json.gz ${{ inputs.copies && '--copies' || '' }}
       - name: Rate decks
         if: inputs.ratings
         run: poetry run python Tools/DeckScoreFit/quality.py --src . --decks decks.json.gz --games games.json.gz --dataset dataset.json.gz --set "$SET" --out "results/quality/$SET.json"

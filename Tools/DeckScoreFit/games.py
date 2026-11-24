@@ -116,12 +116,17 @@ def main(argv=None):
     parser.add_argument("--games", required=True, help="17Lands game data (.csv.gz)")
     parser.add_argument("--decks", required=True, help="From decks.py (.json.gz)")
     parser.add_argument("--out", required=True, help="Where to write them (.json.gz)")
+    parser.add_argument(
+        "--copies",
+        action="store_true",
+        help="Count card copies, as 17Lands does, and not games",
+    )
     args = parser.parse_args(argv)
 
     with gzip.open(args.decks, "rt", encoding="utf-8") as f:
         ids = {d["id"] for d in json.load(f)}
     with gzip.open(args.games, "rt", encoding="utf-8", newline="") as f:
-        hands, folds = read_games(f, ids)
+        hands, folds = read_games(f, ids, copies=args.copies)
     with gzip.open(args.out, "wt", encoding="utf-8") as f:
         json.dump({"hands": hands, "folds": folds}, f)
     sizes = [sum(s[0] + s[2] for s in r.get(ALL, {}).values()) for r in folds]
